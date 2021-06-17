@@ -128,7 +128,109 @@ let basicPositiveIntParsingTests =
         ("+1.23456789123456789", "123456789123456789", -17, 18u);
         ("+.123456789123456789", "123456789123456789", -18, 18u)  ]
 
-        
+let basicExponentParsingTests = 
+    [   ("1E0", "1", 0, 1u);
+        ("1E1", "1", 1, 1u);
+        ("1E2", "1", 2, 1u);
+        ("1E20", "1", 20, 1u);
+
+        ("1.0E0", "10", -1, 2u);
+        ("1.00E0", "100", -2, 3u);
+        ("1.000E0", "1000", -3, 4u);
+
+        ("1.0E1", "10", 0, 2u);
+        ("1.00E1", "100", -1, 3u);
+        ("1.000E1", "1000", -2, 4u);
+
+        ("1.0E2", "10", 1, 2u);
+        ("1.00E2", "100", 0, 3u);
+        ("1.000E2", "1000", -1, 4u); 
+
+        ("1.0E20", "10", 19, 2u);
+        ("1.00E20", "100", 18, 3u);
+        ("1.000E20", "1000", 17, 4u) ]
+
+
+let basicPostitiveExponentParsingTests = 
+    [   ("1E+0", "1", 0, 1u);
+        ("1E+1", "1", 1, 1u);
+        ("1E+2", "1", 2, 1u);
+        ("1E+20", "1", 20, 1u);
+
+        ("1.0E+0", "10", -1, 2u);
+        ("1.00E+0", "100", -2, 3u);
+        ("1.000E+0", "1000", -3, 4u);
+
+        ("1.0E+1", "10", 0, 2u);
+        ("1.00E+1", "100", -1, 3u);
+        ("1.000E+1", "1000", -2, 4u);
+
+        ("1.0E+2", "10", 1, 2u);
+        ("1.00E+2", "100", 0, 3u);
+        ("1.000E+2", "1000", -1, 4u); 
+
+        ("1.0E+20", "10", 19, 2u);
+        ("1.00E+20", "100", 18, 3u);
+        ("1.000E+20", "1000", 17, 4u) ]
+
+let basicNegativeExponentParsingTests = 
+    [   ("1E-0", "1", 0, 1u);
+        ("1E-1", "1", -1, 1u);
+        ("1E-2", "1", -2, 1u);
+        ("1E-20", "1", -20, 1u);
+
+        ("1.0E-0", "10", -1, 2u);
+        ("1.00E-0", "100", -2, 3u);
+        ("1.000E-0", "1000", -3, 4u);
+
+        ("1.0E-1", "10", -2, 2u);
+        ("1.00E-1", "100", -3, 3u);
+        ("1.000E-1", "1000", -4, 4u);
+
+        ("1.0E-2", "10", -3, 2u);
+        ("1.00E-2", "100", -4, 3u);
+        ("1.000E-2", "1000", -5, 4u);
+
+        ("1.0E-20", "10", -21, 2u);
+        ("1.00E-20", "100", -22, 3u);
+        ("1.000E-20", "1000", -23, 4u); ]
+
+
+let javaDocParsingTests =
+    [   ("0", "0", 0, 1u);
+        ("0.00", "0", -2, 1u);
+        ("123", "123", 0, 3u);
+        ("-123", "-123", 0, 3u);
+        ("1.23E3", "123", 1, 3u);
+        ("1.23E+3", "123", 1, 3u);
+        ("12.3E+7", "123", 6, 3u);
+        ("12.0", "120", -1, 3u);
+        ("12.3", "123", -1, 3u);
+        ("0.00123", "123", -5, 3u);
+        ("-1.23E-12", "-123", -14, 3u);
+        ("1234.5E-4", "12345", -5, 5u);
+        ("0E+7", "0", 7, 1u);
+        ("-0", "0", 0, 1u);   ]
+
+let specParsingTests = 
+    [   ("0", "0",0,1u);
+        ("0.00", "0",-2,1u);
+        ("123", "123",0,3u);
+        ("-123", "-123",0,3u);
+        ("1.23E3", "123",1,3u);
+        ("1.23E+3", "123",1,3u);
+        ("12.3E+7", "123",6,3u);
+        ("12.0", "120",-1,3u);
+        ("12.3", "123",-1,3u);
+        ("0.00123", "123",-5,3u);
+        ("-1.23E-12", "-123",-14,3u);
+        ("1234.5E-4", "12345",-5,5u);
+        ("-0", "0",0,1u);
+        ("-0.00", "0",-2,1u);
+        ("0E+7", "0",7,1u);
+        ("-0E-7", "0",-7,1u);   ]
+
+
 [<Tests>]
 let basicIntParsingList = testList "basic int parsing"  (createIntTests basicIntParsingTests)
 
@@ -138,6 +240,20 @@ let basicNegativeIntParsingList = testList "basic negative int parsing"  (create
 [<Tests>]
 let basicPositiveIntParsingList = testList "basic positive int parsing"  (createIntTests basicPositiveIntParsingTests)
 
+[<Tests>]
+let basicExponentParsingList = testList "basic exponent parsing"  (createIntTests basicExponentParsingTests)
+
+[<Tests>]
+let basicPostiveExponentParsingList = testList "basic positive exponent parsing"  (createIntTests basicPostitiveExponentParsingTests)
+
+[<Tests>]
+let basicNegativeExponentParsingList = testList "basic negative exponent parsing"  (createIntTests basicNegativeExponentParsingTests)
+
+[<Tests>]
+let javaDocParsingList = testList "Java doc parsing examples"  (createIntTests javaDocParsingTests)
+
+[<Tests>]
+let specParsingList = testList "Spec parsing examples"  (createIntTests specParsingTests)
 
 
   //testList "samples" [
@@ -213,99 +329,10 @@ let basicPositiveIntParsingList = testList "basic positive int parsing"  (create
 
 
 
-//         [Test]
-//         public void ParsingSimpleNegativeIntegersWorks()
-//         {
-//             SimpleIntTest("-1", "-1", 0, 1);
-//             SimpleIntTest("-01", "-1", 0, 1);
-//             SimpleIntTest("-12", "-12", 0, 2);
-//             SimpleIntTest("-123", "-123", 0, 3);
-//             SimpleIntTest("-123.", "-123", 0, 3);
-//             SimpleIntTest("-123.0", "-1230", -1, 4);
-//             SimpleIntTest("-123.00", "-12300", -2, 5);
-//             SimpleIntTest("-123456789123456789.", "-123456789123456789", 0, 18);
-//             SimpleIntTest("-12345678912345678.9", "-123456789123456789", -1, 18);
-//             SimpleIntTest("-1234567891234567.89", "-123456789123456789", -2, 18);
-//             SimpleIntTest("-123456789.123456789", "-123456789123456789", -9, 18);
-//             SimpleIntTest("-1.23456789123456789", "-123456789123456789", -17, 18);
-//             SimpleIntTest("-.123456789123456789", "-123456789123456789", -18, 18);
+
 //         }
 
-//         static public void ParsingWithPositiveExponentWorks()
-//         {
-//             SimpleIntTest("1E0", "1", 0, 1);
-//             SimpleIntTest("1E1", "1", 1, 1);
-//             SimpleIntTest("1E2", "1", 2, 1);
-//             SimpleIntTest("1E20", "1", 20, 1);
 
-//             SimpleIntTest("1.0E0", "10", -1, 2);
-//             SimpleIntTest("1.00E0", "100", -2, 3);
-//             SimpleIntTest("1.000E0", "1000", -3, 4);
-
-//             SimpleIntTest("1.0E1", "10", 0, 2);
-//             SimpleIntTest("1.00E1", "100", -1, 3);
-//             SimpleIntTest("1.000E1", "1000", -2, 4);
-
-//             SimpleIntTest("1.0E2", "10", 1, 2);
-//             SimpleIntTest("1.00E2", "100", 0, 3);
-//             SimpleIntTest("1.000E2", "1000", -1, 4);
-
-//             SimpleIntTest("1.0E20", "10", 19, 2);
-//             SimpleIntTest("1.00E20", "100", 18, 3);
-//             SimpleIntTest("1.000E20", "1000", 17, 4);
-//         }
-
-//         [Test]
-//         public void ParsingWithNegativeExponentWorks()
-//         {
-//             SimpleIntTest("1E-0", "1", 0, 1);
-//             SimpleIntTest("1E-1", "1", -1, 1);
-//             SimpleIntTest("1E-2", "1", -2, 1);
-//             SimpleIntTest("1E-20", "1", -20, 1);
-
-//             SimpleIntTest("1.0E-0", "10", -1, 2);
-//             SimpleIntTest("1.00E-0", "100", -2, 3);
-//             SimpleIntTest("1.000E-0", "1000", -3, 4);
-
-//             SimpleIntTest("1.0E-1", "10", -2, 2);
-//             SimpleIntTest("1.00E-1", "100", -3, 3);
-//             SimpleIntTest("1.000E-1", "1000", -4, 4);
-
-//             SimpleIntTest("1.0E-2", "10", -3, 2);
-//             SimpleIntTest("1.00E-2", "100", -4, 3);
-//             SimpleIntTest("1.000E-2", "1000", -5, 4);
-
-//             SimpleIntTest("1.0E-20", "10", -21, 2);
-//             SimpleIntTest("1.00E-20", "100", -22, 3);
-//             SimpleIntTest("1.000E-20", "1000", -23, 4);
-//         }
-
-//         static void SimpleIntTest(string decString, string intString, int exponent, int precision)
-//         {
-//             Expect(BigDecimal.TryParse(decString, out BigDecimal bd));
-//             Expect(bd.Coefficient).To.Equal(BigInteger.Parse(intString));
-//             Expect(bd.Exponent).To.Equal(exponent);
-//             Expect(bd.GetPrecision()).To.Equal(precision);
-//         }
-
-//         [Test]
-//         public void JavaDocParsingTests()
-//         {
-//             SimpleIntTest("0", "0", 0, 1);
-//             SimpleIntTest("0.00", "0", -2, 1);
-//             SimpleIntTest("123", "123", 0, 3);
-//             SimpleIntTest("-123", "-123", 0, 3);
-//             SimpleIntTest("1.23E3", "123", 1, 3);
-//             SimpleIntTest("1.23E+3", "123", 1, 3);
-//             SimpleIntTest("12.3E+7", "123", 6, 3);
-//             SimpleIntTest("12.0", "120", -1, 3);
-//             SimpleIntTest("12.3", "123", -1, 3);
-//             SimpleIntTest("0.00123", "123", -5, 3);
-//             SimpleIntTest("-1.23E-12", "-123", -14, 3);
-//             SimpleIntTest("1234.5E-4", "12345", -5, 5);
-//             SimpleIntTest("0E+7", "0", 7, 1);
-//             SimpleIntTest("-0", "0", 0, 1);
-//         }
 
 //         [Test]
 //         public void SpecParsingExamples()

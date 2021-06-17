@@ -95,8 +95,9 @@ type Context =
     static member Default = {precision =  9ul; roundingMode = HalfUp}
     static member ExtendedDefault precision = {precision=precision; roundingMode = HalfEven}
 
-
+[<Struct>]
 type internal ParserSpan = {Start: int; Length: int}  // shall we go to the trouble of making these uints?
+
 type internal ParseData =
     { wholePart : ParserSpan
       fractionPart : ParserSpan
@@ -275,6 +276,12 @@ type BigDecimal private (coeff, exp, precision) =
 
         let hasLeadingSign = not (inputIsEmpty 0) && isSign input.[0]
 
+        let numDigits (pspan : ParserSpan) =
+            match pspan with
+            | {Length=0} -> 0
+            | {Length=len; Start = posn} when isSign input.[posn] -> len-1
+            | {Length=len} -> len
+
         let parseNonEmpty pr : Result<ParseResult, string> =
             match input.Length with
             | 0 -> Error "No characters"
@@ -359,7 +366,7 @@ type BigDecimal private (coeff, exp, precision) =
             Array.Copy(input, data.wholePart.Start, digits, 0, data.wholePart.Length)
             Array.Copy(input, data.fractionPart.Start, digits, data.wholePart.Length, data.fractionPart.Length)
             let bi = (BigInteger.Parse(String(digits)))
-            let precision = data.wholePart.Length + data.fractionPart.Length - leadingZeroCount(data.wholePart)
+            let precision = (numDigits data.wholePart) + data.fractionPart.Length - leadingZeroCount(data.wholePart)
             let precision = if precision = 0 || bi.IsZero then 1 else precision
             match computeExponent data  bi.IsZero with
             | Ok exp -> Ok (BigDecimal(bi,exp,uint precision))

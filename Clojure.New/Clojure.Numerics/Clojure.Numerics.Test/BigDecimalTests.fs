@@ -76,6 +76,13 @@ let simpleIntTest decString intString exponent precision =
     Expect.equal bd.Exponent exponent (sprintf "Bad exponent for %s" decString)
     Expect.equal bd.Precision precision (sprintf "Bad precision for %s" decString)
 
+let createIntTests data =
+    data
+    |> List.map (fun (decString, intString, exponent, precision) ->
+           testCase (sprintf "parsing '%s' yields %s with exponent %i and precision %u" decString intString exponent precision) <| fun _ -> 
+               simpleIntTest decString intString exponent precision
+           )
+
 let basicIntParsingTests =
     [   ("1", "1", 0, 1u);     
         ("01", "1", 0, 1u);
@@ -90,13 +97,46 @@ let basicIntParsingTests =
         ("123456789.123456789", "123456789123456789", -9, 18u);
         ("1.23456789123456789", "123456789123456789", -17, 18u);
         (".123456789123456789", "123456789123456789", -18, 18u)  ]
-    |> List.map (fun (decString, intString, exponent, precision) ->
-        testCase (sprintf "parsing '%s' yields %s with exponent %i and precision %u" decString intString exponent precision) <| fun _ -> 
-            simpleIntTest decString intString exponent precision
-        )
+
+let basicNegativeIntParsingTests =
+    [   ("-1", "-1", 0, 1u);     
+        ("-01", "-1", 0, 1u);
+        ("-12", "-12", 0, 2u);
+        ("-123", "-123", 0, 3u);
+        ("-123.", "-123", 0, 3u);
+        ("-123.0", "-1230", -1, 4u);
+        ("-123.00", "-12300", -2, 5u);
+        ("-123456789123456789.", "-123456789123456789", 0, 18u);
+        ("-12345678912345678.9", "-123456789123456789", -1, 18u);
+        ("-1234567891234567.89", "-123456789123456789", -2, 18u);
+        ("-123456789.123456789", "-123456789123456789", -9, 18u);
+        ("-1.23456789123456789", "-123456789123456789", -17, 18u);
+        ("-.123456789123456789", "-123456789123456789", -18, 18u)  ]
+
+let basicPositiveIntParsingTests =
+    [   ("+1", "1", 0, 1u);     
+        ("+01", "1", 0, 1u);
+        ("+12", "12", 0, 2u);
+        ("+123", "123", 0, 3u);
+        ("+123.", "123", 0, 3u);
+        ("+123.0", "1230", -1, 4u);
+        ("+123.00", "12300", -2, 5u);
+        ("+123456789123456789.", "123456789123456789", 0, 18u);
+        ("+12345678912345678.9", "123456789123456789", -1, 18u);
+        ("+1234567891234567.89", "123456789123456789", -2, 18u);
+        ("+123456789.123456789", "123456789123456789", -9, 18u);
+        ("+1.23456789123456789", "123456789123456789", -17, 18u);
+        ("+.123456789123456789", "123456789123456789", -18, 18u)  ]
+
         
 [<Tests>]
-let basicIntParsingList = testList "basic int parsing"  basicIntParsingTests
+let basicIntParsingList = testList "basic int parsing"  (createIntTests basicIntParsingTests)
+
+[<Tests>]
+let basicNegativeIntParsingList = testList "basic negative int parsing"  (createIntTests basicNegativeIntParsingTests)
+
+[<Tests>]
+let basicPositiveIntParsingList = testList "basic positive int parsing"  (createIntTests basicPositiveIntParsingTests)
 
 
 

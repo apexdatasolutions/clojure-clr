@@ -33,20 +33,10 @@ open Clojure.Numerics
 
 
 [<Tests>]
-let tests =
-    testList "string parsing" [
+let basicParsingList =
+    testList "basic string parsing" [
 
-        testCase "parsing zero yields 0 with correct exponent" <| fun _ ->
-            let theTest (input,expectedExponent) =
-                let ok, bd = BigDecimal.TryParse(input)
-                let si = input.ToString()
-                Expect.isTrue ok (sprintf "TryParse on %s should return true" si)
-                Expect.isTrue bd.Coefficient.IsZero (sprintf "coefficient of %s should be 0" si)
-                Expect.equal bd.Exponent expectedExponent (sprintf "Bad exponent for %s" si)
-                Expect.equal bd.Precision 1u (sprintf "Precision of %s should be 1" si)
-            [|  ("00.00", -2) |]   // ("0",0);  ("0000",0);
-            |> Seq.iter theTest
-            
+
         testCase "parsing empty string returns false" <| fun _ ->
             let f input = let (ok,_) = BigDecimal.TryParse(input) in ok
             Expect.isFalse (f "") "Expect false return parsing empty string"
@@ -59,12 +49,56 @@ let tests =
         testCase "parsing input with missing exponent digits returns false" <| fun _ ->
             let f input = let (ok,_) = BigDecimal.TryParse(input) in ok
             [| "0E"; "0e"; "0E+"; "0E-";  "0e+";  "0e-" |]
-            |> Seq.iter (fun v -> Expect.isFalse (f v) "Expect false return parsing with missing exponent digits.")
-
-
-    
-           
+            |> Seq.iter (fun v -> Expect.isFalse (f v) "Expect false return parsing with missing exponent digits.")           
     ]
+
+let zeroParsingTests = 
+    [ ( "0",0);  ( "0000",0); ( "00.00", -2); 
+      ("+0",0);  ("+0000",0); ("+00.00", -2);
+      ("-0",0);  ("-0000",0); ("-00.00", -2) ]
+    |> List.map (fun (input, expectedExponent) ->         
+        testCase (sprintf "parsing '%s' yields 0 with exponent %i and precision 1" input expectedExponent) <| fun _ ->
+            let ok, bd = BigDecimal.TryParse(input)
+            let si = input.ToString()
+            Expect.isTrue ok (sprintf "TryParse on %s should return true" si)
+            Expect.isTrue bd.Coefficient.IsZero (sprintf "coefficient of %s should be 0" si)
+            Expect.equal bd.Exponent expectedExponent (sprintf "Bad exponent for %s" si)
+            Expect.equal bd.Precision 1u (sprintf "Precision of %s should be 1" si)
+        )
+
+[<Tests>]
+let zeroParsingList = testList "zero string parsing"  zeroParsingTests
+
+let simpleIntTest decString intString exponent precision =
+    let ok, bd = BigDecimal.TryParse(decString)
+    Expect.isTrue ok (sprintf "TryParse on %s should return true" decString)
+    Expect.equal bd.Coefficient (System.Numerics.BigInteger.Parse(intString)) (sprintf "Bad coefficient for %s" decString)
+    Expect.equal bd.Exponent exponent (sprintf "Bad exponent for %s" decString)
+    Expect.equal bd.Precision precision (sprintf "Bad precision for %s" decString)
+
+let basicIntParsingTests =
+    [   ("1", "1", 0, 1u);     
+        ("01", "1", 0, 1u);
+        ("12", "12", 0, 2u);
+        ("123", "123", 0, 3u);
+        ("123.", "123", 0, 3u);
+        ("123.0", "1230", -1, 4u);
+        ("123.00", "12300", -2, 5u);
+        ("123456789123456789.", "123456789123456789", 0, 18u);
+        ("12345678912345678.9", "123456789123456789", -1, 18u);
+        ("1234567891234567.89", "123456789123456789", -2, 18u);
+        ("123456789.123456789", "123456789123456789", -9, 18u);
+        ("1.23456789123456789", "123456789123456789", -17, 18u);
+        (".123456789123456789", "123456789123456789", -18, 18u)  ]
+    |> List.map (fun (decString, intString, exponent, precision) ->
+        testCase (sprintf "parsing '%s' yields %s with exponent %i and precision %u" decString intString exponent precision) <| fun _ -> 
+            simpleIntTest decString intString exponent precision
+        )
+        
+[<Tests>]
+let basicIntParsingList = testList "basic int parsing"  basicIntParsingTests
+
+
 
   //testList "samples" [
   //  testCase "universe exists (╭ರᴥ•́)" <| fun _ ->
@@ -138,23 +172,6 @@ let tests =
 
 
 
-//         [Test]
-//         public void ParsingSimpleIntegersWorks()
-//         {
-//             SimpleIntTest("1", "1", 0, 1);
-//             SimpleIntTest("01", "1", 0, 1);
-//             SimpleIntTest("12", "12", 0, 2);
-//             SimpleIntTest("123", "123", 0, 3);
-//             SimpleIntTest("123.", "123", 0, 3);
-//             SimpleIntTest("123.0", "1230", -1, 4);
-//             SimpleIntTest("123.00", "12300", -2, 5);
-//             SimpleIntTest("123456789123456789.", "123456789123456789", 0, 18);
-//             SimpleIntTest("12345678912345678.9", "123456789123456789", -1, 18);
-//             SimpleIntTest("1234567891234567.89", "123456789123456789", -2, 18);
-//             SimpleIntTest("123456789.123456789", "123456789123456789", -9, 18);
-//             SimpleIntTest("1.23456789123456789", "123456789123456789", -17, 18);
-//             SimpleIntTest(".123456789123456789", "123456789123456789", -18, 18);
-//         }
 
 //         [Test]
 //         public void ParsingSimpleNegativeIntegersWorks()

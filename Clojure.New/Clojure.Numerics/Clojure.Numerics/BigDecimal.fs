@@ -96,10 +96,9 @@ type Context =
     static member ExtendedDefault precision = {precision=precision; roundingMode = HalfEven}
 
 
-type internal ParserSpan = (int * int)
+type internal ParserSpan = {Start: int; Length: int}  // shall we go to the trouble of making these uints?
 type internal ParseData =
-    { leadingSign : char
-      wholePart : ParserSpan
+    { wholePart : ParserSpan
       fractionPart : ParserSpan
       exponent: ParserSpan }
 
@@ -272,18 +271,17 @@ type BigDecimal private (coeff, exp, precision) =
         
         let inputIsEmpty posn = posn >= input.Length
 
+        let isSign ch = ch = '+' || ch = '-'
+
+        let hasLeadingSign = not (inputIsEmpty 0) && isSign input.[0]
+
         let parseNonEmpty pr : Result<ParseResult, string> =
             match input.Length with
             | 0 -> Error "No characters"
             | _ -> Ok pr
 
-        let parseOptSign (ParseResult(data,posn) as pr) : Result<ParseResult, string>  = 
-            match input.[posn] with
-            | '+' | '-' as sign -> Ok (ParseResult({data with leadingSign=sign},posn+1))
-            | _ -> Ok pr
-
-        let parseDigits (leadingSignOk : bool) (posn:int) : Result<ParserSpan*int, string> =
-            let leadingSignPresent = not (inputIsEmpty posn) && (input.[posn] = '+' || input.[posn] = '-')
+        let parseDigits (posn:int) (leadingSignOk : bool) (noDigitsOk : bool) : Result<ParserSpan*int, string> =
+            let leadingSignPresent = not (inputIsEmpty posn) && (isSign input.[posn])
             if leadingSignPresent &&  not leadingSignOk  
             then Error "Misplaced +/-"
             else
@@ -291,12 +289,12 @@ type BigDecimal private (coeff, exp, precision) =
                 let mutable i = startPosn
                 while  i < input.Length  && Char.IsDigit(input.[i]) do  // TODO: use a sequence function for this.
                     i <- i+1
-                if i=startPosn
-                then  Error "no digits after + or -"
-                else Ok ((posn,i-posn),i) 
+                if i=startPosn  && not noDigitsOk
+                then  Error "missing digits"
+                else Ok ({Start = posn; Length = i-posn},i) 
 
         let parseWhole (ParseResult(data,posn)) : Result<ParseResult,string> = 
-            match (parseDigits false posn) with
+            match (parseDigits posn true true) with
             | Ok (span, nextPosn) -> Ok (ParseResult({data with wholePart = span},nextPosn))
             | Error msg -> Error msg
 
@@ -304,7 +302,7 @@ type BigDecimal private (coeff, exp, precision) =
             if inputIsEmpty posn || input.[posn] <> '.' 
             then Ok pr
             else 
-                match parseDigits false (posn+1) with
+                match parseDigits (posn+1) false true with
                 | Ok (start, rest) -> Ok (ParseResult({data with fractionPart = start}, rest))
                 | Error msg -> Error msg
 
@@ -313,7 +311,7 @@ type BigDecimal private (coeff, exp, precision) =
             if inputIsEmpty posn  || (input.[posn] <> 'E' && input.[posn] <> 'e') 
             then Ok pr
             else
-                match parseDigits true (posn+1) with
+                match parseDigits (posn+1) true false with
                 | Ok (span, nextPosn) -> Ok (ParseResult({data with exponent = span}, nextPosn))
                 | Error msg -> Error "No digits in coefficient"
         
@@ -321,36 +319,34 @@ type BigDecimal private (coeff, exp, precision) =
             if inputIsEmpty posn then Ok pr else Error "Unused characters at end"
 
         let parseConsistencyChecks (ParseResult(data,posn) as pr) : Result<ParseResult, string> =
-                if (snd data.wholePart) = 0 && (snd data.fractionPart) = 0
-                then Error "No digits in coefficient"
-                else Ok pr
+            let numWholePartDigits = if isSign input.[0] then data.wholePart.Length-1 else data.wholePart.Length
+            if numWholePartDigits = 0 && data.fractionPart.Length = 0
+            then Error "No digits in coefficient"
+            else Ok pr
 
-        let leadingZeroCount (data:ParseData) =
-            let nonZeroDigit c = not (Char.IsDigit(c))
-            let segmentCount (start,len) = 
-                let found = 
-                    input 
-                    |> Seq.skip start
-                    |> Seq.tryFindIndex nonZeroDigit
-                match found with  // remenmber to skip the leading sign, which will exist when we call this
-                | Some index ->  index
-                | None -> len
-            let wholePartCount = segmentCount(data.wholePart)
-            if wholePartCount = (snd data.wholePart)
-            then wholePartCount + segmentCount(data.fractionPart)
-            else wholePartCount
+        let leadingZeroCount (span : ParserSpan) =
+            let nonZeroChar c = c <> '0'
+            let hasLeadingSign = not (inputIsEmpty span.Start) && isSign input.[span.Start]
+            let (skip,maxCount) = if hasLeadingSign then (span.Start+1,span.Length-1) else (span.Start,span.Length)
+            let found = 
+                input 
+                |> Seq.skip skip
+                |> Seq.tryFindIndex nonZeroChar
+            match found with  // remenmber to skip the leading sign, which will exist when we call this
+            | Some index ->  Math.Min(index,maxCount)
+            | None -> maxCount
 
+        let givenExponent (data:ParseData) =
+            match data.exponent.Length with 
+            | 0 -> Ok 0
+            | _ ->
+                match Int32.TryParse((new ReadOnlySpan<char>(input, data.exponent.Start, data.exponent.Length)), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
+                | true, i -> Ok i 
+                | _ -> Error "Invalid exponent"
 
         let computeExponent (data:ParseData) isZero =
-            let givenExponent = 
-                match (snd data.exponent) with 
-                | 0 -> Ok 0
-                | _ ->
-                    match Int32.TryParse((new ReadOnlySpan<char>(input, (fst data.exponent), (snd data.exponent))), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
-                    | true, i -> Ok i 
-                    | _ -> Error "Invalid exponent"
-            let indicatedExponent = -(snd data.fractionPart)
-            match givenExponent with
+            let indicatedExponent = -data.fractionPart.Length
+            match givenExponent data with
             | Ok 0 as v -> Ok indicatedExponent
             | Ok exp -> 
                 match ArithmeticHelpers.checkExponent ((int64 indicatedExponent) + (int64 exp)) isZero with
@@ -359,22 +355,20 @@ type BigDecimal private (coeff, exp, precision) =
             | Error msg as v -> Error msg
 
         let constructBD (data:ParseData) : Result<BigDecimal,string> =
-            let digits = Array.zeroCreate(1+ (snd data.wholePart) + (snd data.fractionPart))
-            Array.set digits 0 data.leadingSign
-            Array.Copy(input, (fst data.wholePart), digits, 1, (snd data.wholePart))
-            Array.Copy(input, (fst data.fractionPart), digits, (1+(snd data.wholePart)),(snd data.fractionPart))
+            let digits = Array.zeroCreate(data.wholePart.Length + data.fractionPart.Length)
+            Array.Copy(input, data.wholePart.Start, digits, 0, data.wholePart.Length)
+            Array.Copy(input, data.fractionPart.Start, digits, data.wholePart.Length, data.fractionPart.Length)
             let bi = (BigInteger.Parse(String(digits)))
-            let precision = (snd data.wholePart) + (snd data.fractionPart) - leadingZeroCount(data)
-            let precision = if precision = 0 then 1 else precision
+            let precision = data.wholePart.Length + data.fractionPart.Length - leadingZeroCount(data.wholePart)
+            let precision = if precision = 0 || bi.IsZero then 1 else precision
             match computeExponent data  bi.IsZero with
             | Ok exp -> Ok (BigDecimal(bi,exp,uint precision))
             | Error msg -> Error msg
 
-        let emptyData = {leadingSign = '+'; wholePart = (0,0); fractionPart=(0,0); exponent=(0,0)}
+        let emptyData = {wholePart = {Start=0;Length=0}; fractionPart={Start=0;Length=0}; exponent={Start=0;Length=0}}
         let result = 
             Ok (ParseResult(emptyData,0))
             |> Result.bind parseNonEmpty
-            |> Result.bind parseOptSign
             |> Result.bind parseWhole
             |> Result.bind parseFraction
             |> Result.bind parseExponent
@@ -384,32 +378,6 @@ type BigDecimal private (coeff, exp, precision) =
         match result with
         | Error x -> Error x
         | Ok (ParseResult(data,b)) as pr -> constructBD data
-
-
-
-
-
-
- 
-
-
-                
-
- 
-
-           
-
-            
-
-            
-
-
-
-
-
-
- 
-        
 
     static member private DoParseE (buf : ReadOnlySpan<char> ) : BigDecimal =
         match BigDecimal.DoParse buf with

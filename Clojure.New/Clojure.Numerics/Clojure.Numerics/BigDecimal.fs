@@ -220,14 +220,13 @@ type BigDecimal private (coeff, exp, precision) =
 
     member _.ToScientificString() =
         let sb = StringBuilder(coeff.ToString())
-        let coeffLen = sb.Length
         let coeffLen, negOffset = if coeff.Sign < 0 then sb.Length-1, 1 else sb.Length, 0
 
         let adjustedExp = (int64 exp) + (int64 coeffLen) - 1L
 
         if exp <= 0 && adjustedExp >= -6L
         then
-            if -exp <> 0  // we need a decimal point
+            if exp <> 0  // we need a decimal point
             then
                 match -exp with
                 | _ as numDec when numDec < coeffLen -> sb.Insert(coeffLen-numDec+negOffset, '.') |> ignore
@@ -236,12 +235,12 @@ type BigDecimal private (coeff, exp, precision) =
                     let numZeros = numDec - coeffLen
                     sb.Insert(negOffset, "0",numZeros) |> ignore
                     sb.Insert(negOffset, "0.") |> ignore
-            else // using exponential notation
-                if coeffLen > 1 then sb.Insert(negOffset+1, '.') |> ignore
-                sb.Append('E') |> ignore
-                if adjustedExp >= 0L then sb.Append('+') |> ignore
-                sb.Append(adjustedExp) |> ignore
-        else ()
+            else ()
+        else // using exponential notation
+            if coeffLen > 1 then sb.Insert(negOffset+1, '.') |> ignore
+            sb.Append('E') |> ignore
+            if adjustedExp >= 0L then sb.Append('+') |> ignore
+            sb.Append(adjustedExp) |> ignore
         sb.ToString()
 
 
@@ -331,7 +330,7 @@ type BigDecimal private (coeff, exp, precision) =
             then Error "No digits in coefficient"
             else Ok pr
 
-        let leadingZeroCount (span : ParserSpan) =
+        let leadingZeroCountInSpan (span : ParserSpan) =
             let nonZeroChar c = c <> '0'
             let hasLeadingSign = not (inputIsEmpty span.Start) && isSign input.[span.Start]
             let (skip,maxCount) = if hasLeadingSign then (span.Start+1,span.Length-1) else (span.Start,span.Length)
@@ -342,6 +341,13 @@ type BigDecimal private (coeff, exp, precision) =
             match found with  // remenmber to skip the leading sign, which will exist when we call this
             | Some index ->  Math.Min(index,maxCount)
             | None -> maxCount
+
+        let leadingZeroCount (data:ParseData) =
+            let wholeZeroCount = leadingZeroCountInSpan data.wholePart
+            let wholeDigitCount = data.wholePart.Length - (if isSign input.[data.wholePart.Start] then 1 else 0)
+            if wholeZeroCount = wholeDigitCount
+            then wholeZeroCount + leadingZeroCountInSpan data.fractionPart
+            else wholeZeroCount
 
         let givenExponent (data:ParseData) =
             match data.exponent.Length with 
@@ -366,7 +372,7 @@ type BigDecimal private (coeff, exp, precision) =
             Array.Copy(input, data.wholePart.Start, digits, 0, data.wholePart.Length)
             Array.Copy(input, data.fractionPart.Start, digits, data.wholePart.Length, data.fractionPart.Length)
             let bi = (BigInteger.Parse(String(digits)))
-            let precision = (numDigits data.wholePart) + data.fractionPart.Length - leadingZeroCount(data.wholePart)
+            let precision = (numDigits data.wholePart) + data.fractionPart.Length - leadingZeroCount(data)
             let precision = if precision = 0 || bi.IsZero then 1 else precision
             match computeExponent data  bi.IsZero with
             | Ok exp -> Ok (BigDecimal(bi,exp,uint precision))

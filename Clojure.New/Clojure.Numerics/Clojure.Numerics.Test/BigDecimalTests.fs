@@ -30,6 +30,7 @@ module Tests
 
 open Expecto
 open Clojure.Numerics
+open System.Numerics
 
 
 [<Tests>]
@@ -256,6 +257,40 @@ let javaDocParsingList = testList "Java doc parsing examples"  (createIntTests j
 let specParsingList = testList "Spec parsing examples"  (createIntTests specParsingTests)
 
 
+let scientificStringTest biStr exp outStr =
+    let bi = BigInteger.Parse(biStr)
+    let bd = BigDecimal.Create(bi,exp)
+    let result = bd.ToScientificString()
+    Expect.equal result outStr (sprintf "Result from %s x 10^%i" biStr exp)
+
+let createToStringTests data =
+    data
+    |> List.map (fun (biStr, exponent, outStr) ->
+           testCase (sprintf "printing '%s' with exponent %i yields '%s;" biStr exponent outStr ) <| fun _ -> 
+               scientificStringTest biStr exponent outStr
+           )
+
+let basicToStringTests = 
+    [   ("123",0,"123");
+        ("-123",0, "-123");
+        ("123",1, "1.23E+3");
+        ("123",3, "1.23E+5");
+        ("123",-1, "12.3");
+        ("123",-5, "0.00123");
+        ("123",-10, "1.23E-8");
+        ("-123",-12, "-1.23E-10");
+        ("0",0, "0");
+        ("0",-2, "0.00");
+        ("0",2, "0E+2");
+        ("5",-6, "0.000005");
+        ("50",-7, "0.0000050");
+        ("5",-7, "5E-7");    ]
+
+
+[<Tests>]
+let toStringList = testList "Basic ToString examples"  (createToStringTests basicToStringTests)
+
+
   //testList "samples" [
   //  testCase "universe exists (╭ರᴥ•́)" <| fun _ ->
   //    let subject = true
@@ -323,40 +358,6 @@ let specParsingList = testList "Spec parsing examples"  (createIntTests specPars
 
 //         #endregion
 
-//         #region String parsing
-
-
-
-
-
-
-//         }
-
-
-
-//         [Test]
-//         public void SpecParsingExamples()
-//         {
-//             SimpleIntTest("0", "0",0,1);
-//             SimpleIntTest("0.00", "0",-2,1);
-//             SimpleIntTest("123", "123",0,3);
-//             SimpleIntTest("-123", "-123",0,3);
-//             SimpleIntTest("1.23E3", "123",1,3);
-//             SimpleIntTest("1.23E+3", "123",1,3);
-//             SimpleIntTest("12.3E+7", "123",6,3);
-//             SimpleIntTest("12.0", "120",-1,3);
-//             SimpleIntTest("12.3", "123",-1,3);
-//             SimpleIntTest("0.00123", "123",-5,3);
-//             SimpleIntTest("-1.23E-12", "-123",-14,3);
-//             SimpleIntTest("1234.5E-4", "12345",-5,5);
-//             SimpleIntTest("-0", "0",0,1);
-//             SimpleIntTest("-0.00", "0",-2,1);
-//             SimpleIntTest("0E+7", "0",7,1);
-//             SimpleIntTest("-0E-7", "0",-7,1);
-//         }
-
-//         #endregion
-
 //         #region Conversion to string
 
 //         [Test]
@@ -384,15 +385,6 @@ let specParsingList = testList "Spec parsing examples"  (createIntTests specPars
 //             TestScientificString("123456789", -2, "1234567.89");
 //             TestScientificString("-123456789", -2, "-1234567.89");
 //         }
-
-//         static private void TestScientificString(string biStr, int exp, string outStr)
-//         {
-//             BigInteger bi = BigInteger.Parse(biStr);
-//             BigDecimal bd = new BigDecimal(bi, exp);
-//             string result = bd.ToScientificString();
-//             Expect(result).To.Equal(outStr);
-//         }
-         
 
 
 

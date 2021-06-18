@@ -286,9 +286,36 @@ let basicToStringTests =
         ("50",-7, "0.0000050");
         ("5",-7, "5E-7");    ]
 
+let specToStringTests = 
+    [   ("123",0,"123");
+        ("-123",0, "-123");
+        ("123",1, "1.23E+3");
+        ("123",3, "1.23E+5");
+        ("123",-1, "12.3");
+        ("123",-5, "0.00123");
+        ("123",-10, "1.23E-8");
+        ("-123",-12, "-1.23E-10");
+        ("0",0, "0");
+        ("0",-2, "0.00");
+        ("0",2, "0E+2");
+        ("5",-6, "0.000005");
+        ("50",-7, "0.0000050");
+        ("5",-7, "5E-7");   ]
+
+let toStringPointPlacementTests = 
+    [   ("123456789", -2, "1234567.89");
+        ("-123456789", -2, "-1234567.89");  ]
+
+
 
 [<Tests>]
-let toStringList = testList "Basic ToString examples"  (createToStringTests basicToStringTests)
+let basicToStringList = testList "Basic ToString examples"  (createToStringTests basicToStringTests)
+
+[<Tests>]
+let specToStringList = testList "Spec ToString examples"  (createToStringTests specToStringTests)
+
+[<Tests>]
+let toStringPointPlacementList = testList "point placement ToString examples"  (createToStringTests toStringPointPlacementTests)
 
 
   //testList "samples" [
@@ -360,24 +387,7 @@ let toStringList = testList "Basic ToString examples"  (createToStringTests basi
 
 //         #region Conversion to string
 
-//         [Test]
-//         public void ToScientficStringFromSpec()
-//         {
-//             TestScientificString("123",0,"123");
-//             TestScientificString("-123",0, "-123");
-//             TestScientificString("123",1, "1.23E+3");
-//             TestScientificString("123",3, "1.23E+5");
-//             TestScientificString("123",-1, "12.3");
-//             TestScientificString("123",-5, "0.00123");
-//             TestScientificString("123",-10, "1.23E-8");
-//             TestScientificString("-123",-12, "-1.23E-10");
-//             TestScientificString("0",0, "0");
-//             TestScientificString("0",-2, "0.00");
-//             TestScientificString("0",2, "0E+2");
-//             TestScientificString("5",-6, "0.000005");
-//             TestScientificString("50",-7, "0.0000050");
-//             TestScientificString("5",-7, "5E-7");
-//         }
+
 
 //         [Test]
 //         static public void NegativeNonExponentialPointPlacement()

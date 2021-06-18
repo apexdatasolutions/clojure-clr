@@ -10,7 +10,13 @@ open System.Runtime.CompilerServices
 
 module private ArithmeticHelpers =
 
-    let getBIPrecision bi =  Math.Ceiling(BigInteger.Log10(bi)) |> uint32         
+    let biFive = BigInteger(5)
+    let biTen = BigInteger(10)
+
+    let getBIPrecision (bi : BigInteger) =  
+        let isMultipleOfTen = bi = (biTen*(bi/biTen))
+        let log = Math.Ceiling(BigInteger.Log10(bi)) |> uint32      
+        log + (if isMultipleOfTen then 1u else 0u)
 
     /// Exponent bias in the 64-bit floating point representation.
     let doubleExponentBias = 1023
@@ -33,7 +39,7 @@ module private ArithmeticHelpers =
     /// Extract the exponent from a byte-array representaition of a double.
     let getDoubleBiasedExponent (v:byte[]) = ((uint16 (v.[7] &&& 0x7fuy)) <<< 4) ||| ((uint16 (v.[6] &&& 0xFuy)) >>> 4)
 
-    let biFive = BigInteger(5)
+
 
     let biPowersOfTen = 
         [| 
@@ -114,7 +120,7 @@ type BigDecimal private (coeff, exp, precision) =
 
     member private x.GetPrecision() = 
         match precision with    
-        | 0u -> precision <- ArithmeticHelpers.getBIPrecision(coeff)
+        | 0u -> precision <- Math.Max(ArithmeticHelpers.getBIPrecision(coeff),1u)
         | _ -> ()
         precision
 
@@ -344,7 +350,7 @@ type BigDecimal private (coeff, exp, precision) =
 
         let leadingZeroCount (data:ParseData) =
             let wholeZeroCount = leadingZeroCountInSpan data.wholePart
-            let wholeDigitCount = data.wholePart.Length - (if isSign input.[data.wholePart.Start] then 1 else 0)
+            let wholeDigitCount = numDigits data.wholePart
             if wholeZeroCount = wholeDigitCount
             then wholeZeroCount + leadingZeroCountInSpan data.fractionPart
             else wholeZeroCount

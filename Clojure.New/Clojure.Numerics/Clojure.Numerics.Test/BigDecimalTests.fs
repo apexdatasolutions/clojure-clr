@@ -317,6 +317,30 @@ let specToStringList = testList "Spec ToString examples"  (createToStringTests s
 [<Tests>]
 let toStringPointPlacementList = testList "point placement ToString examples"  (createToStringTests toStringPointPlacementTests)
 
+let precisionTest str exponent precision =
+    let bd = BigDecimal.Create(BigInteger.Parse(str),exponent)
+    Expect.equal bd.Precision precision (sprintf "Precision for %s exponent %i" str exponent)
+
+let createPrecisionTests data =
+    data
+    |> List.map (fun (str, exponent, precision) ->
+           testCase (sprintf "BD from '%s' with exponent %i has precision '%u;" str exponent precision ) <| fun _ -> 
+               precisionTest str exponent precision
+           )
+
+let precisionTests =
+    [   ("0", 0, 1u);
+        ("2", 0, 1u);
+        ("-2", 0, 1u);
+        ("100", 0, 3u);
+        ("999999999", 0, 9u);
+        ("1000000000", 0, 10u);
+        ("123456789123456789", -12, 18u);
+        ("123456789123456789", 40, 18u);      ]
+
+[<Tests>]
+let precisionTestList = testList "precision examples"  (createPrecisionTests precisionTests)
+
 
   //testList "samples" [
   //  testCase "universe exists (╭ರᴥ•́)" <| fun _ ->
@@ -385,20 +409,6 @@ let toStringPointPlacementList = testList "point placement ToString examples"  (
 
 //         #endregion
 
-//         #region Conversion to string
-
-
-
-//         [Test]
-//         static public void NegativeNonExponentialPointPlacement()
-//         {
-//             TestScientificString("123456789", -2, "1234567.89");
-//             TestScientificString("-123456789", -2, "-1234567.89");
-//         }
-
-
-
-//         #endregion
 
 //         #region Create from X tests
 

@@ -341,6 +341,87 @@ let precisionTests =
 [<Tests>]
 let precisionTestList = testList "precision examples"  (createPrecisionTests precisionTests)
 
+[<Tests>]
+let contantsTests = testList "tests of contants" [
+    testCase "BigDecimal.Zero is correct" <| fun _ ->
+        Expect.equal BigDecimal.Zero.Coefficient BigInteger.Zero "Zero should have coefficient 0"
+        Expect.equal BigDecimal.Zero.Exponent 0 "Zero should have exponent 0"
+        Expect.equal BigDecimal.Zero.Precision 1u "Zero should have precision 1"
+        
+    testCase "BigDecimal.One is correct" <| fun _ ->
+        Expect.equal BigDecimal.One.Coefficient BigInteger.One "One should have coefficient 0"
+        Expect.equal BigDecimal.One.Exponent 0 "One should have exponent 0"
+        Expect.equal BigDecimal.One.Precision 1u "One should have precision 1"
+
+    testCase "BigDecimal.Ten is correct" <| fun _ ->
+        Expect.equal BigDecimal.Ten.Coefficient (BigInteger(10)) "Ten should have coefficient 0"
+        Expect.equal BigDecimal.Ten.Exponent 0 "Ten should have exponent 0"
+        Expect.equal BigDecimal.Ten.Precision 2u "Ten should have precision 2"
+    ]
+
+let doubleTest (v:double) (expectStr:string) (c:Context) =
+    let d = BigDecimal.CreateC(v,c)
+    let gotStr = d.ToScientificString()
+    Expect.equal gotStr expectStr  "Wrong representation"
+
+    if v <> 0.0 
+    then 
+        let d = BigDecimal.CreateC(-v,c)
+        let gotStr = d.ToScientificString()
+        Expect.equal gotStr ("-"+expectStr) "Wrong representation"
+    else ()
+
+
+let createDoubleTests data =
+    data
+    |> List.map (fun (v, expect, context) ->
+            testCase (sprintf "BD from double '%f' with context %s" v (context.ToString())) <| fun _ -> 
+                doubleTest v expect context
+            )
+
+let c9hu = Context.Create(9u, RoundingMode.HalfUp)
+
+let doubleTests =
+    [   (0.0, "0", c9hu);
+        (1.0, "1", c9hu);
+        (10.0, "10.0000000", c9hu);
+        (100.0, "100.000000", c9hu);
+        (1000.0, "1000.00000", c9hu);  ]
+
+    
+[<Tests>]
+let doubleList = testList "creation from double examples"  (createDoubleTests doubleTests)
+
+
+let basicRoundingTest bdStr precision mode biStr exponent =
+    let mc = Context.Create(precision,mode)
+    let bd = BigDecimal.Parse(bdStr)
+    let br = BigDecimal.Round(bd,mc)
+    Expect.equal br.Coefficient (BigInteger.Parse(biStr)) "coefficient"
+    Expect.equal br.Exponent exponent "exponent"
+
+let createRoundingTests data =
+    data
+    |> List.map (fun (bdStr, precision, mode, biStr, exponent) ->
+            testCase (sprintf "Rounding %s to %u %s yield %s %i" bdStr precision (mode.ToString()) biStr exponent) <| fun _ ->
+                basicRoundingTest bdStr precision mode biStr exponent
+            )
+
+let basicRoundingTests = 
+    [   ("123.456", 0u, RoundingMode.HalfUp, "0", 3);
+        ("123.456", 1u, RoundingMode.HalfUp, "1", 2);
+        ("123.456", 2u, RoundingMode.HalfUp, "12", 1);
+        ("123.456", 3u, RoundingMode.HalfUp, "123", 0);
+        ("123.456", 4u, RoundingMode.HalfUp, "1235", -1);
+        ("123.456", 5u, RoundingMode.HalfUp, "12346", -2);
+        ("123.456", 6u, RoundingMode.HalfUp, "123456", -3);
+        ("123.456", 7u, RoundingMode.HalfUp, "123456", -3);    ]
+
+[<Tests>]
+let basicRoundingList = testList "basic rounding" (createRoundingTests basicRoundingTests)
+
+
+
 
   //testList "samples" [
   //  testCase "universe exists (╭ರᴥ•́)" <| fun _ ->
@@ -415,7 +496,6 @@ let precisionTestList = testList "precision examples"  (createPrecisionTests pre
 //         [Test]
 //         public void CanCreateFromDouble()
 //         {
-//             BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
 
 //             TestDouble(0.0, "0", c9hu);
 //             TestDouble(0.0000, "0", c9hu);
@@ -554,19 +634,6 @@ let precisionTestList = testList "precision examples"  (createPrecisionTests pre
 
 //         }
 
-//         static private void TestDouble(double v,string expectStr, BigDecimal.Context c)
-//         {
-//             BigDecimal d = BigDecimal.Create(v, c);
-//             string gotStr = d.ToScientificString();
-//             Expect(gotStr).To.Equal(expectStr);
-
-//             if ( v != 0.0 )
-//             {
-//                  d = BigDecimal.Create(-v,c);
-//                  gotStr = d.ToScientificString();
-//                 Expect(gotStr).To.Equal("-"+expectStr);
-//             }
-//         }
 
 
 //         [Test]
@@ -699,50 +766,6 @@ let precisionTestList = testList "precision examples"  (createPrecisionTests pre
 
 //         #endregion
 
-//         #region Precision tests
-
-//         [Test]
-//         public void PrecisionIsComputedProperly()
-//         {
-//             TestPrecision("0", 0, 1);
-//             TestPrecision("2", 0, 1);
-//             TestPrecision("-2", 0, 1);
-//             TestPrecision("100", 0, 3);
-//             TestPrecision("999999999", 0, 9);
-//             TestPrecision("1000000000", 0, 10);
-//             TestPrecision("123456789123456789", -12, 18);
-//             TestPrecision("123456789123456789", 40, 18);
-//         }
-
-//         static void TestPrecision(string s, int exponent, int precision)
-//         {
-
-//             BigDecimal bd = new BigDecimal(BigInteger.Parse(s), exponent);
-//             Expect(bd.GetPrecision()).To.Equal(precision);
-//         }
-
-//         #endregion
-
-//         #region Constants tests
-
-//         [Test]
-//         public void NamedConstantsHaveCorrectValues()
-//         {
-//             Expect(BigDecimal.Zero.Coefficient).To.Equal(BigInteger.Zero);
-//             Expect(BigDecimal.Zero.Exponent).To.Equal(0);
-//             Expect(BigDecimal.Zero.GetPrecision()).To.Equal(1);
-
-//             Expect(BigDecimal.One.Coefficient).To.Equal(BigInteger.One);
-//             Expect(BigDecimal.One.Exponent).To.Equal(0);
-//             Expect(BigDecimal.One.GetPrecision()).To.Equal(1);
-
-//             Expect(BigDecimal.Ten.Coefficient).To.Equal(BigInteger.Ten);
-//             Expect(BigDecimal.Ten.Exponent).To.Equal(0);
-//             Expect(BigDecimal.Ten.GetPrecision()).To.Equal(2);
-//         }
-
-//         #endregion
-
 //         #region Rounding tests
 
 //         //[Test]
@@ -757,26 +780,6 @@ let precisionTestList = testList "precision examples"  (createPrecisionTests pre
 //         //}
 
 //         [Test]
-//         static public void TestBasicRounding()
-//         {
-//             TestBasicRounding("123.456", 0, BigDecimal.RoundingMode.HalfUp, "0", 3);
-//             TestBasicRounding("123.456", 1, BigDecimal.RoundingMode.HalfUp, "1", 2);
-//             TestBasicRounding("123.456", 2, BigDecimal.RoundingMode.HalfUp, "12", 1);
-//             TestBasicRounding("123.456", 3, BigDecimal.RoundingMode.HalfUp, "123", 0);
-//             TestBasicRounding("123.456", 4, BigDecimal.RoundingMode.HalfUp, "1235", -1);
-//             TestBasicRounding("123.456", 5, BigDecimal.RoundingMode.HalfUp, "12346", -2);
-//             TestBasicRounding("123.456", 6, BigDecimal.RoundingMode.HalfUp, "123456", -3);
-//             TestBasicRounding("123.456", 7, BigDecimal.RoundingMode.HalfUp, "123456", -3);
-//         }
-
-//         static void TestBasicRounding(string bdStr,uint precision, BigDecimal.RoundingMode mode, string biStr, int exponent)
-//         {
-//             BigDecimal.Context mc = new BigDecimal.Context(precision,mode);
-//             BigDecimal bd = BigDecimal.Parse(bdStr);
-//             BigDecimal br = BigDecimal.Round(bd,mc);
-//             Expect(br.Coefficient).To.Equal(BigInteger.Parse(biStr));
-//             Expect(br.Exponent).To.Equal(exponent);
-//         }
 
 //         [Test]
 //         static public void TestJavaDocRoundingTests()

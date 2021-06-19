@@ -14,9 +14,13 @@ module private ArithmeticHelpers =
     let biTen = BigInteger(10)
 
     let getBIPrecision (bi : BigInteger) =  
-        let isMultipleOfTen = bi = (biTen*(bi/biTen))
-        let log = Math.Ceiling(BigInteger.Log10(bi)) |> uint32      
-        log + (if isMultipleOfTen then 1u else 0u)
+        if bi.IsZero
+        then 1u
+        else
+            let isMultipleOfTen = bi = (biTen*(bi/biTen))
+            let log = BigInteger.Log10 (if bi.Sign <= 0 then -bi else bi) 
+            let ilog = Math.Ceiling(log) |> uint32      
+            ilog + (if isMultipleOfTen then 1u else 0u)
 
     /// Exponent bias in the 64-bit floating point representation.
     let doubleExponentBias = 1023
@@ -32,12 +36,12 @@ module private ArithmeticHelpers =
 
     /// Extract the significand (AKA mantissa, coefficient) from a byte-array representation of a double.
     let getDoubleSignificand (v:byte[]) = 
-        let i1 = (v.[0] |> uint) ||| (v.[1] |> uint) ||| (v.[2] |> uint) ||| (v.[3] |> uint)
-        let i2 = (v.[4] |> uint) ||| (v.[5] |> uint) ||| (((v.[6] &&& 0xFuy) |> uint) <<< 16)
-        uint64 i1 ||| ((uint64 i2) <<<32)
+        let i1 = (uint v.[0]) ||| ((uint v.[1]) <<< 8) ||| ((uint v.[2]) <<< 16) ||| ((uint v.[3]) <<< 24)
+        let i2 = (uint v.[4]) ||| ((uint v.[5]) <<< 8) ||| ((uint (v.[6] &&& 0xFuy)) <<< 16)
+        uint64 i1 ||| ((uint64 i2) <<< 32)
         
     /// Extract the exponent from a byte-array representaition of a double.
-    let getDoubleBiasedExponent (v:byte[]) = ((uint16 (v.[7] &&& 0x7fuy)) <<< 4) ||| ((uint16 (v.[6] &&& 0xFuy)) >>> 4)
+    let getDoubleBiasedExponent (v:byte[]) = ((uint16 (v.[7] &&& 0x7fuy)) <<< 4) ||| ((uint16 (v.[6] &&& 0xF0uy)) >>> 4)
 
 
 
@@ -89,7 +93,7 @@ type RoundingMode =
 
 [<Struct>]
 type Context =
-    private { 
+    { 
         precision : uint32 
         roundingMode : RoundingMode 
     }
@@ -100,6 +104,7 @@ type Context =
     static member Unlimited = {precision =  0u; roundingMode = HalfUp}
     static member Default = {precision =  9ul; roundingMode = HalfUp}
     static member ExtendedDefault precision = {precision=precision; roundingMode = HalfEven}
+    static member Create( precision, roundingMode) = {precision = precision; roundingMode = roundingMode }
 
 [<Struct>]
 type internal ParserSpan = {Start: int; Length: int}  // shall we go to the trouble of making these uints?
@@ -151,14 +156,16 @@ type BigDecimal private (coeff, exp, precision) =
 
     static member private round (v:BigDecimal) (c:Context): BigDecimal = 
         let vp = v.GetPrecision()
-        if ( vp <= c.precision ) then v
+        if ( vp <= c.precision ) 
+        then v
         else
             let drop = vp - c.precision
             let divisor = ArithmeticHelpers.biPowerOfTen(drop)
             let rounded = BigDecimal.roundingDivide2 v.Coefficient divisor c.roundingMode
             let exp = ArithmeticHelpers.checkExponentE ((int64 v.Exponent)+(int64 drop)) rounded.IsZero
             let result = BigDecimal(rounded,exp,0u)
-            if c.precision > 0u then BigDecimal.round result c
+            if c.precision > 0u 
+            then BigDecimal.round result c
             else result
 
     static member Create (bi:BigDecimal) = BigDecimal(bi.Coefficient,bi.Exponent,bi.RawPrecision)
@@ -190,7 +197,7 @@ type BigDecimal private (coeff, exp, precision) =
     static member CreateC(v:decimal, c) = BigDecimal.round (BigDecimal.Create(v)) c
 
     static member Create (v:double) = 
-        if Double.IsNaN(v) then invalidArg "value" "Nan is not supported in BigDecimal"
+        if Double.IsNaN(v) then invalidArg "value" "NaN is not supported in BigDecimal"
         if Double.IsInfinity(v) then invalidArg "value" "Infinity is not supported in BigDecimal"
 
         let dbytes = BitConverter.GetBytes(v)
@@ -210,10 +217,10 @@ type BigDecimal private (coeff, exp, precision) =
             let (coeffToUse, expToUse) =
                 if leftShift < 0
                     then ( coeff*BigInteger.Pow(ArithmeticHelpers.biFive,-leftShift), leftShift)
-                elif leftShift < 0
+                elif leftShift > 0
                     then ( coeff <<< leftShift , 0 )
                 else ( coeff, 0 )
-            BigDecimal(coeff,expToUse,0u)
+            BigDecimal(coeffToUse,expToUse,0u)
                                   
 
 
@@ -416,6 +423,9 @@ type BigDecimal private (coeff, exp, precision) =
         | Ok bd -> value <- BigDecimal.round bd c; true
         | Error _ -> false
 
+
+    static member Round(v:BigDecimal, c:Context) = 
+        BigDecimal.round v c
 
 
 

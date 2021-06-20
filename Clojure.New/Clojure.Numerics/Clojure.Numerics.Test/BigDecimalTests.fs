@@ -547,9 +547,101 @@ let basicRoundingTests =
         ("123.456", 6u, RoundingMode.HalfUp, "123456", -3);
         ("123.456", 7u, RoundingMode.HalfUp, "123456", -3);    ]
 
+let javaDocRoundingTests = 
+    [
+        ("5.5", 1u, RoundingMode.Up, "6", 0);
+        ("5.5", 1u, RoundingMode.Down, "5", 0);
+        ("5.5", 1u, RoundingMode.Ceiling, "6", 0);
+        ("5.5", 1u, RoundingMode.Floor, "5", 0);
+        ("5.5", 1u, RoundingMode.HalfUp, "6", 0);
+        ("5.5", 1u, RoundingMode.HalfDown, "5", 0);
+        ("5.5", 1u, RoundingMode.HalfEven, "6", 0);
+
+        ("2.5", 1u, RoundingMode.Up, "3", 0);
+        ("2.5", 1u, RoundingMode.Down, "2", 0);
+        ("2.5", 1u, RoundingMode.Ceiling, "3", 0);
+        ("2.5", 1u, RoundingMode.Floor, "2", 0);
+        ("2.5", 1u, RoundingMode.HalfUp, "3", 0);
+        ("2.5", 1u, RoundingMode.HalfDown, "2", 0);
+        ("2.5", 1u, RoundingMode.HalfEven, "2", 0);
+
+        ("1.6", 1u, RoundingMode.Up, "2", 0);
+        ("1.6", 1u, RoundingMode.Down, "1", 0);
+        ("1.6", 1u, RoundingMode.Ceiling, "2", 0);
+        ("1.6", 1u, RoundingMode.Floor, "1", 0);
+        ("1.6", 1u, RoundingMode.HalfUp, "2", 0);
+        ("1.6", 1u, RoundingMode.HalfDown, "2", 0);
+        ("1.6", 1u, RoundingMode.HalfEven, "2", 0);
+
+        ("1.1", 1u, RoundingMode.Up, "2", 0);
+        ("1.1", 1u, RoundingMode.Down, "1", 0);
+        ("1.1", 1u, RoundingMode.Ceiling, "2", 0);
+        ("1.1", 1u, RoundingMode.Floor, "1", 0);
+        ("1.1", 1u, RoundingMode.HalfUp, "1", 0);
+        ("1.1", 1u, RoundingMode.HalfDown, "1", 0);
+        ("1.1", 1u, RoundingMode.HalfEven, "1", 0);
+
+        ("1.0", 1u, RoundingMode.Up, "1", 0);
+        ("1.0", 1u, RoundingMode.Down, "1", 0);
+        ("1.0", 1u, RoundingMode.Ceiling, "1", 0);
+        ("1.0", 1u, RoundingMode.Floor, "1", 0);
+        ("1.0", 1u, RoundingMode.HalfUp, "1", 0);
+        ("1.0", 1u, RoundingMode.HalfDown, "1", 0);
+        ("1.0", 1u, RoundingMode.HalfEven, "1", 0);
+        ("1.0", 1u, RoundingMode.Unnecessary, "1", 0);
+
+        ("-1.0", 1u, RoundingMode.Up, "-1", 0);
+        ("-1.0", 1u, RoundingMode.Down, "-1", 0);
+        ("-1.0", 1u, RoundingMode.Ceiling, "-1", 0);
+        ("-1.0", 1u, RoundingMode.Floor, "-1", 0);
+        ("-1.0", 1u, RoundingMode.HalfUp, "-1", 0);
+        ("-1.0", 1u, RoundingMode.HalfDown, "-1", 0);
+        ("-1.0", 1u, RoundingMode.HalfEven, "-1", 0);
+        ("-1.0", 1u, RoundingMode.Unnecessary, "-1", 0);
+
+        ("-1.1", 1u, RoundingMode.Up, "-2", 0);
+        ("-1.1", 1u, RoundingMode.Down, "-1", 0);
+        ("-1.1", 1u, RoundingMode.Ceiling, "-1", 0);
+        ("-1.1", 1u, RoundingMode.Floor, "-2", 0);
+        ("-1.1", 1u, RoundingMode.HalfUp, "-1", 0);
+        ("-1.1", 1u, RoundingMode.HalfDown, "-1", 0);
+        ("-1.1", 1u, RoundingMode.HalfEven, "-1", 0);
+
+        ("-1.6", 1u, RoundingMode.Up, "-2", 0);
+        ("-1.6", 1u, RoundingMode.Down, "-1", 0);
+        ("-1.6", 1u, RoundingMode.Ceiling, "-1", 0);
+        ("-1.6", 1u, RoundingMode.Floor, "-2", 0);
+        ("-1.6", 1u, RoundingMode.HalfUp, "-2", 0);
+        ("-1.6", 1u, RoundingMode.HalfDown, "-2", 0);
+        ("-1.6", 1u, RoundingMode.HalfEven, "-2", 0);
+
+        ("-2.5", 1u, RoundingMode.Up, "-3", 0);
+        ("-2.5", 1u, RoundingMode.Down, "-2", 0);
+        ("-2.5", 1u, RoundingMode.Ceiling, "-2", 0);
+        ("-2.5", 1u, RoundingMode.Floor, "-3", 0);
+        ("-2.5", 1u, RoundingMode.HalfUp, "-3", 0);
+        ("-2.5", 1u, RoundingMode.HalfDown, "-2", 0);
+        ("-2.5", 1u, RoundingMode.HalfEven, "-2", 0);
+
+        ("-5.5", 1u, RoundingMode.Up, "-6", 0);
+        ("-5.5", 1u, RoundingMode.Down, "-5", 0);
+        ("-5.5", 1u, RoundingMode.Ceiling, "-5", 0);
+        ("-5.5", 1u, RoundingMode.Floor, "-6", 0);
+        ("-5.5", 1u, RoundingMode.HalfUp, "-6", 0);
+        ("-5.5", 1u, RoundingMode.HalfDown, "-5", 0);
+        ("-5.5", 1u, RoundingMode.HalfEven, "-6", 0);
+
+        ("0.19", 3u, RoundingMode.Floor, "19", -2);
+        (".190909", 3u, RoundingMode.Floor, "190", -3);
+        ("999.9", 3u, RoundingMode.Up, "100", 1);
+    ]
+
+
 [<Tests>]
 let basicRoundingList = testList "basic rounding" (createRoundingTests basicRoundingTests)
 
+[<Tests>]
+let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaDocRoundingTests)
 
 
 
@@ -762,111 +854,9 @@ let basicRoundingList = testList "basic rounding" (createRoundingTests basicRoun
 
 //         #endregion
 
-//         #region Rounding tests
-
-//         //[Test]
-//         //public void ZeroPrecisionDoesNoRounding()
-//         //{
-//         //    BigDecimal.Context mc = new BigDecimal.Context(0,BigDecimal.RoundingMode.Up);
-//         //    BigDecimal bd;
-//         //    bd = new BigDecimal(BigInteger.Parse("123"), -3);
-//         //    Expect(bd).To.Equal(BigDecimal.Round(bd,mc)));
-//         //    bd = new BigDecimal(BigInteger.Parse("999"), -1);
-//         //    Expect(bd).To.Equal(BigDecimal.Round(bd,mc)));
-//         //}
-
-//         [Test]
-
 //         [Test]
 //         static public void TestJavaDocRoundingTests()
 //         {
-//             TestBasicRounding("5.5", 1, BigDecimal.RoundingMode.Up, "6", 0);
-//             TestBasicRounding("5.5", 1, BigDecimal.RoundingMode.Down, "5", 0);
-//             TestBasicRounding("5.5", 1, BigDecimal.RoundingMode.Ceiling, "6", 0);
-//             TestBasicRounding("5.5", 1, BigDecimal.RoundingMode.Floor, "5", 0);
-//             TestBasicRounding("5.5", 1, BigDecimal.RoundingMode.HalfUp, "6", 0);
-//             TestBasicRounding("5.5", 1, BigDecimal.RoundingMode.HalfDown, "5", 0);
-//             TestBasicRounding("5.5", 1, BigDecimal.RoundingMode.HalfEven, "6", 0);
-
-//             TestBasicRounding("2.5", 1, BigDecimal.RoundingMode.Up, "3", 0);
-//             TestBasicRounding("2.5", 1, BigDecimal.RoundingMode.Down, "2", 0);
-//             TestBasicRounding("2.5", 1, BigDecimal.RoundingMode.Ceiling, "3", 0);
-//             TestBasicRounding("2.5", 1, BigDecimal.RoundingMode.Floor, "2", 0);
-//             TestBasicRounding("2.5", 1, BigDecimal.RoundingMode.HalfUp, "3", 0);
-//             TestBasicRounding("2.5", 1, BigDecimal.RoundingMode.HalfDown, "2", 0);
-//             TestBasicRounding("2.5", 1, BigDecimal.RoundingMode.HalfEven, "2", 0);
-
-//             TestBasicRounding("1.6", 1, BigDecimal.RoundingMode.Up, "2", 0);
-//             TestBasicRounding("1.6", 1, BigDecimal.RoundingMode.Down, "1", 0);
-//             TestBasicRounding("1.6", 1, BigDecimal.RoundingMode.Ceiling, "2", 0);
-//             TestBasicRounding("1.6", 1, BigDecimal.RoundingMode.Floor, "1", 0);
-//             TestBasicRounding("1.6", 1, BigDecimal.RoundingMode.HalfUp, "2", 0);
-//             TestBasicRounding("1.6", 1, BigDecimal.RoundingMode.HalfDown, "2", 0);
-//             TestBasicRounding("1.6", 1, BigDecimal.RoundingMode.HalfEven, "2", 0);
-
-//             TestBasicRounding("1.1", 1, BigDecimal.RoundingMode.Up, "2", 0);
-//             TestBasicRounding("1.1", 1, BigDecimal.RoundingMode.Down, "1", 0);
-//             TestBasicRounding("1.1", 1, BigDecimal.RoundingMode.Ceiling, "2", 0);
-//             TestBasicRounding("1.1", 1, BigDecimal.RoundingMode.Floor, "1", 0);
-//             TestBasicRounding("1.1", 1, BigDecimal.RoundingMode.HalfUp, "1", 0);
-//             TestBasicRounding("1.1", 1, BigDecimal.RoundingMode.HalfDown, "1", 0);
-//             TestBasicRounding("1.1", 1, BigDecimal.RoundingMode.HalfEven, "1", 0);
-
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.Up, "1", 0);
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.Down, "1", 0);
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.Ceiling, "1", 0);
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.Floor, "1", 0);
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.HalfUp, "1", 0);
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.HalfDown, "1", 0);
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.HalfEven, "1", 0);
-//             TestBasicRounding("1.0", 1, BigDecimal.RoundingMode.Unnecessary, "1", 0);
-
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.Up, "-1", 0);
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.Down, "-1", 0);
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.Ceiling, "-1", 0);
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.Floor, "-1", 0);
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.HalfUp, "-1", 0);
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.HalfDown, "-1", 0);
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.HalfEven, "-1", 0);
-//             TestBasicRounding("-1.0", 1, BigDecimal.RoundingMode.Unnecessary, "-1", 0);
-
-//             TestBasicRounding("-1.1", 1, BigDecimal.RoundingMode.Up, "-2", 0);
-//             TestBasicRounding("-1.1", 1, BigDecimal.RoundingMode.Down, "-1", 0);
-//             TestBasicRounding("-1.1", 1, BigDecimal.RoundingMode.Ceiling, "-1", 0);
-//             TestBasicRounding("-1.1", 1, BigDecimal.RoundingMode.Floor, "-2", 0);
-//             TestBasicRounding("-1.1", 1, BigDecimal.RoundingMode.HalfUp, "-1", 0);
-//             TestBasicRounding("-1.1", 1, BigDecimal.RoundingMode.HalfDown, "-1", 0);
-//             TestBasicRounding("-1.1", 1, BigDecimal.RoundingMode.HalfEven, "-1", 0);
-
-//             TestBasicRounding("-1.6", 1, BigDecimal.RoundingMode.Up, "-2", 0);
-//             TestBasicRounding("-1.6", 1, BigDecimal.RoundingMode.Down, "-1", 0);
-//             TestBasicRounding("-1.6", 1, BigDecimal.RoundingMode.Ceiling, "-1", 0);
-//             TestBasicRounding("-1.6", 1, BigDecimal.RoundingMode.Floor, "-2", 0);
-//             TestBasicRounding("-1.6", 1, BigDecimal.RoundingMode.HalfUp, "-2", 0);
-//             TestBasicRounding("-1.6", 1, BigDecimal.RoundingMode.HalfDown, "-2", 0);
-//             TestBasicRounding("-1.6", 1, BigDecimal.RoundingMode.HalfEven, "-2", 0);
-
-//             TestBasicRounding("-2.5", 1, BigDecimal.RoundingMode.Up, "-3", 0);
-//             TestBasicRounding("-2.5", 1, BigDecimal.RoundingMode.Down, "-2", 0);
-//             TestBasicRounding("-2.5", 1, BigDecimal.RoundingMode.Ceiling, "-2", 0);
-//             TestBasicRounding("-2.5", 1, BigDecimal.RoundingMode.Floor, "-3", 0);
-//             TestBasicRounding("-2.5", 1, BigDecimal.RoundingMode.HalfUp, "-3", 0);
-//             TestBasicRounding("-2.5", 1, BigDecimal.RoundingMode.HalfDown, "-2", 0);
-//             TestBasicRounding("-2.5", 1, BigDecimal.RoundingMode.HalfEven, "-2", 0);
-
-//             TestBasicRounding("-5.5", 1, BigDecimal.RoundingMode.Up, "-6", 0);
-//             TestBasicRounding("-5.5", 1, BigDecimal.RoundingMode.Down, "-5", 0);
-//             TestBasicRounding("-5.5", 1, BigDecimal.RoundingMode.Ceiling, "-5", 0);
-//             TestBasicRounding("-5.5", 1, BigDecimal.RoundingMode.Floor, "-6", 0);
-//             TestBasicRounding("-5.5", 1, BigDecimal.RoundingMode.HalfUp, "-6", 0);
-//             TestBasicRounding("-5.5", 1, BigDecimal.RoundingMode.HalfDown, "-5", 0);
-//             TestBasicRounding("-5.5", 1, BigDecimal.RoundingMode.HalfEven, "-6", 0);
-
-//             TestBasicRounding("0.19", 3, BigDecimal.RoundingMode.Floor, "19", -2);
-//             TestBasicRounding(".190909", 3, BigDecimal.RoundingMode.Floor, "190", -3);
-//             TestBasicRounding("999.9", 3, BigDecimal.RoundingMode.Up, "100", 1);
-//         }
-
 //         #endregion
 
 //         #region Quantize tests

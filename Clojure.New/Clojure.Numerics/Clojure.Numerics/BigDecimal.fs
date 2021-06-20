@@ -146,14 +146,14 @@ type BigDecimal private (coeff, exp, precision) =
         let increment = 
             if r.IsZero then false
             else match mode with
-                 | Unnecessary -> raise <| ArithmeticException("Rounding required, but prohibited.")
+                 | Unnecessary -> raise <| ArithmeticException("Rounding is required, but prohibited.")
                  | Ceiling -> not isNeg
                  | Floor -> isNeg
                  | Down-> false
                  | Up -> true
                  | HalfDown -> (cmp r) > 0;
                  | HalfUp -> (cmp r) >= 0
-                 | HalfEven -> let c = (cmp r) in (c > 0) || (c = 0 &&  q.IsEven)
+                 | HalfEven -> let c = (cmp r) in (c > 0) || (c = 0 &&  not q.IsEven)
         if increment then 
             if q.Sign < 0 || (q.IsZero && x.Sign < 0) then q - BigInteger.One
             else q + BigInteger.One

@@ -14,13 +14,18 @@ module private ArithmeticHelpers =
     let biTen = BigInteger(10)
 
     let getBIPrecision (bi : BigInteger) =  
-        if bi.IsZero
-        then 1u
+        if bi.IsZero then 1u 
         else
-            let isMultipleOfTen = bi = (biTen*(bi/biTen))
-            let log = BigInteger.Log10 (if bi.Sign <= 0 then -bi else bi) 
-            let ilog = Math.Ceiling(log) |> uint32      
-            ilog + (if isMultipleOfTen then 1u else 0u)
+            let signFix = if bi.Sign < 0 then 1u else 0u
+            (bi.ToString().Length |> uint) - signFix
+           
+        // I would do this, but we end up with a one-off error on exact powers of 10 due to Log10 inexactness
+        //if bi.IsZero
+        //then 1u
+        //else
+        //    let log = BigInteger.Log10 (if bi.Sign <= 0 then -bi else bi) 
+        //    1u+((Math.Floor(log) |> uint32)   
+
 
     /// Exponent bias in the 64-bit floating point representation.
     let doubleExponentBias = 1023

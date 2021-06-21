@@ -549,7 +549,48 @@ type BigDecimal private (coeff, exp, precision) =
     /// Compute x+y
     static member (+) (x:BigDecimal, y:BigDecimal) = x.Add(y)
 
+    /// Compute the difference with y
+    member x.Subtract (y:BigDecimal) = 
+        let xa, ya = BigDecimal.align x y in BigDecimal(xa.Coefficient - ya.Coefficient,xa.Exponent,0u)
    
+    /// Compute the different with y, result rounded by context
+    member x.Subtract(y:BigDecimal, c:Context) = 
+        // TODO: Optimize for one arg or the other being zero.
+        // TODO: Optimize for differences in exponent along with the desired precision is large enough that the add is irreleveant
+        // Translated the Sun Java code pretty directly.
+        let result = x.Subtract(y)
+        if c.precision = 0u || c.roundingMode = RoundingMode.Unnecessary then result else BigDecimal.round result c
+
+    /// Compute x+y
+    static member Subtract(x:BigDecimal, y:BigDecimal) = x.Subtract(y)
+
+    /// Compute x+y, result rounded per the context
+    static member Subtract(x:BigDecimal, y:BigDecimal, c:Context) = x.Subtract(y,c)
+
+    /// Compute x+y
+    static member (-) (x:BigDecimal, y:BigDecimal) = x.Subtract(y)
+
+    /// Compute (-x)
+    static member (~-) (x:BigDecimal) = x.Negate()
+
+
+    /// Compute the product with y
+    member x.Multiply (y:BigDecimal) = BigDecimal(x.Coefficient * y.Coefficient, x.Exponent+y.Exponent,0u)
+
+    /// Compute the product with y, result rounded by context
+    member x.Multiply(y:BigDecimal, c:Context) = BigDecimal.round (x.Multiply(y)) c
+
+    /// Compute x*y
+    static member Multiply(x:BigDecimal, y:BigDecimal) = x.Multiply(y)
+
+    /// Compute x*y, result rounded by context
+    static member Multiply(x:BigDecimal, y:BigDecimal, c:Context) = x.Multiply(y,c)
+
+    /// Compute x*y
+    static member (*) (x:BigDecimal, y:BigDecimal) = x.Multiply(y)
+
+
+
 
 
 //           [Serializable]
@@ -1226,51 +1267,6 @@ type BigDecimal private (coeff, exp, precision) =
 //               }
 
 
-//               /// <summary>
-//               /// Compute <paramref name="x"/> + <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The sum</returns>
-//               public static BigDecimal operator +(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Add(y);
-//               }
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> - <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The difference</returns>
-//               public static BigDecimal operator -(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Subtract(y);
-//               }
-
-
-//               /// <summary>
-//               /// Compute the negation of <paramref name="x"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The negation</returns>
-//               public static BigDecimal operator -(BigDecimal x)
-//               {
-//                   return x.Negate();
-//               }
-
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> * <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The product</returns>
-//               public static BigDecimal operator *(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Multiply(y);
-//               }
 
 //               /// <summary>
 //               /// Compute <paramref name="x"/> / <paramref name="y"/>.
@@ -1297,51 +1293,6 @@ type BigDecimal private (coeff, exp, precision) =
 //               #endregion
 
 
-//               /// <summary>
-//               /// Compute <paramref name="x"/> - <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The difference</returns>
-//               public static BigDecimal Subtract(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Subtract(y);
-//               }
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> - <paramref name="y"/> with the result rounded per the context.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <param name="mc"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Subtract(BigDecimal x, BigDecimal y, Context c)
-//               {
-//                   return x.Subtract(y,c);
-//               }
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> * <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The product</returns>
-//               public static BigDecimal Multiply(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Multiply(y);
-//               }
-
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> * <paramref name="y"/>, with result rounded according to the context.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The product</returns>
-//               public static BigDecimal Multiply(BigDecimal x, BigDecimal y, Context c)
-//               {
-//                   return x.Multiply(y,c);
-//               }
 
 //               /// <summary>
 //               /// Compute <paramref name="x"/> / <paramref name="y"/>.
@@ -1477,57 +1428,8 @@ type BigDecimal private (coeff, exp, precision) =
            
 
 
-//               /// <summary>
-//               /// Returns this - y
-//               /// </summary>
-//               /// <param name="y">The subtrahend</param>
-//               /// <returns>The difference</returns>
-//               public BigDecimal Subtract(BigDecimal y)
-//               {
-//                   BigDecimal x = this;
-//                   Align(ref x, ref y);
-
-//                   return new BigDecimal(x._coeff - y._coeff, x._exp);
-//               }
-
-//               /// <summary>
-//               /// Returns this - y
-//               /// </summary>
-//               /// <param name="y">The subtrahend</param>
-//               /// <returns>The difference</returns>
-//               public BigDecimal Subtract(BigDecimal y, Context c)
-//               {
-//                   // TODO: Optimize for one arg or the other being zero.
-//                   // TODO: Optimize for differences in exponent along with the desired precision is large enough that the add is irreleveant
-//                   BigDecimal result = Subtract(y);
-
-//                   if (c.Precision == 0 || c.RoundingMode == RoundingMode.Unnecessary)
-//                       return result;
-
-//                   return result.Round(c);
 
 
-//               /// <summary>
-//               /// Returns this * y
-//               /// </summary>
-//               /// <param name="y">The multiplicand</param>
-//               /// <returns>The product</returns>
-//               public BigDecimal Multiply(BigDecimal y)
-//               {
-//                   return new BigDecimal(_coeff.Multiply(y._coeff), _exp + y._exp);
-//               }
-
-//               /// <summary>
-//               /// Returns this * y
-//               /// </summary>
-//               /// <param name="y">The multiplicand</param>
-//               /// <returns>The product</returns>
-//               public BigDecimal Multiply(BigDecimal y, Context c)
-//               {
-//                   BigDecimal d = Multiply(y);
-//                   d.RoundInPlace(c);
-//                   return d;
-//               }
 
 //               /// <summary>
 //               /// Returns this / y.

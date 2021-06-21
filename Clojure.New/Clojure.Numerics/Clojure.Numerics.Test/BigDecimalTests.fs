@@ -902,7 +902,7 @@ let quantizeSpecTestPosExponents =
         ("quax249 quantize   1E+7  1e+1  ->  1.000000E+7   -- underneath this is E+1", mhu);
         ("quax250 quantize   1E+8  1e+1  ->  1.0000000E+8  -- underneath this is E+1", mhu);
         ("quax251 quantize   1E+9  1e+1  ->  1.00000000E+9 -- underneath this is E+1", mhu);
-            //             // -- next one tries to add 9 zeros --  This fails in the original due to precision=9 limit
+        // -- next one tries to add 9 zeros --  This fails in the original due to precision=9 limit
         ("quax252 quantize   1E+10 1e+1  ->  1.000000000E+10 Invalid_operation", mhu); // mod from NaN
         ("quax253 quantize   1E-10 1e+1  ->  0E+1 Inexact Rounded", mhu);
         ("quax254 quantize   1E-2  1e+1  ->  0E+1 Inexact Rounded", mhu);
@@ -1144,7 +1144,7 @@ let quantizeSpecSome9999Examples =
         ("quax922 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", mhu);
         ("quax923 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", mhu);
     
-            //             //precision: 6
+        //precision: 6
         ("quax930 quantize   9.999E-15    1e-22 ->  9.9990000E-15       Invalid_operation", mhu);
         ("quax931 quantize   9.999E-15    1e-21 ->  9.999000E-15       Invalid_operation", mhu);
         ("quax932 quantize   9.999E-15    1e-20 ->  9.99900E-15", mhu);
@@ -1303,7 +1303,7 @@ let specAbsTests =
         ("absx043 abs '-101.5'  ->  '101.5'", c9);
     
         //-- more fixed, potential LHS swaps/overlays if done by subtract 0
-        //             //precision: 9
+        //precision: 9
         ("absx060 abs '-56267E-10'  -> '0.0000056267'", c9);
         ("absx061 abs '-56267E-5'   -> '0.56267'", c9);
         ("absx062 abs '-56267E-2'   -> '562.67'", c9);
@@ -1823,45 +1823,1309 @@ let addTests =
         //("addx477 add  -77e-9999999 10   ->  10.0000000 Inexact Rounded", c9he);
     ]
 
-
 [<Tests>]
 let addTestList = testList "addition examples" (createAddTests addTests)
+
+let subTest arg1Str arg2Str c resultStr =
+    let arg1 = BigDecimal.Parse(arg1Str)
+    let arg2 = BigDecimal.Parse(arg2Str)
+    let diff = arg1.Subtract(arg2,c)
+    let diffStr = diff.ToScientificString()
+    Expect.equal diffStr resultStr "difference incorrect"
+
+
+let subTestFromString test c =
+    let arg1Str, arg2Str, resultStr = getThreeArgs test
+    subTest arg1Str arg2Str c resultStr
+
+let createSubTests data =
+    data
+    |> Array.map (fun (test, c) ->
+           testCase (sprintf "Test '%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                subTestFromString test c
+           )
+
+let c1hu = Context.Create(1u, RoundingMode.HalfUp);
+let c2hu = Context.Create(2u, RoundingMode.HalfUp);
+let c4hu = Context.Create(4u, RoundingMode.HalfUp);
+let c5hu = Context.Create(5u, RoundingMode.HalfUp);
+let c8hu = Context.Create(8u, RoundingMode.HalfUp);
+let c12hu = Context.Create(12u, RoundingMode.HalfUp);
+let c34hu = Context.Create(34u, RoundingMode.HalfUp);
+
+let subTests =
+    [|
+        //version: 2.59
+        //
+        //extended:    1
+        //precision:   9
+        //rounding:    half_up
+        //maxExponent: 384
+        //minexponent: -383
+        //
+        //-- [first group are 'quick confidence check']
+        ("subx001 subtract  0   0  -> '0'", c9hu);
+        ("subx002 subtract  1   1  -> '0'", c9hu);
+        ("subx003 subtract  1   2  -> '-1'", c9hu);
+        ("subx004 subtract  2   1  -> '1'", c9hu);
+        ("subx005 subtract  2   2  -> '0'", c9hu);
+        ("subx006 subtract  3   2  -> '1'", c9hu);
+        ("subx007 subtract  2   3  -> '-1'", c9hu);
+    
+        ("subx011 subtract -0   0  -> '0'", c9hu);  // mod: neg zero
+        ("subx012 subtract -1   1  -> '-2'", c9hu);
+        ("subx013 subtract -1   2  -> '-3'", c9hu);
+        ("subx014 subtract -2   1  -> '-3'", c9hu);
+        ("subx015 subtract -2   2  -> '-4'", c9hu);
+        ("subx016 subtract -3   2  -> '-5'", c9hu);
+        ("subx017 subtract -2   3  -> '-5'", c9hu);
+    
+        ("subx021 subtract  0  -0  -> '0'", c9hu);
+        ("subx022 subtract  1  -1  -> '2'", c9hu);
+        ("subx023 subtract  1  -2  -> '3'", c9hu);
+        ("subx024 subtract  2  -1  -> '3'", c9hu);
+        ("subx025 subtract  2  -2  -> '4'", c9hu);
+        ("subx026 subtract  3  -2  -> '5'", c9hu);
+        ("subx027 subtract  2  -3  -> '5'", c9hu);
+    
+        ("subx030 subtract  11  1  -> 10", c9hu);
+        ("subx031 subtract  10  1  ->  9", c9hu);
+        ("subx032 subtract  9   1  ->  8", c9hu);
+        ("subx033 subtract  1   1  ->  0", c9hu);
+        ("subx034 subtract  0   1  -> -1", c9hu);
+        ("subx035 subtract -1   1  -> -2", c9hu);
+        ("subx036 subtract -9   1  -> -10", c9hu);
+        ("subx037 subtract -10  1  -> -11", c9hu);
+        ("subx038 subtract -11  1  -> -12", c9hu);
+    
+        ("subx040 subtract '5.75' '3.3'  -> '2.45'", c9hu);
+        ("subx041 subtract '5'    '-3'   -> '8'", c9hu);
+        ("subx042 subtract '-5'   '-3'   -> '-2'", c9hu);
+        ("subx043 subtract '-7'   '2.5'  -> '-9.5'", c9hu);
+        ("subx044 subtract '0.7'  '0.3'  -> '0.4'", c9hu);
+        ("subx045 subtract '1.3'  '0.3'  -> '1.0'", c9hu);
+        ("subx046 subtract '1.25' '1.25' -> '0.00'", c9hu);
+    
+        ("subx050 subtract '1.23456789'    '1.00000000' -> '0.23456789'", c9hu);
+        ("subx051 subtract '1.23456789'    '1.00000089' -> '0.23456700'", c9hu);
+        ("subx052 subtract '0.5555555559'    '0.0000000001' -> '0.555555556' Inexact Rounded", c9hu);
+        ("subx053 subtract '0.5555555559'    '0.0000000005' -> '0.555555555' Inexact Rounded", c9hu);
+        ("subx054 subtract '0.4444444444'    '0.1111111111' -> '0.333333333' Inexact Rounded", c9hu);
+        ("subx055 subtract '1.0000000000'    '0.00000001' -> '0.999999990' Rounded", c9hu);
+        ("subx056 subtract '0.4444444444999'    '0' -> '0.444444444' Inexact Rounded", c9hu);
+        ("subx057 subtract '0.4444444445000'    '0' -> '0.444444445' Inexact Rounded", c9hu);
+    
+        ("subx060 subtract '70'    '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx061 subtract '700'    '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx062 subtract '7000'    '10000e+9' -> '-9.99999999E+12' Inexact Rounded", c9hu);
+        ("subx063 subtract '70000'    '10000e+9' -> '-9.99999993E+12' Rounded", c9hu);
+        ("subx064 subtract '700000'    '10000e+9' -> '-9.99999930E+12' Rounded", c9hu);
+        //  -- symmetry:
+        ("subx065 subtract '10000e+9'    '70' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx066 subtract '10000e+9'    '700' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx067 subtract '10000e+9'    '7000' -> '9.99999999E+12' Inexact Rounded", c9hu);
+        ("subx068 subtract '10000e+9'    '70000' -> '9.99999993E+12' Rounded", c9hu);
+        ("subx069 subtract '10000e+9'    '700000' -> '9.99999930E+12' Rounded", c9hu);
+    
+        //  -- change precision
+        ("subx080 subtract '10000e+9'    '70000' -> '9.99999993E+12' Rounded", c9hu);
+        //precision: 6
+        ("subx081 subtract '10000e+9'    '70000' -> '1.00000E+13' Inexact Rounded", c6hu);
+        //precision: 9
+        //  -- some of the next group are really constructor tests
+        ("subx090 subtract '00.0'    '0.0'  -> '0.0'", c9hu);
+        ("subx091 subtract '00.0'    '0.00' -> '0.00'", c9hu);
+        ("subx092 subtract '0.00'    '00.0' -> '0.00'", c9hu);
+        ("subx093 subtract '00.0'    '0.00' -> '0.00'", c9hu);
+        ("subx094 subtract '0.00'    '00.0' -> '0.00'", c9hu);
+        ("subx095 subtract '3'    '.3'   -> '2.7'", c9hu);
+        ("subx096 subtract '3.'   '.3'   -> '2.7'", c9hu);
+        ("subx097 subtract '3.0'  '.3'   -> '2.7'", c9hu);
+        ("subx098 subtract '3.00' '.3'   -> '2.70'", c9hu);
+        ("subx099 subtract '3'    '3'    -> '0'", c9hu);
+        ("subx100 subtract '3'    '+3'   -> '0'", c9hu);
+        ("subx101 subtract '3'    '-3'   -> '6'", c9hu);
+        ("subx102 subtract '3'    '0.3'  -> '2.7'", c9hu);
+        ("subx103 subtract '3.'   '0.3'  -> '2.7'", c9hu);
+        ("subx104 subtract '3.0'  '0.3'  -> '2.7'", c9hu);
+        ("subx105 subtract '3.00' '0.3'  -> '2.70'", c9hu);
+        ("subx106 subtract '3'    '3.0'  -> '0.0'", c9hu);
+        ("subx107 subtract '3'    '+3.0' -> '0.0'", c9hu);
+        ("subx108 subtract '3'    '-3.0' -> '6.0'", c9hu);
+    
+        //-- the above all from add; massaged and extended.  Now some new ones...
+        //-- [particularly important for comparisons]
+        //-- NB: -xE-8 below were non-exponents pre-ANSI X3-274, and -1E-7 or 0E-7
+        //-- with input rounding.
+        ("subx120 subtract  '10.23456784'    '10.23456789'  -> '-5E-8'", c9hu);
+        ("subx121 subtract  '10.23456785'    '10.23456789'  -> '-4E-8'", c9hu);
+        ("subx122 subtract  '10.23456786'    '10.23456789'  -> '-3E-8'", c9hu);
+        ("subx123 subtract  '10.23456787'    '10.23456789'  -> '-2E-8'", c9hu);
+        ("subx124 subtract  '10.23456788'    '10.23456789'  -> '-1E-8'", c9hu);
+        ("subx125 subtract  '10.23456789'    '10.23456789'  -> '0E-8'", c9hu);
+        ("subx126 subtract  '10.23456790'    '10.23456789'  -> '1E-8'", c9hu);
+        ("subx127 subtract  '10.23456791'    '10.23456789'  -> '2E-8'", c9hu);
+        ("subx128 subtract  '10.23456792'    '10.23456789'  -> '3E-8'", c9hu);
+        ("subx129 subtract  '10.23456793'    '10.23456789'  -> '4E-8'", c9hu);
+        ("subx130 subtract  '10.23456794'    '10.23456789'  -> '5E-8'", c9hu);
+        ("subx131 subtract  '10.23456781'    '10.23456786'  -> '-5E-8'", c9hu);
+        ("subx132 subtract  '10.23456782'    '10.23456786'  -> '-4E-8'", c9hu);
+        ("subx133 subtract  '10.23456783'    '10.23456786'  -> '-3E-8'", c9hu);
+        ("subx134 subtract  '10.23456784'    '10.23456786'  -> '-2E-8'", c9hu);
+        ("subx135 subtract  '10.23456785'    '10.23456786'  -> '-1E-8'", c9hu);
+        ("subx136 subtract  '10.23456786'    '10.23456786'  -> '0E-8'", c9hu);
+        ("subx137 subtract  '10.23456787'    '10.23456786'  -> '1E-8'", c9hu);
+        ("subx138 subtract  '10.23456788'    '10.23456786'  -> '2E-8'", c9hu);
+        ("subx139 subtract  '10.23456789'    '10.23456786'  -> '3E-8'", c9hu);
+        ("subx140 subtract  '10.23456790'    '10.23456786'  -> '4E-8'", c9hu);
+        ("subx141 subtract  '10.23456791'    '10.23456786'  -> '5E-8'", c9hu);
+        ("subx142 subtract  '1'              '0.999999999'  -> '1E-9'", c9hu);
+        ("subx143 subtract  '0.999999999'    '1'            -> '-1E-9'", c9hu);
+        ("subx144 subtract  '-10.23456780'   '-10.23456786' -> '6E-8'", c9hu);
+        ("subx145 subtract  '-10.23456790'   '-10.23456786' -> '-4E-8'", c9hu);
+        ("subx146 subtract  '-10.23456791'   '-10.23456786' -> '-5E-8'", c9hu);
+
+        //precision: 3
+        ("subx150 subtract '12345678900000' '9999999999999'  -> 2.35E+12 Inexact Rounded", c3hu);
+        ("subx151 subtract '9999999999999'  '12345678900000' -> -2.35E+12 Inexact Rounded", c3hu);
+        //precision: 6
+        ("subx152 subtract '12345678900000' '9999999999999'  -> 2.34568E+12 Inexact Rounded", c6hu);
+        ("subx153 subtract '9999999999999'  '12345678900000' -> -2.34568E+12 Inexact Rounded", c6hu);
+        //precision: 9
+        ("subx154 subtract '12345678900000' '9999999999999'  -> 2.34567890E+12 Inexact Rounded", c9hu);
+        ("subx155 subtract '9999999999999'  '12345678900000' -> -2.34567890E+12 Inexact Rounded", c9hu);
+        //precision: 12
+        ("subx156 subtract '12345678900000' '9999999999999'  -> 2.34567890000E+12 Inexact Rounded", c12hu);
+        ("subx157 subtract '9999999999999'  '12345678900000' -> -2.34567890000E+12 Inexact Rounded", c12hu);
+        //precision: 15
+        ("subx158 subtract '12345678900000' '9999999999999'  -> 2345678900001", c15hu);
+        ("subx159 subtract '9999999999999'  '12345678900000' -> -2345678900001", c15hu);
+        //precision: 9
+        //-- additional scaled arithmetic tests [0.97 problem]
+        ("subx160 subtract '0'     '.1'      -> '-0.1'", c9hu);
+        ("subx161 subtract '00'    '.97983'  -> '-0.97983'", c9hu);
+        ("subx162 subtract '0'     '.9'      -> '-0.9'", c9hu);
+        ("subx163 subtract '0'     '0.102'   -> '-0.102'", c9hu);
+        ("subx164 subtract '0'     '.4'      -> '-0.4'", c9hu);
+        ("subx165 subtract '0'     '.307'    -> '-0.307'", c9hu);
+        ("subx166 subtract '0'     '.43822'  -> '-0.43822'", c9hu);
+        ("subx167 subtract '0'     '.911'    -> '-0.911'", c9hu);
+        ("subx168 subtract '.0'    '.02'     -> '-0.02'", c9hu);
+        ("subx169 subtract '00'    '.392'    -> '-0.392'", c9hu);
+        ("subx170 subtract '0'     '.26'     -> '-0.26'", c9hu);
+        ("subx171 subtract '0'     '0.51'    -> '-0.51'", c9hu);
+        ("subx172 subtract '0'     '.2234'   -> '-0.2234'", c9hu);
+        ("subx173 subtract '0'     '.2'      -> '-0.2'", c9hu);
+        ("subx174 subtract '.0'    '.0008'   -> '-0.0008'", c9hu);
+        //-- 0. on left
+        ("subx180 subtract '0.0'     '-.1'      -> '0.1'", c9hu);
+        ("subx181 subtract '0.00'    '-.97983'  -> '0.97983'", c9hu);
+        ("subx182 subtract '0.0'     '-.9'      -> '0.9'", c9hu);
+        ("subx183 subtract '0.0'     '-0.102'   -> '0.102'", c9hu);
+        ("subx184 subtract '0.0'     '-.4'      -> '0.4'", c9hu);
+        ("subx185 subtract '0.0'     '-.307'    -> '0.307'", c9hu);
+        ("subx186 subtract '0.0'     '-.43822'  -> '0.43822'", c9hu);
+        ("subx187 subtract '0.0'     '-.911'    -> '0.911'", c9hu);
+        ("subx188 subtract '0.0'     '-.02'     -> '0.02'", c9hu);
+        ("subx189 subtract '0.00'    '-.392'    -> '0.392'", c9hu);
+        ("subx190 subtract '0.0'     '-.26'     -> '0.26'", c9hu);
+        ("subx191 subtract '0.0'     '-0.51'    -> '0.51'", c9hu);
+        ("subx192 subtract '0.0'     '-.2234'   -> '0.2234'", c9hu);
+        ("subx193 subtract '0.0'     '-.2'      -> '0.2'", c9hu);
+        ("subx194 subtract '0.0'     '-.0008'   -> '0.0008'", c9hu);
+        //-- negatives of same
+        ("subx200 subtract '0'     '-.1'      -> '0.1'", c9hu);
+        ("subx201 subtract '00'    '-.97983'  -> '0.97983'", c9hu);
+        ("subx202 subtract '0'     '-.9'      -> '0.9'", c9hu);
+        ("subx203 subtract '0'     '-0.102'   -> '0.102'", c9hu);
+        ("subx204 subtract '0'     '-.4'      -> '0.4'", c9hu);
+        ("subx205 subtract '0'     '-.307'    -> '0.307'", c9hu);
+        ("subx206 subtract '0'     '-.43822'  -> '0.43822'", c9hu);
+        ("subx207 subtract '0'     '-.911'    -> '0.911'", c9hu);
+        ("subx208 subtract '.0'    '-.02'     -> '0.02'", c9hu);
+        ("subx209 subtract '00'    '-.392'    -> '0.392'", c9hu);
+        ("subx210 subtract '0'     '-.26'     -> '0.26'", c9hu);
+        ("subx211 subtract '0'     '-0.51'    -> '0.51'", c9hu);
+        ("subx212 subtract '0'     '-.2234'   -> '0.2234'", c9hu);
+        ("subx213 subtract '0'     '-.2'      -> '0.2'", c9hu);
+        ("subx214 subtract '.0'    '-.0008'   -> '0.0008'", c9hu);
+    
+        //-- more fixed, LHS swaps [really the same as testcases under add]
+        ("subx220 subtract '-56267E-12' 0  -> '-5.6267E-8'", c9hu);
+        ("subx221 subtract '-56267E-11' 0  -> '-5.6267E-7'", c9hu);
+        ("subx222 subtract '-56267E-10' 0  -> '-0.0000056267'", c9hu);
+        ("subx223 subtract '-56267E-9'  0  -> '-0.000056267'", c9hu);
+        ("subx224 subtract '-56267E-8'  0  -> '-0.00056267'", c9hu);
+        ("subx225 subtract '-56267E-7'  0  -> '-0.0056267'", c9hu);
+        ("subx226 subtract '-56267E-6'  0  -> '-0.056267'", c9hu);
+        ("subx227 subtract '-56267E-5'  0  -> '-0.56267'", c9hu);
+        ("subx228 subtract '-56267E-2'  0  -> '-562.67'", c9hu);
+        ("subx229 subtract '-56267E-1'  0  -> '-5626.7'", c9hu);
+        ("subx230 subtract '-56267E-0'  0  -> '-56267'", c9hu);
+        //-- symmetry ...
+        ("subx240 subtract 0 '-56267E-12'  -> '5.6267E-8'", c9hu);
+        ("subx241 subtract 0 '-56267E-11'  -> '5.6267E-7'", c9hu);
+        ("subx242 subtract 0 '-56267E-10'  -> '0.0000056267'", c9hu);
+        ("subx243 subtract 0 '-56267E-9'   -> '0.000056267'", c9hu);
+        ("subx244 subtract 0 '-56267E-8'   -> '0.00056267'", c9hu);
+        ("subx245 subtract 0 '-56267E-7'   -> '0.0056267'", c9hu);
+        ("subx246 subtract 0 '-56267E-6'   -> '0.056267'", c9hu);
+        ("subx247 subtract 0 '-56267E-5'   -> '0.56267'", c9hu);
+        ("subx248 subtract 0 '-56267E-2'   -> '562.67'", c9hu);
+        ("subx249 subtract 0 '-56267E-1'   -> '5626.7'", c9hu);
+        ("subx250 subtract 0 '-56267E-0'   -> '56267'", c9hu);
+    
+        //-- now some more from the 'new' add
+        //precision: 9
+        ("subx301 subtract '1.23456789'  '1.00000000' -> '0.23456789'", c9hu);
+        ("subx302 subtract '1.23456789'  '1.00000011' -> '0.23456778'", c9hu);
+    
+        ("subx311 subtract '0.4444444444'  '0.5555555555' -> '-0.111111111' Inexact Rounded", c9hu);
+        ("subx312 subtract '0.4444444440'  '0.5555555555' -> '-0.111111112' Inexact Rounded", c9hu);
+        ("subx313 subtract '0.4444444444'  '0.5555555550' -> '-0.111111111' Inexact Rounded", c9hu);
+        ("subx314 subtract '0.44444444449'    '0' -> '0.444444444' Inexact Rounded", c9hu);
+        ("subx315 subtract '0.444444444499'   '0' -> '0.444444444' Inexact Rounded", c9hu);
+        ("subx316 subtract '0.4444444444999'  '0' -> '0.444444444' Inexact Rounded", c9hu);
+        ("subx317 subtract '0.4444444445000'  '0' -> '0.444444445' Inexact Rounded", c9hu);
+        ("subx318 subtract '0.4444444445001'  '0' -> '0.444444445' Inexact Rounded", c9hu);
+        ("subx319 subtract '0.444444444501'   '0' -> '0.444444445' Inexact Rounded", c9hu);
+        ("subx320 subtract '0.44444444451'    '0' -> '0.444444445' Inexact Rounded", c9hu);
+    
+        //-- some carrying effects
+        ("subx321 subtract '0.9998'  '0.0000' -> '0.9998'", c9hu);
+        ("subx322 subtract '0.9998'  '0.0001' -> '0.9997'", c9hu);
+        ("subx323 subtract '0.9998'  '0.0002' -> '0.9996'", c9hu);
+        ("subx324 subtract '0.9998'  '0.0003' -> '0.9995'", c9hu);
+        ("subx325 subtract '0.9998'  '-0.0000' -> '0.9998'", c9hu);
+        ("subx326 subtract '0.9998'  '-0.0001' -> '0.9999'", c9hu);
+        ("subx327 subtract '0.9998'  '-0.0002' -> '1.0000'", c9hu);
+        ("subx328 subtract '0.9998'  '-0.0003' -> '1.0001'", c9hu);
+    
+        ("subx330 subtract '70'  '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx331 subtract '700'  '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx332 subtract '7000'  '10000e+9' -> '-9.99999999E+12' Inexact Rounded", c9hu);
+        ("subx333 subtract '70000'  '10000e+9' -> '-9.99999993E+12' Rounded", c9hu);
+        ("subx334 subtract '700000'  '10000e+9' -> '-9.99999930E+12' Rounded", c9hu);
+        ("subx335 subtract '7000000'  '10000e+9' -> '-9.99999300E+12' Rounded", c9hu);
+        //-- symmetry:
+        ("subx340 subtract '10000e+9'  '70' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx341 subtract '10000e+9'  '700' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("subx342 subtract '10000e+9'  '7000' -> '9.99999999E+12' Inexact Rounded", c9hu);
+        ("subx343 subtract '10000e+9'  '70000' -> '9.99999993E+12' Rounded", c9hu);
+        ("subx344 subtract '10000e+9'  '700000' -> '9.99999930E+12' Rounded", c9hu);
+        ("subx345 subtract '10000e+9'  '7000000' -> '9.99999300E+12' Rounded", c9hu);
+    
+        //-- same, higher precision
+        //precision: 15
+        ("subx346 subtract '10000e+9'  '7'   -> '9999999999993'", c15hu);
+        ("subx347 subtract '10000e+9'  '70'   -> '9999999999930'", c15hu);
+        ("subx348 subtract '10000e+9'  '700'   -> '9999999999300'", c15hu);
+        ("subx349 subtract '10000e+9'  '7000'   -> '9999999993000'", c15hu);
+        ("subx350 subtract '10000e+9'  '70000'   -> '9999999930000'", c15hu);
+        ("subx351 subtract '10000e+9'  '700000'   -> '9999999300000'", c15hu);
+        ("subx352 subtract '7' '10000e+9'   -> '-9999999999993'", c15hu);
+        ("subx353 subtract '70' '10000e+9'   -> '-9999999999930'", c15hu);
+        ("subx354 subtract '700' '10000e+9'   -> '-9999999999300'", c15hu);
+        ("subx355 subtract '7000' '10000e+9'   -> '-9999999993000'", c15hu);
+        ("subx356 subtract '70000' '10000e+9'   -> '-9999999930000'", c15hu);
+        ("subx357 subtract '700000' '10000e+9'   -> '-9999999300000'", c15hu);
+    
+        //-- zero preservation
+        //precision: 6
+        ("subx360 subtract '10000e+9'  '70000' -> '1.00000E+13' Inexact Rounded", c6hu);
+        ("subx361 subtract 1 '0.0001' -> '0.9999'", c6hu);
+        ("subx362 subtract 1 '0.00001' -> '0.99999'", c6hu);
+        ("subx363 subtract 1 '0.000001' -> '0.999999'", c6hu);
+        ("subx364 subtract 1 '0.0000001' -> '1.00000' Inexact Rounded", c6hu);
+        ("subx365 subtract 1 '0.00000001' -> '1.00000' Inexact Rounded", c6hu);
+    
+        //-- some funny zeros [in case of bad signum]
+        ("subx370 subtract 1  0  -> 1", c6hu);
+        ("subx371 subtract 1 0.  -> 1", c6hu);
+        ("subx372 subtract 1  .0 -> 1.0", c6hu);
+        ("subx373 subtract 1 0.0 -> 1.0", c6hu);
+        ("subx374 subtract  0  1 -> -1", c6hu);
+        ("subx375 subtract 0.  1 -> -1", c6hu);
+        ("subx376 subtract  .0 1 -> -1.0", c6hu);
+        ("subx377 subtract 0.0 1 -> -1.0", c6hu);
+    
+        //precision: 9
+        //-- leading 0 digit before round
+        ("subx910 subtract -103519362 -51897955.3 -> -51621406.7", c9hu);
+        ("subx911 subtract 159579.444 89827.5229 -> 69751.9211", c9hu);
+    
+        ("subx920 subtract 333.123456 33.1234566 -> 299.999999 Inexact Rounded", c9hu);
+        ("subx921 subtract 333.123456 33.1234565 -> 300.000000 Inexact Rounded", c9hu);
+        ("subx922 subtract 133.123456 33.1234565 ->  99.9999995", c9hu);
+        ("subx923 subtract 133.123456 33.1234564 ->  99.9999996", c9hu);
+        ("subx924 subtract 133.123456 33.1234540 -> 100.000002 Rounded", c9hu);
+        ("subx925 subtract 133.123456 43.1234560 ->  90.0000000", c9hu);
+        ("subx926 subtract 133.123456 43.1234561 ->  89.9999999", c9hu);
+        ("subx927 subtract 133.123456 43.1234566 ->  89.9999994", c9hu);
+        ("subx928 subtract 101.123456 91.1234566 ->   9.9999994", c9hu);
+        ("subx929 subtract 101.123456 99.1234566 ->   1.9999994", c9hu);
+    
+        //-- more of the same; probe for cluster boundary problems
+    
+        //precision: 1
+        ("subx930 subtract  11 2           -> 9", c1hu);
+        //precision: 2
+        ("subx932 subtract 101 2           -> 99", c2hu);
+        //precision: 3
+        ("subx934 subtract 101 2.1         -> 98.9", c3hu);
+        ("subx935 subtract 101 92.01       ->  8.99", c3hu);
+        //precision: 4
+        ("subx936 subtract 101 2.01        -> 98.99", c4hu);
+        ("subx937 subtract 101 92.01       ->  8.99", c4hu);
+        ("subx938 subtract 101 92.006      ->  8.994", c4hu);
+        //precision: 5
+        ("subx939 subtract 101 2.001       -> 98.999", c5hu);
+        ("subx940 subtract 101 92.001      ->  8.999", c5hu);
+        ("subx941 subtract 101 92.0006     ->  8.9994", c5hu);
+        //precision: 6
+        ("subx942 subtract 101 2.0001      -> 98.9999", c6hu);
+        ("subx943 subtract 101 92.0001     ->  8.9999", c6hu);
+        ("subx944 subtract 101 92.00006    ->  8.99994", c6hu);
+        //precision: 7
+        ("subx945 subtract 101 2.00001     -> 98.99999", c7hu);
+        ("subx946 subtract 101 92.00001    ->  8.99999", c7hu);
+        ("subx947 subtract 101 92.000006   ->  8.999994", c7hu);
+            //precision: 8
+        ("subx948 subtract 101 2.000001    -> 98.999999", c8hu);
+        ("subx949 subtract 101 92.000001   ->  8.999999", c8hu);
+        ("subx950 subtract 101 92.0000006  ->  8.9999994", c8hu);
+            //precision: 9
+        ("subx951 subtract 101 2.0000001   -> 98.9999999", c9hu);
+        ("subx952 subtract 101 92.0000001  ->  8.9999999", c9hu);
+        ("subx953 subtract 101 92.00000006 ->  8.99999994", c9hu);
+    
+        //precision: 9
+    
+        //-- more LHS swaps [were fixed]
+        ("subx390 subtract '-56267E-10'   0 ->  '-0.0000056267'", c9hu);
+        ("subx391 subtract '-56267E-6'    0 ->  '-0.056267'", c9hu);
+        ("subx392 subtract '-56267E-5'    0 ->  '-0.56267'", c9hu);
+        ("subx393 subtract '-56267E-4'    0 ->  '-5.6267'", c9hu);
+        ("subx394 subtract '-56267E-3'    0 ->  '-56.267'", c9hu);
+        ("subx395 subtract '-56267E-2'    0 ->  '-562.67'", c9hu);
+        ("subx396 subtract '-56267E-1'    0 ->  '-5626.7'", c9hu);
+        ("subx397 subtract '-56267E-0'    0 ->  '-56267'", c9hu);
+        ("subx398 subtract '-5E-10'       0 ->  '-5E-10'", c9hu);
+        ("subx399 subtract '-5E-7'        0 ->  '-5E-7'", c9hu);
+        ("subx400 subtract '-5E-6'        0 ->  '-0.000005'", c9hu);
+        ("subx401 subtract '-5E-5'        0 ->  '-0.00005'", c9hu);
+        ("subx402 subtract '-5E-4'        0 ->  '-0.0005'", c9hu);
+        ("subx403 subtract '-5E-1'        0 ->  '-0.5'", c9hu);
+        ("subx404 subtract '-5E0'         0 ->  '-5'", c9hu);
+        ("subx405 subtract '-5E1'         0 ->  '-50'", c9hu);
+        ("subx406 subtract '-5E5'         0 ->  '-500000'", c9hu);
+        ("subx407 subtract '-5E8'         0 ->  '-500000000'", c9hu);
+        ("subx408 subtract '-5E9'         0 ->  '-5.00000000E+9'   Rounded", c9hu);
+        ("subx409 subtract '-5E10'        0 ->  '-5.00000000E+10'  Rounded", c9hu);
+        ("subx410 subtract '-5E11'        0 ->  '-5.00000000E+11'  Rounded", c9hu);
+        ("subx411 subtract '-5E100'       0 ->  '-5.00000000E+100' Rounded", c9hu);
+    
+        //-- more RHS swaps [were fixed]
+        ("subx420 subtract 0  '-56267E-10' ->  '0.0000056267'", c9hu);
+        ("subx421 subtract 0  '-56267E-6'  ->  '0.056267'", c9hu);
+        ("subx422 subtract 0  '-56267E-5'  ->  '0.56267'", c9hu);
+        ("subx423 subtract 0  '-56267E-4'  ->  '5.6267'", c9hu);
+        ("subx424 subtract 0  '-56267E-3'  ->  '56.267'", c9hu);
+        ("subx425 subtract 0  '-56267E-2'  ->  '562.67'", c9hu);
+        ("subx426 subtract 0  '-56267E-1'  ->  '5626.7'", c9hu);
+        ("subx427 subtract 0  '-56267E-0'  ->  '56267'", c9hu);
+        ("subx428 subtract 0  '-5E-10'     ->  '5E-10'", c9hu);
+        ("subx429 subtract 0  '-5E-7'      ->  '5E-7'", c9hu);
+        ("subx430 subtract 0  '-5E-6'      ->  '0.000005'", c9hu);
+        ("subx431 subtract 0  '-5E-5'      ->  '0.00005'", c9hu);
+        ("subx432 subtract 0  '-5E-4'      ->  '0.0005'", c9hu);
+        ("subx433 subtract 0  '-5E-1'      ->  '0.5'", c9hu);
+        ("subx434 subtract 0  '-5E0'       ->  '5'", c9hu);
+        ("subx435 subtract 0  '-5E1'       ->  '50'", c9hu);
+        ("subx436 subtract 0  '-5E5'       ->  '500000'", c9hu);
+        ("subx437 subtract 0  '-5E8'       ->  '500000000'", c9hu);
+        ("subx438 subtract 0  '-5E9'       ->  '5.00000000E+9'    Rounded", c9hu);
+        ("subx439 subtract 0  '-5E10'      ->  '5.00000000E+10'   Rounded", c9hu);
+        ("subx440 subtract 0  '-5E11'      ->  '5.00000000E+11'   Rounded", c9hu);
+        ("subx441 subtract 0  '-5E100'     ->  '5.00000000E+100'  Rounded", c9hu);
+    
+    
+        //-- try borderline precision, with carries, etc.
+        //precision: 15
+        ("subx461 subtract '1E+12' '1'       -> '999999999999'", c15hu);
+        ("subx462 subtract '1E+12' '-1.11'   -> '1000000000001.11'", c15hu);
+        ("subx463 subtract '1.11'  '-1E+12'  -> '1000000000001.11'", c15hu);
+        ("subx464 subtract '-1'    '-1E+12'  -> '999999999999'", c15hu);
+        ("subx465 subtract '7E+12' '1'       -> '6999999999999'", c15hu);
+        ("subx466 subtract '7E+12' '-1.11'   -> '7000000000001.11'", c15hu);
+        ("subx467 subtract '1.11'  '-7E+12'  -> '7000000000001.11'", c15hu);
+        ("subx468 subtract '-1'    '-7E+12'  -> '6999999999999'", c15hu);
+    
+        //--                 123456789012345       123456789012345      1 23456789012345
+        ("subx470 subtract '0.444444444444444'  '-0.555555555555563' -> '1.00000000000001' Inexact Rounded", c15hu);
+        ("subx471 subtract '0.444444444444444'  '-0.555555555555562' -> '1.00000000000001' Inexact Rounded", c15hu);
+        ("subx472 subtract '0.444444444444444'  '-0.555555555555561' -> '1.00000000000001' Inexact Rounded", c15hu);
+        ("subx473 subtract '0.444444444444444'  '-0.555555555555560' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("subx474 subtract '0.444444444444444'  '-0.555555555555559' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("subx475 subtract '0.444444444444444'  '-0.555555555555558' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("subx476 subtract '0.444444444444444'  '-0.555555555555557' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("subx477 subtract '0.444444444444444'  '-0.555555555555556' -> '1.00000000000000' Rounded", c15hu);
+        ("subx478 subtract '0.444444444444444'  '-0.555555555555555' -> '0.999999999999999'", c15hu);
+        ("subx479 subtract '0.444444444444444'  '-0.555555555555554' -> '0.999999999999998'", c15hu);
+        ("subx480 subtract '0.444444444444444'  '-0.555555555555553' -> '0.999999999999997'", c15hu);
+        ("subx481 subtract '0.444444444444444'  '-0.555555555555552' -> '0.999999999999996'", c15hu);
+        ("subx482 subtract '0.444444444444444'  '-0.555555555555551' -> '0.999999999999995'", c15hu);
+        ("subx483 subtract '0.444444444444444'  '-0.555555555555550' -> '0.999999999999994'", c15hu);
+    
+    
+        //-- and some more, including residue effects and different roundings
+        //precision: 9
+        //rounding: half_up
+        ("subx500 subtract '123456789' 0             -> '123456789'", c9hu);
+        ("subx501 subtract '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9hu);
+        ("subx502 subtract '123456789' 0.000001      -> '123456789' Inexact Rounded", c9hu);
+        ("subx503 subtract '123456789' 0.1           -> '123456789' Inexact Rounded", c9hu);
+        ("subx504 subtract '123456789' 0.4           -> '123456789' Inexact Rounded", c9hu);
+        ("subx505 subtract '123456789' 0.49          -> '123456789' Inexact Rounded", c9hu);
+        ("subx506 subtract '123456789' 0.499999      -> '123456789' Inexact Rounded", c9hu);
+        ("subx507 subtract '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9hu);
+        ("subx508 subtract '123456789' 0.5           -> '123456789' Inexact Rounded", c9hu);
+        ("subx509 subtract '123456789' 0.500000001   -> '123456788' Inexact Rounded", c9hu);
+        ("subx510 subtract '123456789' 0.500001      -> '123456788' Inexact Rounded", c9hu);
+        ("subx511 subtract '123456789' 0.51          -> '123456788' Inexact Rounded", c9hu);
+        ("subx512 subtract '123456789' 0.6           -> '123456788' Inexact Rounded", c9hu);
+        ("subx513 subtract '123456789' 0.9           -> '123456788' Inexact Rounded", c9hu);
+        ("subx514 subtract '123456789' 0.99999       -> '123456788' Inexact Rounded", c9hu);
+        ("subx515 subtract '123456789' 0.999999999   -> '123456788' Inexact Rounded", c9hu);
+        ("subx516 subtract '123456789' 1             -> '123456788'", c9hu);
+        ("subx517 subtract '123456789' 1.000000001   -> '123456788' Inexact Rounded", c9hu);
+        ("subx518 subtract '123456789' 1.00001       -> '123456788' Inexact Rounded", c9hu);
+        ("subx519 subtract '123456789' 1.1           -> '123456788' Inexact Rounded", c9hu);
+    
+        //rounding: half_even
+        ("subx520 subtract '123456789' 0             -> '123456789'", c9he);
+        ("subx521 subtract '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9he);
+        ("subx522 subtract '123456789' 0.000001      -> '123456789' Inexact Rounded", c9he);
+        ("subx523 subtract '123456789' 0.1           -> '123456789' Inexact Rounded", c9he);
+        ("subx524 subtract '123456789' 0.4           -> '123456789' Inexact Rounded", c9he);
+        ("subx525 subtract '123456789' 0.49          -> '123456789' Inexact Rounded", c9he);
+        ("subx526 subtract '123456789' 0.499999      -> '123456789' Inexact Rounded", c9he);
+        ("subx527 subtract '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9he);
+        ("subx528 subtract '123456789' 0.5           -> '123456788' Inexact Rounded", c9he);
+        ("subx529 subtract '123456789' 0.500000001   -> '123456788' Inexact Rounded", c9he);
+        ("subx530 subtract '123456789' 0.500001      -> '123456788' Inexact Rounded", c9he);
+        ("subx531 subtract '123456789' 0.51          -> '123456788' Inexact Rounded", c9he);
+        ("subx532 subtract '123456789' 0.6           -> '123456788' Inexact Rounded", c9he);
+        ("subx533 subtract '123456789' 0.9           -> '123456788' Inexact Rounded", c9he);
+        ("subx534 subtract '123456789' 0.99999       -> '123456788' Inexact Rounded", c9he);
+        ("subx535 subtract '123456789' 0.999999999   -> '123456788' Inexact Rounded", c9he);
+        ("subx536 subtract '123456789' 1             -> '123456788'", c9he);
+        ("subx537 subtract '123456789' 1.00000001    -> '123456788' Inexact Rounded", c9he);
+        ("subx538 subtract '123456789' 1.00001       -> '123456788' Inexact Rounded", c9he);
+        ("subx539 subtract '123456789' 1.1           -> '123456788' Inexact Rounded", c9he);
+        //-- critical few with even bottom digit...
+        ("subx540 subtract '123456788' 0.499999999   -> '123456788' Inexact Rounded", c9he);
+        ("subx541 subtract '123456788' 0.5           -> '123456788' Inexact Rounded", c9he);
+        ("subx542 subtract '123456788' 0.500000001   -> '123456787' Inexact Rounded", c9he);
+    
+        //rounding: down
+            
+        ("subx550 subtract '123456789' 0             -> '123456789'", c9d);
+        ("subx551 subtract '123456789' 0.000000001   -> '123456788' Inexact Rounded", c9d);
+        ("subx552 subtract '123456789' 0.000001      -> '123456788' Inexact Rounded", c9d);
+        ("subx553 subtract '123456789' 0.1           -> '123456788' Inexact Rounded", c9d);
+        ("subx554 subtract '123456789' 0.4           -> '123456788' Inexact Rounded", c9d);
+        ("subx555 subtract '123456789' 0.49          -> '123456788' Inexact Rounded", c9d);
+        ("subx556 subtract '123456789' 0.499999      -> '123456788' Inexact Rounded", c9d);
+        ("subx557 subtract '123456789' 0.499999999   -> '123456788' Inexact Rounded", c9d);
+        ("subx558 subtract '123456789' 0.5           -> '123456788' Inexact Rounded", c9d);
+        ("subx559 subtract '123456789' 0.500000001   -> '123456788' Inexact Rounded", c9d);
+        ("subx560 subtract '123456789' 0.500001      -> '123456788' Inexact Rounded", c9d);
+        ("subx561 subtract '123456789' 0.51          -> '123456788' Inexact Rounded", c9d);
+        ("subx562 subtract '123456789' 0.6           -> '123456788' Inexact Rounded", c9d);
+        ("subx563 subtract '123456789' 0.9           -> '123456788' Inexact Rounded", c9d);
+        ("subx564 subtract '123456789' 0.99999       -> '123456788' Inexact Rounded", c9d);
+        ("subx565 subtract '123456789' 0.999999999   -> '123456788' Inexact Rounded", c9d);
+        ("subx566 subtract '123456789' 1             -> '123456788'", c9d);
+        ("subx567 subtract '123456789' 1.00000001    -> '123456787' Inexact Rounded", c9d);
+        ("subx568 subtract '123456789' 1.00001       -> '123456787' Inexact Rounded", c9d);
+        ("subx569 subtract '123456789' 1.1           -> '123456787' Inexact Rounded", c9d);
+    
+        //-- symmetry...
+        //rounding: half_up
+        ("subx600 subtract 0             '123456789' -> '-123456789'", c9hu);
+        ("subx601 subtract 0.000000001   '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx602 subtract 0.000001      '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx603 subtract 0.1           '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx604 subtract 0.4           '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx605 subtract 0.49          '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx606 subtract 0.499999      '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx607 subtract 0.499999999   '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx608 subtract 0.5           '123456789' -> '-123456789' Inexact Rounded", c9hu);
+        ("subx609 subtract 0.500000001   '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx610 subtract 0.500001      '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx611 subtract 0.51          '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx612 subtract 0.6           '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx613 subtract 0.9           '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx614 subtract 0.99999       '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx615 subtract 0.999999999   '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx616 subtract 1             '123456789' -> '-123456788'", c9hu);
+        ("subx617 subtract 1.000000001   '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx618 subtract 1.00001       '123456789' -> '-123456788' Inexact Rounded", c9hu);
+        ("subx619 subtract 1.1           '123456789' -> '-123456788' Inexact Rounded", c9hu);
+    
+        //rounding: half_even
+        ("subx620 subtract 0             '123456789' -> '-123456789'", c9he);
+        ("subx621 subtract 0.000000001   '123456789' -> '-123456789' Inexact Rounded", c9he);
+        ("subx622 subtract 0.000001      '123456789' -> '-123456789' Inexact Rounded", c9he);
+        ("subx623 subtract 0.1           '123456789' -> '-123456789' Inexact Rounded", c9he);
+        ("subx624 subtract 0.4           '123456789' -> '-123456789' Inexact Rounded", c9he);
+        ("subx625 subtract 0.49          '123456789' -> '-123456789' Inexact Rounded", c9he);
+        ("subx626 subtract 0.499999      '123456789' -> '-123456789' Inexact Rounded", c9he);
+        ("subx627 subtract 0.499999999   '123456789' -> '-123456789' Inexact Rounded", c9he);
+        ("subx628 subtract 0.5           '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx629 subtract 0.500000001   '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx630 subtract 0.500001      '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx631 subtract 0.51          '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx632 subtract 0.6           '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx633 subtract 0.9           '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx634 subtract 0.99999       '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx635 subtract 0.999999999   '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx636 subtract 1             '123456789' -> '-123456788'", c9he);
+        ("subx637 subtract 1.00000001    '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx638 subtract 1.00001       '123456789' -> '-123456788' Inexact Rounded", c9he);
+        ("subx639 subtract 1.1           '123456789' -> '-123456788' Inexact Rounded", c9he);
+        //-- critical few with even bottom digit...
+        ("subx640 subtract 0.499999999   '123456788' -> '-123456788' Inexact Rounded", c9he);
+        ("subx641 subtract 0.5           '123456788' -> '-123456788' Inexact Rounded", c9he);
+        ("subx642 subtract 0.500000001   '123456788' -> '-123456787' Inexact Rounded", c9he);
+    
+        //rounding: down
+        ("subx650 subtract 0             '123456789' -> '-123456789'", c9d);
+        ("subx651 subtract 0.000000001   '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx652 subtract 0.000001      '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx653 subtract 0.1           '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx654 subtract 0.4           '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx655 subtract 0.49          '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx656 subtract 0.499999      '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx657 subtract 0.499999999   '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx658 subtract 0.5           '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx659 subtract 0.500000001   '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx660 subtract 0.500001      '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx661 subtract 0.51          '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx662 subtract 0.6           '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx663 subtract 0.9           '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx664 subtract 0.99999       '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx665 subtract 0.999999999   '123456789' -> '-123456788' Inexact Rounded", c9d);
+        ("subx666 subtract 1             '123456789' -> '-123456788'", c9d);
+        ("subx667 subtract 1.00000001    '123456789' -> '-123456787' Inexact Rounded", c9d);
+        ("subx668 subtract 1.00001       '123456789' -> '-123456787' Inexact Rounded", c9d);
+        ("subx669 subtract 1.1           '123456789' -> '-123456787' Inexact Rounded", c9d);
+    
+    
+        //-- lots of leading zeros in intermediate result, and showing effects of
+        //-- input rounding would have affected the following
+        //precision: 9
+        //rounding: half_up
+        ("subx670 subtract '123456789' '123456788.1' -> 0.9", c9hu);
+        ("subx671 subtract '123456789' '123456788.9' -> 0.1", c9hu);
+        ("subx672 subtract '123456789' '123456789.1' -> -0.1", c9hu);
+        ("subx673 subtract '123456789' '123456789.5' -> -0.5", c9hu);
+        ("subx674 subtract '123456789' '123456789.9' -> -0.9", c9hu);
+    
+        //rounding: half_even
+        ("subx680 subtract '123456789' '123456788.1' -> 0.9", c9he);
+        ("subx681 subtract '123456789' '123456788.9' -> 0.1", c9he);
+        ("subx682 subtract '123456789' '123456789.1' -> -0.1", c9he);
+        ("subx683 subtract '123456789' '123456789.5' -> -0.5", c9he);
+        ("subx684 subtract '123456789' '123456789.9' -> -0.9", c9he);
+    
+        ("subx685 subtract '123456788' '123456787.1' -> 0.9", c9he);
+        ("subx686 subtract '123456788' '123456787.9' -> 0.1", c9he);
+        ("subx687 subtract '123456788' '123456788.1' -> -0.1", c9he);
+        ("subx688 subtract '123456788' '123456788.5' -> -0.5", c9he);
+        ("subx689 subtract '123456788' '123456788.9' -> -0.9", c9he);
+    
+        //rounding: down
+        ("subx690 subtract '123456789' '123456788.1' -> 0.9", c9d);
+        ("subx691 subtract '123456789' '123456788.9' -> 0.1", c9d);
+        ("subx692 subtract '123456789' '123456789.1' -> -0.1", c9d);
+        ("subx693 subtract '123456789' '123456789.5' -> -0.5", c9d);
+        ("subx694 subtract '123456789' '123456789.9' -> -0.9", c9d);
+    
+        //-- input preparation tests
+        //rounding: half_up
+        //precision: 3
+    
+        ("subx700 subtract '12345678900000'  -9999999999999 ->  '2.23E+13' Inexact Rounded", c3hu);
+        ("subx701 subtract  '9999999999999' -12345678900000 ->  '2.23E+13' Inexact Rounded", c3hu);
+        ("subx702 subtract '12E+3'  '-3456' ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("subx703 subtract '12E+3'  '-3446' ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("subx704 subtract '12E+3'  '-3454' ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("subx705 subtract '12E+3'  '-3444' ->  '1.54E+4' Inexact Rounded", c3hu);
+    
+        ("subx706 subtract '3456'  '-12E+3' ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("subx707 subtract '3446'  '-12E+3' ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("subx708 subtract '3454'  '-12E+3' ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("subx709 subtract '3444'  '-12E+3' ->  '1.54E+4' Inexact Rounded", c3hu);
+    
+        //-- overflow and underflow tests [subnormals now possible]
+        //maxexponent: 999999999
+        //minexponent: -999999999
+        //precision: 9
+        //rounding: down
+        //TSub("subx710 subtract 1E+999999999    -9E+999999999   -> 9.99999999E+999999999 Overflow Inexact Rounded", c9d);
+        //TSub("subx711 subtract 9E+999999999    -1E+999999999   -> 9.99999999E+999999999 Overflow Inexact Rounded", c9d);
+        //rounding: half_up
+        //TSub("subx712 subtract 1E+999999999    -9E+999999999   -> Infinity Overflow Inexact Rounded", c9hu);
+        //TSub("subx713 subtract 9E+999999999    -1E+999999999   -> Infinity Overflow Inexact Rounded", c9hu);
+        //TSub("subx714 subtract -1.1E-999999999 -1E-999999999   -> -1E-1000000000 Subnormal", c9hu);
+        //TSub("subx715 subtract 1E-999999999    +1.1e-999999999 -> -1E-1000000000 Subnormal", c9hu);
+        //TSub("subx716 subtract -1E+999999999   +9E+999999999   -> -Infinity Overflow Inexact Rounded", c9hu);
+        //TSub("subx717 subtract -9E+999999999   +1E+999999999   -> -Infinity Overflow Inexact Rounded", c9hu);
+        //TSub("subx718 subtract +1.1E-999999999 +1E-999999999   -> 1E-1000000000 Subnormal", c9hu);
+        //TSub("subx719 subtract -1E-999999999   -1.1e-999999999 -> 1E-1000000000 Subnormal", c9hu);
+    
+        //precision: 3
+        //TSub("subx720 subtract 1  9.999E+999999999   -> -Infinity Inexact Overflow Rounded", c3hu);
+        //TSub("subx721 subtract 1 -9.999E+999999999   ->  Infinity Inexact Overflow Rounded", c3hu);
+        //TSub("subx722 subtract    9.999E+999999999 1 ->  Infinity Inexact Overflow Rounded", c3hu);
+        //TSub("subx723 subtract   -9.999E+999999999 1 -> -Infinity Inexact Overflow Rounded", c3hu);
+        //TSub("subx724 subtract 1  9.999E+999999999   -> -Infinity Inexact Overflow Rounded", c3hu);
+        //TSub("subx725 subtract 1 -9.999E+999999999   ->  Infinity Inexact Overflow Rounded", c3hu);
+        //TSub("subx726 subtract    9.999E+999999999 1 ->  Infinity Inexact Overflow Rounded", c3hu);
+        //TSub("subx727 subtract   -9.999E+999999999 1 -> -Infinity Inexact Overflow Rounded", c3hu);
+    
+        //-- [more below]
+    
+        //-- long operand checks
+        //maxexponent: 999
+        //minexponent: -999
+        //precision: 9
+        ("sub731 subtract 12345678000 0 ->  1.23456780E+10 Rounded", c9hu);
+        ("sub732 subtract 0 12345678000 -> -1.23456780E+10 Rounded", c9hu);
+        ("sub733 subtract 1234567800  0 ->  1.23456780E+9 Rounded", c9hu);
+        ("sub734 subtract 0 1234567800  -> -1.23456780E+9 Rounded", c9hu);
+        ("sub735 subtract 1234567890  0 ->  1.23456789E+9 Rounded", c9hu);
+        ("sub736 subtract 0 1234567890  -> -1.23456789E+9 Rounded", c9hu);
+        ("sub737 subtract 1234567891  0 ->  1.23456789E+9 Inexact Rounded", c9hu);
+        ("sub738 subtract 0 1234567891  -> -1.23456789E+9 Inexact Rounded", c9hu);
+        ("sub739 subtract 12345678901 0 ->  1.23456789E+10 Inexact Rounded", c9hu);
+        ("sub740 subtract 0 12345678901 -> -1.23456789E+10 Inexact Rounded", c9hu);
+        ("sub741 subtract 1234567896  0 ->  1.23456790E+9 Inexact Rounded", c9hu);
+        ("sub742 subtract 0 1234567896  -> -1.23456790E+9 Inexact Rounded", c9hu);
+    
+        //precision: 15
+        ("sub751 subtract 12345678000 0 ->  12345678000", c15hu);
+        ("sub752 subtract 0 12345678000 -> -12345678000", c15hu);
+        ("sub753 subtract 1234567800  0 ->  1234567800", c15hu);
+        ("sub754 subtract 0 1234567800  -> -1234567800", c15hu);
+        ("sub755 subtract 1234567890  0 ->  1234567890", c15hu);
+        ("sub756 subtract 0 1234567890  -> -1234567890", c15hu);
+        ("sub757 subtract 1234567891  0 ->  1234567891", c15hu);
+        ("sub758 subtract 0 1234567891  -> -1234567891", c15hu);
+        ("sub759 subtract 12345678901 0 ->  12345678901", c15hu);
+        ("sub760 subtract 0 12345678901 -> -12345678901", c15hu);
+        ("sub761 subtract 1234567896  0 ->  1234567896", c15hu);
+        ("sub762 subtract 0 1234567896  -> -1234567896", c15hu);
+    
+        //-- Specials
+        //TSub("subx780 subtract -Inf   Inf   -> -Infinity
+        //TSub("subx781 subtract -Inf   1000  -> -Infinity
+        //TSub("subx782 subtract -Inf   1     -> -Infinity
+        //TSub("subx783 subtract -Inf  -0     -> -Infinity
+        //TSub("subx784 subtract -Inf  -1     -> -Infinity
+        //TSub("subx785 subtract -Inf  -1000  -> -Infinity
+        //TSub("subx787 subtract -1000  Inf   -> -Infinity
+        //TSub("subx788 subtract -Inf   Inf   -> -Infinity
+        //TSub("subx789 subtract -1     Inf   -> -Infinity
+        //TSub("subx790 subtract  0     Inf   -> -Infinity
+        //TSub("subx791 subtract  1     Inf   -> -Infinity
+        //TSub("subx792 subtract  1000  Inf   -> -Infinity
+    
+        //TSub("subx800 subtract  Inf   Inf   ->  NaN  Invalid_operation
+        ///TSub("subx801 subtract  Inf   1000  ->  Infinity
+        //TSub("subx802 subtract  Inf   1     ->  Infinity
+        //TSub("subx803 subtract  Inf   0     ->  Infinity
+        //TSub("subx804 subtract  Inf  -0     ->  Infinity
+        //TSub("subx805 subtract  Inf  -1     ->  Infinity
+        //TSub("subx806 subtract  Inf  -1000  ->  Infinity
+        //TSub("subx807 subtract  Inf  -Inf   ->  Infinity
+        //TSub("subx808 subtract -1000 -Inf   ->  Infinity
+        //TSub("subx809 subtract -Inf  -Inf   ->  NaN  Invalid_operation
+        //TSub("subx810 subtract -1    -Inf   ->  Infinity
+        //TSub("subx811 subtract -0    -Inf   ->  Infinity
+        //TSub("subx812 subtract  0    -Inf   ->  Infinity
+        //TSub("subx813 subtract  1    -Inf   ->  Infinity
+        //TSub("subx814 subtract  1000 -Inf   ->  Infinity
+        //TSub("subx815 subtract  Inf  -Inf   ->  Infinity
+    
+        //TSub("subx821 subtract  NaN   Inf   ->  NaN
+        //TSub("subx822 subtract -NaN   1000  -> -NaN
+        //TSub("subx823 subtract  NaN   1     ->  NaN
+        //TSub("subx824 subtract  NaN   0     ->  NaN
+        //TSub("subx825 subtract  NaN  -0     ->  NaN
+        //TSub("subx826 subtract  NaN  -1     ->  NaN
+        //TSub("subx827 subtract  NaN  -1000  ->  NaN
+        //TSub("subx828 subtract  NaN  -Inf   ->  NaN
+        //TSub("subx829 subtract -NaN   NaN   -> -NaN
+        //TSub("subx830 subtract -Inf   NaN   ->  NaN
+        //TSub("subx831 subtract -1000  NaN   ->  NaN
+        //TSub("subx832 subtract -1     NaN   ->  NaN
+        //TSub("subx833 subtract -0     NaN   ->  NaN
+        //TSub("subx834 subtract  0     NaN   ->  NaN
+        //TSub("subx835 subtract  1     NaN   ->  NaN
+        //TSub("subx836 subtract  1000 -NaN   -> -NaN
+        //TSub("subx837 subtract  Inf   NaN   ->  NaN
+    
+        //TSub("subx841 subtract  sNaN  Inf   ->  NaN  Invalid_operation
+        //TSub("subx842 subtract -sNaN  1000  -> -NaN  Invalid_operation
+        //TSub("subx843 subtract  sNaN  1     ->  NaN  Invalid_operation
+        //TSub("subx844 subtract  sNaN  0     ->  NaN  Invalid_operation
+        //TSub("subx845 subtract  sNaN -0     ->  NaN  Invalid_operation
+        //TSub("subx846 subtract  sNaN -1     ->  NaN  Invalid_operation
+        //TSub("subx847 subtract  sNaN -1000  ->  NaN  Invalid_operation
+        //TSub("subx848 subtract  sNaN  NaN   ->  NaN  Invalid_operation
+        //TSub("subx849 subtract  sNaN sNaN   ->  NaN  Invalid_operation
+        //TSub("subx850 subtract  NaN  sNaN   ->  NaN  Invalid_operation
+        //TSub("subx851 subtract -Inf -sNaN   -> -NaN  Invalid_operation
+        //TSub("subx852 subtract -1000 sNaN   ->  NaN  Invalid_operation
+        //TSub("subx853 subtract -1    sNaN   ->  NaN  Invalid_operation
+        //TSub("subx854 subtract -0    sNaN   ->  NaN  Invalid_operation
+        //TSub("subx855 subtract  0    sNaN   ->  NaN  Invalid_operation
+        //TSub("subx856 subtract  1    sNaN   ->  NaN  Invalid_operation
+        //TSub("subx857 subtract  1000 sNaN   ->  NaN  Invalid_operation
+        //TSub("subx858 subtract  Inf  sNaN   ->  NaN  Invalid_operation
+        //TSub("subx859 subtract  NaN  sNaN   ->  NaN  Invalid_operation
+    
+        //-- propagating NaNs
+        //TSub("subx861 subtract  NaN01   -Inf     ->  NaN1
+        //TSub("subx862 subtract -NaN02   -1000    -> -NaN2
+        //TSub("subx863 subtract  NaN03    1000    ->  NaN3
+        //TSub("subx864 subtract  NaN04    Inf     ->  NaN4
+        //TSub("subx865 subtract  NaN05    NaN61   ->  NaN5
+        //TSub("subx866 subtract -Inf     -NaN71   -> -NaN71
+        //TSub("subx867 subtract -1000     NaN81   ->  NaN81
+        //TSub("subx868 subtract  1000     NaN91   ->  NaN91
+        //TSub("subx869 subtract  Inf      NaN101  ->  NaN101
+        //TSub("subx871 subtract  sNaN011  -Inf    ->  NaN11  Invalid_operation
+        //TSub("subx872 subtract  sNaN012  -1000   ->  NaN12  Invalid_operation
+        //TSub("subx873 subtract -sNaN013   1000   -> -NaN13  Invalid_operation
+        //TSub("subx874 subtract  sNaN014   NaN171 ->  NaN14  Invalid_operation
+        //TSub("subx875 subtract  sNaN015  sNaN181 ->  NaN15  Invalid_operation
+        //TSub("subx876 subtract  NaN016   sNaN191 ->  NaN191 Invalid_operation
+        //TSub("subx877 subtract -Inf      sNaN201 ->  NaN201 Invalid_operation
+        //TSub("subx878 subtract -1000     sNaN211 ->  NaN211 Invalid_operation
+        //TSub("subx879 subtract  1000    -sNaN221 -> -NaN221 Invalid_operation
+        //TSub("subx880 subtract  Inf      sNaN231 ->  NaN231 Invalid_operation
+        //TSub("subx881 subtract  NaN025   sNaN241 ->  NaN241 Invalid_operation
+    
+        //-- edge case spills
+        ("subx901 subtract  2.E-3  1.002  -> -1.000", c15hu);
+        ("subx902 subtract  2.0E-3  1.002  -> -1.0000", c15hu);
+        ("subx903 subtract  2.00E-3  1.0020  -> -1.00000", c15hu);
+        ("subx904 subtract  2.000E-3  1.00200  -> -1.000000", c15hu);
+        ("subx905 subtract  2.0000E-3  1.002000  -> -1.0000000", c15hu);
+        ("subx906 subtract  2.00000E-3  1.0020000  -> -1.00000000", c15hu);
+        ("subx907 subtract  2.000000E-3  1.00200000  -> -1.000000000", c15hu);
+        ("subx908 subtract  2.0000000E-3  1.002000000  -> -1.0000000000", c15hu);
+    
+        //-- subnormals and underflows
+        //precision: 3
+        //maxexponent: 999
+        //minexponent: -999
+        ("subx1010 subtract  0  1.00E-999       ->  -1.00E-999", c3hu);
+        ("subx1011 subtract  0  0.1E-999        ->  -1E-1000   Subnormal", c3hu);
+        ("subx1012 subtract  0  0.10E-999       ->  -1.0E-1000 Subnormal", c3hu);
+        //?TSub("subx1013 subtract  0  0.100E-999      ->  -1.0E-1000 Subnormal Rounded", c3hu);
+        ("subx1014 subtract  0  0.01E-999       ->  -1E-1001   Subnormal", c3hu);
+        //-- next is rounded to Emin
+        //?TSub("subx1015 subtract  0  0.999E-999      ->  -1.00E-999 Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1016 subtract  0  0.099E-999      ->  -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1017 subtract  0  0.009E-999      ->  -1E-1001   Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1018 subtract  0  0.001E-999      ->  -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
+        //?TSub("subx1019 subtract  0  0.0009E-999     ->  -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
+        //?TSub("subx1020 subtract  0  0.0001E-999     ->  -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
+    
+        //?TSub("subx1030 subtract  0 -1.00E-999       ->   1.00E-999", c3hu);
+        //?TSub("subx1031 subtract  0 -0.1E-999        ->   1E-1000   Subnormal", c3hu);
+        //?TSub("subx1032 subtract  0 -0.10E-999       ->   1.0E-1000 Subnormal", c3hu);
+        //?TSub("subx1033 subtract  0 -0.100E-999      ->   1.0E-1000 Subnormal Rounded", c3hu);
+        //?TSub("subx1034 subtract  0 -0.01E-999       ->   1E-1001   Subnormal", c3hu);
+        //-- next is rounded to Emin
+        //?TSub("subx1035 subtract  0 -0.999E-999      ->   1.00E-999 Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1036 subtract  0 -0.099E-999      ->   1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1037 subtract  0 -0.009E-999      ->   1E-1001   Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1038 subtract  0 -0.001E-999      ->   0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
+        //?TSub("subx1039 subtract  0 -0.0009E-999     ->   0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
+        //?TSub("subx1040 subtract  0 -0.0001E-999     ->   0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
+    
+        //-- some non-zero subnormal subtracts
+        //-- TSub("subx1056 is a tricky case
+        //rounding: half_up
+        //?TSub("subx1050 subtract  1.00E-999   0.1E-999  ->   9.0E-1000  Subnormal", c3hu);
+        //?TSub("subx1051 subtract  0.1E-999    0.1E-999  ->   0E-1000", c3hu);
+        //?TSub("subx1052 subtract  0.10E-999   0.1E-999  ->   0E-1001", c3hu);
+        //?TSub("subx1053 subtract  0.100E-999  0.1E-999  ->   0E-1001    Clamped", c3hu);
+        //?TSub("subx1054 subtract  0.01E-999   0.1E-999  ->   -9E-1001   Subnormal", c3hu);
+        //?TSub("subx1055 subtract  0.999E-999  0.1E-999  ->   9.0E-1000  Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1056 subtract  0.099E-999  0.1E-999  ->   -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
+        //?TSub("subx1057 subtract  0.009E-999  0.1E-999  ->   -9E-1001   Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1058 subtract  0.001E-999  0.1E-999  ->   -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1059 subtract  0.0009E-999 0.1E-999  ->   -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
+        //?TSub("subx1060 subtract  0.0001E-999 0.1E-999  ->   -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
+    
+    
+        //-- check for double-rounded subnormals
+        //precision:   5
+        //maxexponent: 79
+        //minexponent: -79
+        //?TSub("subx1101 subtract  0 1.52444E-80 -> -1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
+        //?TSub("subx1102 subtract  0 1.52445E-80 -> -1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
+        //?TSub("subx1103 subtract  0 1.52446E-80 -> -1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
+        //?TSub("subx1104 subtract  1.52444E-80 0 ->  1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
+        //?TSub("subx1105 subtract  1.52445E-80 0 ->  1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
+        //?TSub("subx1106 subtract  1.52446E-80 0 ->  1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
+    
+        //?TSub("subx1111 subtract  1.2345678E-80  1.2345671E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
+        //?TSub("subx1112 subtract  1.2345678E-80  1.2345618E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
+        //?TSub("subx1113 subtract  1.2345678E-80  1.2345178E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
+        //?TSub("subx1114 subtract  1.2345678E-80  1.2341678E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
+        //?TSub("subx1115 subtract  1.2345678E-80  1.2315678E-80 ->  3E-83         Rounded Subnormal", c5hu);
+        //?TSub("subx1116 subtract  1.2345678E-80  1.2145678E-80 ->  2.0E-82       Rounded Subnormal", c5hu);
+        //?TSub("subx1117 subtract  1.2345678E-80  1.1345678E-80 ->  1.00E-81      Rounded Subnormal", c5hu);
+        //?TSub("subx1118 subtract  1.2345678E-80  0.2345678E-80 ->  1.000E-80     Rounded Subnormal", c5hu);
+    
+        //precision:   34
+        //rounding:    half_up
+        //maxExponent: 6144
+        //minExponent: -6143
+        //-- Examples from SQL proposal (Krishna Kulkarni)
+
+    
+        ("subx1125  subtract 130E-2  120E-2 -> 0.10", c34hu);
+        ("subx1126  subtract 130E-2  12E-1  -> 0.10", c34hu);
+        ("subx1127  subtract 130E-2  1E0    -> 0.30", c34hu);
+        ("subx1128  subtract 1E2     1E4    -> -9.9E+3", c34hu);
+    
+        //-- Null tests
+        //subx9990 subtract 10  # -> NaN Invalid_operation
+        //subx9991 subtract  # 10 -> NaN Invalid_operation    
+    
+    |]
+
+[<Tests>]
+let subTestList = testList "subtraction examples" (Array.toList (createSubTests subTests))
+
+
+let multiplyTest arg1Str arg2Str c resultStr =
+    let arg1 = BigDecimal.Parse(arg1Str)
+    let arg2 = BigDecimal.Parse(arg2Str)
+    let pdt = arg1.Multiply(arg2,c)
+    let pdtStr = pdt.ToScientificString()
+    Expect.equal pdtStr resultStr "product"
+
+
+let multiplyTestFromStr test c =
+    let arg1Str, arg2Str, resultsStr = getThreeArgs test
+    multiplyTest arg1Str arg2Str c resultsStr
+
+
+let createMultiplyTests data = 
+    data
+    |> List.map (fun (test, c) ->
+           testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                multiplyTestFromStr test c
+           )
+
+
+let c30hu =  Context.Create(30u, RoundingMode.HalfUp);
+let c33hu =  Context.Create(33u, RoundingMode.HalfUp);
+
+let multiplyTests = 
+    [
+        //version: 2.59
+    
+        //extended:    1
+        //precision:   9
+        //rounding:    half_up
+        //maxExponent: 384
+        //minexponent: -383
+       
+        //-- sanity checks (as base, above)
+        ("mulx000 multiply 2      2 -> 4", c9hu);
+        ("mulx001 multiply 2      3 -> 6", c9hu);
+        ("mulx002 multiply 5      1 -> 5", c9hu);
+        ("mulx003 multiply 5      2 -> 10", c9hu);
+        ("mulx004 multiply 1.20   2 -> 2.40", c9hu);
+        ("mulx005 multiply 1.20   0 -> 0.00", c9hu);
+        ("mulx006 multiply 1.20  -2 -> -2.40", c9hu);
+        ("mulx007 multiply -1.20  2 -> -2.40", c9hu);
+        ("mulx008 multiply -1.20  0 -> 0.00", c9hu);  // mod: neg 0
+        ("mulx009 multiply -1.20 -2 -> 2.40", c9hu);
+        ("mulx010 multiply 5.09 7.1 -> 36.139", c9hu);
+        ("mulx011 multiply 2.5    4 -> 10.0", c9hu);
+        ("mulx012 multiply 2.50   4 -> 10.00", c9hu);
+        ("mulx013 multiply 1.23456789 1.00000000 -> 1.23456789 Rounded", c9hu);
+        ("mulx014 multiply 9.999999999 9.999999999 -> 100.000000 Inexact Rounded", c9hu);
+        ("mulx015 multiply 2.50   4 -> 10.00", c9hu);
+        //precision: 6
+        ("mulx016 multiply 2.50   4 -> 10.00", c6hu);
+        ("mulx017 multiply  9.999999999  9.999999999 ->  100.000 Inexact Rounded", c6hu);
+        ("mulx018 multiply  9.999999999 -9.999999999 -> -100.000 Inexact Rounded", c6hu);
+        ("mulx019 multiply -9.999999999  9.999999999 -> -100.000 Inexact Rounded", c6hu);
+        ("mulx020 multiply -9.999999999 -9.999999999 ->  100.000 Inexact Rounded", c6hu);
+    
+        //-- 1999.12.21: next one is a edge case if intermediate longs are used
+        //precision: 15
+        ("mulx059 multiply 999999999999 9765625 -> 9.76562499999023E+18 Inexact Rounded", c15hu);
+        //precision: 30
+        ("mulx160 multiply 999999999999 9765625 -> 9765624999990234375", c30hu);
+        //precision: 9
+        //-----
+    
+        //-- zeros, etc.
+        ("mulx021 multiply  0      0     ->  0", c9hu);
+        ("mulx022 multiply  0     -0     -> 0", c9hu);  // mod: neg 0
+        ("mulx023 multiply -0      0     -> 0", c9hu); // mod: neg 0
+        ("mulx024 multiply -0     -0     ->  0", c9hu);
+        ("mulx025 multiply -0.0   -0.0   ->  0.00", c9hu);
+        ("mulx026 multiply -0.0   -0.0   ->  0.00", c9hu);
+        ("mulx027 multiply -0.0   -0.0   ->  0.00", c9hu);
+        ("mulx028 multiply -0.0   -0.0   ->  0.00", c9hu);
+        ("mulx030 multiply  5.00   1E-3  ->  0.00500", c9hu);
+        ("mulx031 multiply  00.00  0.000 ->  0.00000", c9hu);
+        ("mulx032 multiply  00.00  0E-3  ->  0.00000     -- rhs is 0", c9hu);
+        ("mulx033 multiply  0E-3   00.00 ->  0.00000     -- lhs is 0", c9hu);
+        ("mulx034 multiply -5.00   1E-3  -> -0.00500", c9hu);
+        ("mulx035 multiply -00.00  0.000 -> 0.00000", c9hu); // mod: neg 0
+        ("mulx036 multiply -00.00  0E-3  -> 0.00000     -- rhs is 0", c9hu); // mod: neg 0
+        ("mulx037 multiply -0E-3   00.00 -> 0.00000     -- lhs is 0", c9hu); // mod: neg 0
+        ("mulx038 multiply  5.00  -1E-3  -> -0.00500", c9hu);
+        ("mulx039 multiply  00.00 -0.000 -> 0.00000", c9hu); // mod: neg 0
+        ("mulx040 multiply  00.00 -0E-3  -> 0.00000     -- rhs is 0", c9hu); // mod: neg 0
+        ("mulx041 multiply  0E-3  -00.00 -> 0.00000     -- lhs is 0", c9hu); // mod: neg 0
+        ("mulx042 multiply -5.00  -1E-3  ->  0.00500", c9hu);
+        ("mulx043 multiply -00.00 -0.000 ->  0.00000", c9hu);
+        ("mulx044 multiply -00.00 -0E-3  ->  0.00000     -- rhs is 0", c9hu);
+        ("mulx045 multiply -0E-3  -00.00 ->  0.00000     -- lhs is 0", c9hu);
+    
+        //-- examples from decarith
+        ("mulx050 multiply 1.20 3        -> 3.60", c9hu);
+        ("mulx051 multiply 7    3        -> 21", c9hu);
+        ("mulx052 multiply 0.9  0.8      -> 0.72", c9hu);
+        ("mulx053 multiply 0.9  -0       -> 0.0", c9hu); // mod: neg 0
+        ("mulx054 multiply 654321 654321 -> 4.28135971E+11  Inexact Rounded", c9hu);
+    
+        ("mulx060 multiply 123.45 1e7  ->  1.2345E+9", c9hu);
+        ("mulx061 multiply 123.45 1e8  ->  1.2345E+10", c9hu);
+        ("mulx062 multiply 123.45 1e+9 ->  1.2345E+11", c9hu);
+        ("mulx063 multiply 123.45 1e10 ->  1.2345E+12", c9hu);
+        ("mulx064 multiply 123.45 1e11 ->  1.2345E+13", c9hu);
+        ("mulx065 multiply 123.45 1e12 ->  1.2345E+14", c9hu);
+        ("mulx066 multiply 123.45 1e13 ->  1.2345E+15", c9hu);
+    
+    
+        //-- test some intermediate lengths
+        //precision: 9
+        ("mulx080 multiply 0.1 123456789          -> 12345678.9", c9hu);
+        ("mulx081 multiply 0.1 1234567891         -> 123456789 Inexact Rounded", c9hu);
+        ("mulx082 multiply 0.1 12345678912        -> 1.23456789E+9 Inexact Rounded", c9hu);
+        ("mulx083 multiply 0.1 12345678912345     -> 1.23456789E+12 Inexact Rounded", c9hu);
+        ("mulx084 multiply 0.1 123456789          -> 12345678.9", c9hu);
+        //precision: 8
+        ("mulx085 multiply 0.1 12345678912        -> 1.2345679E+9 Inexact Rounded", c8hu);
+        ("mulx086 multiply 0.1 12345678912345     -> 1.2345679E+12 Inexact Rounded", c8hu);
+        //precision: 7
+        ("mulx087 multiply 0.1 12345678912        -> 1.234568E+9 Inexact Rounded", c7hu);
+        ("mulx088 multiply 0.1 12345678912345     -> 1.234568E+12 Inexact Rounded", c7hu);
+    
+        //precision: 9
+        ("mulx090 multiply 123456789          0.1 -> 12345678.9", c9hu);
+        ("mulx091 multiply 1234567891         0.1 -> 123456789 Inexact Rounded", c9hu);
+        ("mulx092 multiply 12345678912        0.1 -> 1.23456789E+9 Inexact Rounded", c9hu);
+        ("mulx093 multiply 12345678912345     0.1 -> 1.23456789E+12 Inexact Rounded", c9hu);
+        ("mulx094 multiply 123456789          0.1 -> 12345678.9", c9hu);
+        //precision: 8
+        ("mulx095 multiply 12345678912        0.1 -> 1.2345679E+9 Inexact Rounded", c8hu);
+        ("mulx096 multiply 12345678912345     0.1 -> 1.2345679E+12 Inexact Rounded", c8hu);
+        //precision: 7
+        ("mulx097 multiply 12345678912        0.1 -> 1.234568E+9 Inexact Rounded", c7hu);
+        ("mulx098 multiply 12345678912345     0.1 -> 1.234568E+12 Inexact Rounded", c7hu);
+    
+        //-- test some more edge cases and carries
+        //maxexponent: 9999
+        //minexponent: -9999
+        //precision: 33
+        ("mulx101 multiply 9 9   -> 81", c33hu);
+        ("mulx102 multiply 9 90   -> 810", c33hu);
+        ("mulx103 multiply 9 900   -> 8100", c33hu);
+        ("mulx104 multiply 9 9000   -> 81000", c33hu);
+        ("mulx105 multiply 9 90000   -> 810000", c33hu);
+        ("mulx106 multiply 9 900000   -> 8100000", c33hu);
+        ("mulx107 multiply 9 9000000   -> 81000000", c33hu);
+        ("mulx108 multiply 9 90000000   -> 810000000", c33hu);
+        ("mulx109 multiply 9 900000000   -> 8100000000", c33hu);
+        ("mulx110 multiply 9 9000000000   -> 81000000000", c33hu);
+        ("mulx111 multiply 9 90000000000   -> 810000000000", c33hu);
+        ("mulx112 multiply 9 900000000000   -> 8100000000000", c33hu);
+        ("mulx113 multiply 9 9000000000000   -> 81000000000000", c33hu);
+        ("mulx114 multiply 9 90000000000000   -> 810000000000000", c33hu);
+        ("mulx115 multiply 9 900000000000000   -> 8100000000000000", c33hu);
+        ("mulx116 multiply 9 9000000000000000   -> 81000000000000000", c33hu);
+        ("mulx117 multiply 9 90000000000000000   -> 810000000000000000", c33hu);
+        ("mulx118 multiply 9 900000000000000000   -> 8100000000000000000", c33hu);
+        ("mulx119 multiply 9 9000000000000000000   -> 81000000000000000000", c33hu);
+        ("mulx120 multiply 9 90000000000000000000   -> 810000000000000000000", c33hu);
+        ("mulx121 multiply 9 900000000000000000000   -> 8100000000000000000000", c33hu);
+        ("mulx122 multiply 9 9000000000000000000000   -> 81000000000000000000000", c33hu);
+        ("mulx123 multiply 9 90000000000000000000000   -> 810000000000000000000000", c33hu);
+        //-- test some more edge cases without carries
+        ("mulx131 multiply 3 3   -> 9", c33hu);
+        ("mulx132 multiply 3 30   -> 90", c33hu);
+        ("mulx133 multiply 3 300   -> 900", c33hu);
+        ("mulx134 multiply 3 3000   -> 9000", c33hu);
+        ("mulx135 multiply 3 30000   -> 90000", c33hu);
+        ("mulx136 multiply 3 300000   -> 900000", c33hu);
+        ("mulx137 multiply 3 3000000   -> 9000000", c33hu);
+        ("mulx138 multiply 3 30000000   -> 90000000", c33hu);
+        ("mulx139 multiply 3 300000000   -> 900000000", c33hu);
+        ("mulx140 multiply 3 3000000000   -> 9000000000", c33hu);
+        ("mulx141 multiply 3 30000000000   -> 90000000000", c33hu);
+        ("mulx142 multiply 3 300000000000   -> 900000000000", c33hu);
+        ("mulx143 multiply 3 3000000000000   -> 9000000000000", c33hu);
+        ("mulx144 multiply 3 30000000000000   -> 90000000000000", c33hu);
+        ("mulx145 multiply 3 300000000000000   -> 900000000000000", c33hu);
+        ("mulx146 multiply 3 3000000000000000   -> 9000000000000000", c33hu);
+        ("mulx147 multiply 3 30000000000000000   -> 90000000000000000", c33hu);
+        ("mulx148 multiply 3 300000000000000000   -> 900000000000000000", c33hu);
+        ("mulx149 multiply 3 3000000000000000000   -> 9000000000000000000", c33hu);
+        ("mulx150 multiply 3 30000000000000000000   -> 90000000000000000000", c33hu);
+        ("mulx151 multiply 3 300000000000000000000   -> 900000000000000000000", c33hu);
+        ("mulx152 multiply 3 3000000000000000000000   -> 9000000000000000000000", c33hu);
+        ("mulx153 multiply 3 30000000000000000000000   -> 90000000000000000000000", c33hu);
+    
+        //maxexponent: 999999999
+        //minexponent: -999999999
+        //precision: 9
+        //-- test some cases that are close to exponent overflow/underflow
+        ("mulx170 multiply 1 9e999999999    -> 9E+999999999", c9hu);
+        ("mulx171 multiply 1 9.9e999999999  -> 9.9E+999999999", c9hu);
+        ("mulx172 multiply 1 9.99e999999999 -> 9.99E+999999999", c9hu);
+        ("mulx173 multiply 9e999999999    1 -> 9E+999999999", c9hu);
+        ("mulx174 multiply 9.9e999999999  1 -> 9.9E+999999999", c9hu);
+        ("mulx176 multiply 9.99e999999999 1 -> 9.99E+999999999", c9hu);
+        ("mulx177 multiply 1 9.99999999e999999999 -> 9.99999999E+999999999", c9hu);
+        ("mulx178 multiply 9.99999999e999999999 1 -> 9.99999999E+999999999", c9hu);
+    
+        ("mulx180 multiply 0.1 9e-999999998   -> 9E-999999999", c9hu);
+        ("mulx181 multiply 0.1 99e-999999998  -> 9.9E-999999998", c9hu);
+        ("mulx182 multiply 0.1 999e-999999998 -> 9.99E-999999997", c9hu);
+    
+        ("mulx183 multiply 0.1 9e-999999998     -> 9E-999999999", c9hu);
+        ("mulx184 multiply 0.1 99e-999999998    -> 9.9E-999999998", c9hu);
+        ("mulx185 multiply 0.1 999e-999999998   -> 9.99E-999999997", c9hu);
+        ("mulx186 multiply 0.1 999e-999999997   -> 9.99E-999999996", c9hu);
+        ("mulx187 multiply 0.1 9999e-999999997  -> 9.999E-999999995", c9hu);
+        ("mulx188 multiply 0.1 99999e-999999997 -> 9.9999E-999999994", c9hu);
+    
+        ("mulx190 multiply 1 9e-999999998   -> 9E-999999998", c9hu);
+        ("mulx191 multiply 1 99e-999999998  -> 9.9E-999999997", c9hu);
+        ("mulx192 multiply 1 999e-999999998 -> 9.99E-999999996", c9hu);
+        ("mulx193 multiply 9e-999999998   1 -> 9E-999999998", c9hu);
+        ("mulx194 multiply 99e-999999998  1 -> 9.9E-999999997", c9hu);
+        ("mulx195 multiply 999e-999999998 1 -> 9.99E-999999996", c9hu);
+    
+        ("mulx196 multiply 1e-599999999 1e-400000000 -> 1E-999999999", c9hu);
+        ("mulx197 multiply 1e-600000000 1e-399999999 -> 1E-999999999", c9hu);
+        ("mulx198 multiply 1.2e-599999999 1.2e-400000000 -> 1.44E-999999999", c9hu);
+        ("mulx199 multiply 1.2e-600000000 1.2e-399999999 -> 1.44E-999999999", c9hu);
+    
+        ("mulx201 multiply 1e599999999 1e400000000 -> 1E+999999999", c9hu);
+        ("mulx202 multiply 1e600000000 1e399999999 -> 1E+999999999", c9hu);
+        ("mulx203 multiply 1.2e599999999 1.2e400000000 -> 1.44E+999999999", c9hu);
+        ("mulx204 multiply 1.2e600000000 1.2e399999999 -> 1.44E+999999999", c9hu);
+    
+        //-- long operand triangle
+        //precision: 33
+        ("mulx246 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671916511992830 Inexact Rounded", Context.Create(33u, RoundingMode.HalfUp));
+        //precision: 32
+        ("mulx247 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967191651199283  Inexact Rounded",  Context.Create(32u, RoundingMode.HalfUp));
+        //precision: 31
+        ("mulx248 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719165119928   Inexact Rounded",  Context.Create(31u, RoundingMode.HalfUp));
+        //precision: 30
+        ("mulx249 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671916511993    Inexact Rounded",  Context.Create(30u, RoundingMode.HalfUp));
+        //precision: 29
+        ("mulx250 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967191651199     Inexact Rounded",  Context.Create(29u, RoundingMode.HalfUp));
+        //precision: 28
+        ("mulx251 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719165120      Inexact Rounded",  Context.Create(28u, RoundingMode.HalfUp));
+        //precision: 27
+        ("mulx252 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671916512       Inexact Rounded",  Context.Create(27u, RoundingMode.HalfUp));
+        //precision: 26
+        ("mulx253 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967191651        Inexact Rounded",  Context.Create(26u, RoundingMode.HalfUp));
+        //precision: 25
+        ("mulx254 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719165         Inexact Rounded",  Context.Create(25u, RoundingMode.HalfUp));
+        //precision: 24
+        ("mulx255 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671917          Inexact Rounded",  Context.Create(24u, RoundingMode.HalfUp));
+        //precision: 23
+        ("mulx256 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967192           Inexact Rounded",  Context.Create(23u, RoundingMode.HalfUp));
+        //precision: 22
+        ("mulx257 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719            Inexact Rounded",  Context.Create(22u, RoundingMode.HalfUp));
+        //precision: 21
+        ("mulx258 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369672             Inexact Rounded",  Context.Create(21u, RoundingMode.HalfUp));
+        //precision: 20
+        ("mulx259 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967              Inexact Rounded",  Context.Create(20u, RoundingMode.HalfUp));
+        //precision: 19
+        ("mulx260 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933697               Inexact Rounded",  Context.Create(19u, RoundingMode.HalfUp));
+        //precision: 18
+        ("mulx261 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193370                Inexact Rounded",  Context.Create(18u, RoundingMode.HalfUp));
+        //precision: 17
+        ("mulx262 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119337                 Inexact Rounded",  Context.Create(17u, RoundingMode.HalfUp));
+        //precision: 16
+        ("mulx263 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011934                  Inexact Rounded",  Context.Create(16u, RoundingMode.HalfUp));
+        //precision: 15
+        ("mulx264 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193                   Inexact Rounded",  Context.Create(15u, RoundingMode.HalfUp));
+        //precision: 14
+        ("mulx265 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119                    Inexact Rounded",  Context.Create(14u, RoundingMode.HalfUp));
+        //precision: 13
+        ("mulx266 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908012                     Inexact Rounded",  Context.Create(13u, RoundingMode.HalfUp));
+        //precision: 12
+        ("mulx267 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801                      Inexact Rounded",  Context.Create(12u, RoundingMode.HalfUp));
+        //precision: 11
+        ("mulx268 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080                       Inexact Rounded",  Context.Create(11u, RoundingMode.HalfUp));
+        //precision: 10
+        ("mulx269 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908                        Inexact Rounded",  Context.Create(10u, RoundingMode.HalfUp));
+        //precision:  9
+        ("mulx270 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.291                         Inexact Rounded",  Context.Create(9u, RoundingMode.HalfUp));
+        //precision:  
+        ("mulx271 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29                          Inexact Rounded",  Context.Create(8u, RoundingMode.HalfUp));
+        //precision:  7
+        ("mulx272 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.3                           Inexact Rounded",  Context.Create(7u, RoundingMode.HalfUp));
+        //precision:  6
+        ("mulx273 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433                            Inexact Rounded",  Context.Create(6u, RoundingMode.HalfUp));
+        //precision:  5
+        ("mulx274 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.4543E+5                         Inexact Rounded",  Context.Create(5u, RoundingMode.HalfUp));
+        //precision:  4
+        ("mulx275 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.454E+5                         Inexact Rounded",  Context.Create(4u, RoundingMode.HalfUp));
+        //precision:  3
+        ("mulx276 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.45E+5                         Inexact Rounded",  Context.Create(3u, RoundingMode.HalfUp));
+        //precision:  2
+        ("mulx277 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.5E+5                         Inexact Rounded",  Context.Create(2u, RoundingMode.HalfUp));
+        //precision:  1
+        ("mulx278 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1E+5                          Inexact Rounded",  Context.Create(1u, RoundingMode.HalfUp));
+    
+        //-- test some edge cases with exact rounding
+        //maxexponent: 9999
+        //minexponent: -9999
+        //precision: 9
+        ("mulx301 multiply 9 9   -> 81", c9hu);
+        ("mulx302 multiply 9 90   -> 810", c9hu);
+        ("mulx303 multiply 9 900   -> 8100", c9hu);
+        ("mulx304 multiply 9 9000   -> 81000", c9hu);
+        ("mulx305 multiply 9 90000   -> 810000", c9hu);
+        ("mulx306 multiply 9 900000   -> 8100000", c9hu);
+        ("mulx307 multiply 9 9000000   -> 81000000", c9hu);
+        ("mulx308 multiply 9 90000000   -> 810000000", c9hu);
+        ("mulx309 multiply 9 900000000   -> 8.10000000E+9   Rounded", c9hu);
+        ("mulx310 multiply 9 9000000000   -> 8.10000000E+10  Rounded", c9hu);
+        ("mulx311 multiply 9 90000000000   -> 8.10000000E+11  Rounded", c9hu);
+        ("mulx312 multiply 9 900000000000   -> 8.10000000E+12  Rounded", c9hu);
+        ("mulx313 multiply 9 9000000000000   -> 8.10000000E+13  Rounded", c9hu);
+        ("mulx314 multiply 9 90000000000000   -> 8.10000000E+14  Rounded", c9hu);
+        ("mulx315 multiply 9 900000000000000   -> 8.10000000E+15  Rounded", c9hu);
+        ("mulx316 multiply 9 9000000000000000   -> 8.10000000E+16  Rounded", c9hu);
+        ("mulx317 multiply 9 90000000000000000   -> 8.10000000E+17  Rounded", c9hu);
+        ("mulx318 multiply 9 900000000000000000   -> 8.10000000E+18  Rounded", c9hu);
+        ("mulx319 multiply 9 9000000000000000000   -> 8.10000000E+19  Rounded", c9hu);
+        ("mulx320 multiply 9 90000000000000000000   -> 8.10000000E+20  Rounded", c9hu);
+        ("mulx321 multiply 9 900000000000000000000   -> 8.10000000E+21  Rounded", c9hu);
+        ("mulx322 multiply 9 9000000000000000000000   -> 8.10000000E+22  Rounded", c9hu);
+        ("mulx323 multiply 9 90000000000000000000000   -> 8.10000000E+23  Rounded", c9hu);
+    
+        //-- fastpath breakers
+        //precision:   29
+        ("mulx330 multiply 1.491824697641270317824852952837224 1.105170918075647624811707826490246514675628614562883537345747603 -> 1.6487212707001281468486507878 Inexact Rounded", Context.Create(29u, RoundingMode.HalfUp));
+        //precision:   55
+        ("mulx331 multiply 0.8958341352965282506768545828765117803873717284891040428 0.8958341352965282506768545828765117803873717284891040428 -> 0.8025187979624784829842553829934069955890983696752228299 Inexact Rounded", Context.Create(55u, RoundingMode.HalfUp));
+    
+    
+        //-- tryzeros cases
+        //precision:   7
+        //rounding:    half_up
+        //maxExponent: 92
+        //minexponent: -92
+        //TMul("mulx504  multiply  0E-60 1000E-60  -> 0E-98 Clamped", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
+        //TMul("mulx505  multiply  100E+60 0E+60   -> 0E+92 Clamped", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
+    
+        //-- mixed with zeros
+        //maxexponent: 999999999
+        //minexponent: -999999999
+        //precision: 9
+        ("mulx541 multiply  0    -1     -> 0", c9hu);  // mod: neg zero
+        ("mulx542 multiply -0    -1     ->  0", c9hu);
+        ("mulx543 multiply  0     1     ->  0", c9hu);
+        ("mulx544 multiply -0     1     -> 0", c9hu);  // mod: neg zero
+        ("mulx545 multiply -1     0     -> 0", c9hu);  // mod: neg zero
+        ("mulx546 multiply -1    -0     ->  0", c9hu);
+        ("mulx547 multiply  1     0     ->  0", c9hu);
+        ("mulx548 multiply  1    -0     -> 0", c9hu);  // mod: neg zero
+    
+        ("mulx551 multiply  0.0  -1     -> 0.0", c9hu);  // mod: neg zero
+        ("mulx552 multiply -0.0  -1     ->  0.0", c9hu);
+        ("mulx553 multiply  0.0   1     ->  0.0", c9hu);
+        ("mulx554 multiply -0.0   1     -> 0.0", c9hu);  // mod: neg zero
+        ("mulx555 multiply -1.0   0     -> 0.0", c9hu);  // mod: neg zero
+        ("mulx556 multiply -1.0  -0     ->  0.0", c9hu);
+        ("mulx557 multiply  1.0   0     ->  0.0", c9hu);
+        ("mulx558 multiply  1.0  -0     -> 0.0", c9hu);  // mod: neg zero
+    
+        ("mulx561 multiply  0    -1.0   -> 0.0", c9hu);  // mod: neg zero
+        ("mulx562 multiply -0    -1.0   ->  0.0", c9hu);
+        ("mulx563 multiply  0     1.0   ->  0.0", c9hu);
+        ("mulx564 multiply -0     1.0   -> 0.0", c9hu);  // mod: neg zero
+        ("mulx565 multiply -1     0.0   -> 0.0", c9hu);  // mod: neg zero
+        ("mulx566 multiply -1    -0.0   ->  0.0", c9hu);
+        ("mulx567 multiply  1     0.0   ->  0.0", c9hu);
+        ("mulx568 multiply  1    -0.0   -> 0.0", c9hu);  // mod: neg zero
+    
+        ("mulx571 multiply  0.0  -1.0   -> 0.00", c9hu);  // mod: neg zero
+        ("mulx572 multiply -0.0  -1.0   ->  0.00", c9hu);
+        ("mulx573 multiply  0.0   1.0   ->  0.00", c9hu);
+        ("mulx574 multiply -0.0   1.0   -> 0.00", c9hu);  // mod: neg zero
+        ("mulx575 multiply -1.0   0.0   -> 0.00", c9hu);  // mod: neg zero
+        ("mulx576 multiply -1.0  -0.0   ->  0.00", c9hu);
+        ("mulx577 multiply  1.0   0.0   ->  0.00", c9hu);
+        ("mulx578 multiply  1.0  -0.0   -> 0.00", c9hu);  // mod: neg zero
+    
+    
+        //-- Specials
+     
+        //-- test subnormals rounding
+        //precision:   5
+        //maxExponent: 999
+        //minexponent: -999
+        //rounding:    half_even
+    
+        //...    
+    ]
+
+[<Tests>]
+let multiplyTestList = testList "multiply examples" (createMultiplyTests multiplyTests)
 
 //     [TestFixture]
 //     public class BigDecimalTests
 //     {
-//         #region test parsing support
-
-//         static void GetThreeArgs(string test, out string arg1, out string arg2, out string result)
-//         {
-//             string[] atoms = test.Split(Array.Empty<char>(), StringSplitOptions.RemoveEmptyEntries);
-//             arg1 = StripSingleQuotes(atoms[2]);
-//             arg2 = StripSingleQuotes(atoms[3]);
-//             result = StripSingleQuotes(atoms[5]);
-//         }
 
 
-
-//         #endregion
-
-
-//         #region Create from X tests
-
-//         [Test]
-//         public void CanCreateFromDouble()
-//         {
-
-
-//         }
 
 
 
 //         [Test]
 //         public void CanCreateFromDecimal()
 //         {
-//             BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
+//BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
 
-//             TestDecimal(0M, "0", c9hu);
+//TestDecimal(0M, "0", c9hu);
 //             TestDecimal(1M, "1", c9hu);
 //             TestDecimal(2M, "2", c9hu);
 //             TestDecimal(3M, "3", c9hu);
@@ -1984,936 +3248,8 @@ let addTestList = testList "addition examples" (createAddTests addTests)
 //             }
 //         }
 
-//         #endregion
 
 
-//         #region Abs tests
-
-//         [Test]
-//         public void SpecAbsTests()
-//         {
-
-
-
-//         }
-
-
-
-//         #endregion
-
-//         #region Addition tests
-
-
-//         [Test]
-//         public void SpecAdd()
-//         {
-
-
-
-
-
-//         #endregion
-
-//         #region Subtract tests
-
-//         [Test]
-//         public void SpecTestSub()
-//         {
-//             BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
-
-//             //version: 2.59
-//             //
-//             //extended:    1
-//             //precision:   9
-//             //rounding:    half_up
-//             //maxExponent: 384
-//             //minexponent: -383
-//             //
-//             //-- [first group are 'quick confidence check']
-//             TSub("subx001 subtract  0   0  -> '0'", c9hu);
-//             TSub("subx002 subtract  1   1  -> '0'", c9hu);
-//             TSub("subx003 subtract  1   2  -> '-1'", c9hu);
-//             TSub("subx004 subtract  2   1  -> '1'", c9hu);
-//             TSub("subx005 subtract  2   2  -> '0'", c9hu);
-//             TSub("subx006 subtract  3   2  -> '1'", c9hu);
-//             TSub("subx007 subtract  2   3  -> '-1'", c9hu);
-
-//             TSub("subx011 subtract -0   0  -> '0'", c9hu);  // mod: neg zero
-//             TSub("subx012 subtract -1   1  -> '-2'", c9hu);
-//             TSub("subx013 subtract -1   2  -> '-3'", c9hu);
-//             TSub("subx014 subtract -2   1  -> '-3'", c9hu);
-//             TSub("subx015 subtract -2   2  -> '-4'", c9hu);
-//             TSub("subx016 subtract -3   2  -> '-5'", c9hu);
-//             TSub("subx017 subtract -2   3  -> '-5'", c9hu);
-
-//             TSub("subx021 subtract  0  -0  -> '0'", c9hu);
-//             TSub("subx022 subtract  1  -1  -> '2'", c9hu);
-//             TSub("subx023 subtract  1  -2  -> '3'", c9hu);
-//             TSub("subx024 subtract  2  -1  -> '3'", c9hu);
-//             TSub("subx025 subtract  2  -2  -> '4'", c9hu);
-//             TSub("subx026 subtract  3  -2  -> '5'", c9hu);
-//             TSub("subx027 subtract  2  -3  -> '5'", c9hu);
-
-//             TSub("subx030 subtract  11  1  -> 10", c9hu);
-//             TSub("subx031 subtract  10  1  ->  9", c9hu);
-//             TSub("subx032 subtract  9   1  ->  8", c9hu);
-//             TSub("subx033 subtract  1   1  ->  0", c9hu);
-//             TSub("subx034 subtract  0   1  -> -1", c9hu);
-//             TSub("subx035 subtract -1   1  -> -2", c9hu);
-//             TSub("subx036 subtract -9   1  -> -10", c9hu);
-//             TSub("subx037 subtract -10  1  -> -11", c9hu);
-//             TSub("subx038 subtract -11  1  -> -12", c9hu);
-
-//             TSub("subx040 subtract '5.75' '3.3'  -> '2.45'", c9hu);
-//             TSub("subx041 subtract '5'    '-3'   -> '8'", c9hu);
-//             TSub("subx042 subtract '-5'   '-3'   -> '-2'", c9hu);
-//             TSub("subx043 subtract '-7'   '2.5'  -> '-9.5'", c9hu);
-//             TSub("subx044 subtract '0.7'  '0.3'  -> '0.4'", c9hu);
-//             TSub("subx045 subtract '1.3'  '0.3'  -> '1.0'", c9hu);
-//             TSub("subx046 subtract '1.25' '1.25' -> '0.00'", c9hu);
-
-//             TSub("subx050 subtract '1.23456789'    '1.00000000' -> '0.23456789'", c9hu);
-//             TSub("subx051 subtract '1.23456789'    '1.00000089' -> '0.23456700'", c9hu);
-//             TSub("subx052 subtract '0.5555555559'    '0.0000000001' -> '0.555555556' Inexact Rounded", c9hu);
-//             TSub("subx053 subtract '0.5555555559'    '0.0000000005' -> '0.555555555' Inexact Rounded", c9hu);
-//             TSub("subx054 subtract '0.4444444444'    '0.1111111111' -> '0.333333333' Inexact Rounded", c9hu);
-//             TSub("subx055 subtract '1.0000000000'    '0.00000001' -> '0.999999990' Rounded", c9hu);
-//             TSub("subx056 subtract '0.4444444444999'    '0' -> '0.444444444' Inexact Rounded", c9hu);
-//             TSub("subx057 subtract '0.4444444445000'    '0' -> '0.444444445' Inexact Rounded", c9hu);
-
-//             TSub("subx060 subtract '70'    '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx061 subtract '700'    '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx062 subtract '7000'    '10000e+9' -> '-9.99999999E+12' Inexact Rounded", c9hu);
-//             TSub("subx063 subtract '70000'    '10000e+9' -> '-9.99999993E+12' Rounded", c9hu);
-//             TSub("subx064 subtract '700000'    '10000e+9' -> '-9.99999930E+12' Rounded", c9hu);
-//             //  -- symmetry:
-//             TSub("subx065 subtract '10000e+9'    '70' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx066 subtract '10000e+9'    '700' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx067 subtract '10000e+9'    '7000' -> '9.99999999E+12' Inexact Rounded", c9hu);
-//             TSub("subx068 subtract '10000e+9'    '70000' -> '9.99999993E+12' Rounded", c9hu);
-//             TSub("subx069 subtract '10000e+9'    '700000' -> '9.99999930E+12' Rounded", c9hu);
-
-//             //  -- change precision
-//             TSub("subx080 subtract '10000e+9'    '70000' -> '9.99999993E+12' Rounded", c9hu);
-//             //precision: 6
-//             BigDecimal.Context c6hu = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp);
-//             TSub("subx081 subtract '10000e+9'    '70000' -> '1.00000E+13' Inexact Rounded", c6hu);
-//             //precision: 9
-
-//             //  -- some of the next group are really constructor tests
-//             TSub("subx090 subtract '00.0'    '0.0'  -> '0.0'", c9hu);
-//             TSub("subx091 subtract '00.0'    '0.00' -> '0.00'", c9hu);
-//             TSub("subx092 subtract '0.00'    '00.0' -> '0.00'", c9hu);
-//             TSub("subx093 subtract '00.0'    '0.00' -> '0.00'", c9hu);
-//             TSub("subx094 subtract '0.00'    '00.0' -> '0.00'", c9hu);
-//             TSub("subx095 subtract '3'    '.3'   -> '2.7'", c9hu);
-//             TSub("subx096 subtract '3.'   '.3'   -> '2.7'", c9hu);
-//             TSub("subx097 subtract '3.0'  '.3'   -> '2.7'", c9hu);
-//             TSub("subx098 subtract '3.00' '.3'   -> '2.70'", c9hu);
-//             TSub("subx099 subtract '3'    '3'    -> '0'", c9hu);
-//             TSub("subx100 subtract '3'    '+3'   -> '0'", c9hu);
-//             TSub("subx101 subtract '3'    '-3'   -> '6'", c9hu);
-//             TSub("subx102 subtract '3'    '0.3'  -> '2.7'", c9hu);
-//             TSub("subx103 subtract '3.'   '0.3'  -> '2.7'", c9hu);
-//             TSub("subx104 subtract '3.0'  '0.3'  -> '2.7'", c9hu);
-//             TSub("subx105 subtract '3.00' '0.3'  -> '2.70'", c9hu);
-//             TSub("subx106 subtract '3'    '3.0'  -> '0.0'", c9hu);
-//             TSub("subx107 subtract '3'    '+3.0' -> '0.0'", c9hu);
-//             TSub("subx108 subtract '3'    '-3.0' -> '6.0'", c9hu);
-
-//             //-- the above all from add; massaged and extended.  Now some new ones...
-//             //-- [particularly important for comparisons]
-//             //-- NB: -xE-8 below were non-exponents pre-ANSI X3-274, and -1E-7 or 0E-7
-//             //-- with input rounding.
-//             TSub("subx120 subtract  '10.23456784'    '10.23456789'  -> '-5E-8'", c9hu);
-//             TSub("subx121 subtract  '10.23456785'    '10.23456789'  -> '-4E-8'", c9hu);
-//             TSub("subx122 subtract  '10.23456786'    '10.23456789'  -> '-3E-8'", c9hu);
-//             TSub("subx123 subtract  '10.23456787'    '10.23456789'  -> '-2E-8'", c9hu);
-//             TSub("subx124 subtract  '10.23456788'    '10.23456789'  -> '-1E-8'", c9hu);
-//             TSub("subx125 subtract  '10.23456789'    '10.23456789'  -> '0E-8'", c9hu);
-//             TSub("subx126 subtract  '10.23456790'    '10.23456789'  -> '1E-8'", c9hu);
-//             TSub("subx127 subtract  '10.23456791'    '10.23456789'  -> '2E-8'", c9hu);
-//             TSub("subx128 subtract  '10.23456792'    '10.23456789'  -> '3E-8'", c9hu);
-//             TSub("subx129 subtract  '10.23456793'    '10.23456789'  -> '4E-8'", c9hu);
-//             TSub("subx130 subtract  '10.23456794'    '10.23456789'  -> '5E-8'", c9hu);
-//             TSub("subx131 subtract  '10.23456781'    '10.23456786'  -> '-5E-8'", c9hu);
-//             TSub("subx132 subtract  '10.23456782'    '10.23456786'  -> '-4E-8'", c9hu);
-//             TSub("subx133 subtract  '10.23456783'    '10.23456786'  -> '-3E-8'", c9hu);
-//             TSub("subx134 subtract  '10.23456784'    '10.23456786'  -> '-2E-8'", c9hu);
-//             TSub("subx135 subtract  '10.23456785'    '10.23456786'  -> '-1E-8'", c9hu);
-//             TSub("subx136 subtract  '10.23456786'    '10.23456786'  -> '0E-8'", c9hu);
-//             TSub("subx137 subtract  '10.23456787'    '10.23456786'  -> '1E-8'", c9hu);
-//             TSub("subx138 subtract  '10.23456788'    '10.23456786'  -> '2E-8'", c9hu);
-//             TSub("subx139 subtract  '10.23456789'    '10.23456786'  -> '3E-8'", c9hu);
-//             TSub("subx140 subtract  '10.23456790'    '10.23456786'  -> '4E-8'", c9hu);
-//             TSub("subx141 subtract  '10.23456791'    '10.23456786'  -> '5E-8'", c9hu);
-//             TSub("subx142 subtract  '1'              '0.999999999'  -> '1E-9'", c9hu);
-//             TSub("subx143 subtract  '0.999999999'    '1'            -> '-1E-9'", c9hu);
-//             TSub("subx144 subtract  '-10.23456780'   '-10.23456786' -> '6E-8'", c9hu);
-//             TSub("subx145 subtract  '-10.23456790'   '-10.23456786' -> '-4E-8'", c9hu);
-//             TSub("subx146 subtract  '-10.23456791'   '-10.23456786' -> '-5E-8'", c9hu);
-
-//             BigDecimal.Context c3hu = new BigDecimal.Context(3, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c12hu = new BigDecimal.Context(12, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c15hu = new BigDecimal.Context(15, BigDecimal.RoundingMode.HalfUp);
-
-//             //precision: 3
-//             TSub("subx150 subtract '12345678900000' '9999999999999'  -> 2.35E+12 Inexact Rounded", c3hu);
-//             TSub("subx151 subtract '9999999999999'  '12345678900000' -> -2.35E+12 Inexact Rounded", c3hu);
-//             //precision: 6
-//             TSub("subx152 subtract '12345678900000' '9999999999999'  -> 2.34568E+12 Inexact Rounded", c6hu);
-//             TSub("subx153 subtract '9999999999999'  '12345678900000' -> -2.34568E+12 Inexact Rounded", c6hu);
-//             //precision: 9
-//             TSub("subx154 subtract '12345678900000' '9999999999999'  -> 2.34567890E+12 Inexact Rounded", c9hu);
-//             TSub("subx155 subtract '9999999999999'  '12345678900000' -> -2.34567890E+12 Inexact Rounded", c9hu);
-//             //precision: 12
-//             TSub("subx156 subtract '12345678900000' '9999999999999'  -> 2.34567890000E+12 Inexact Rounded", c12hu);
-//             TSub("subx157 subtract '9999999999999'  '12345678900000' -> -2.34567890000E+12 Inexact Rounded", c12hu);
-//             //precision: 15
-//             TSub("subx158 subtract '12345678900000' '9999999999999'  -> 2345678900001", c15hu);
-//             TSub("subx159 subtract '9999999999999'  '12345678900000' -> -2345678900001", c15hu);
-//             //precision: 9
-
-//             //-- additional scaled arithmetic tests [0.97 problem]
-//             TSub("subx160 subtract '0'     '.1'      -> '-0.1'", c9hu);
-//             TSub("subx161 subtract '00'    '.97983'  -> '-0.97983'", c9hu);
-//             TSub("subx162 subtract '0'     '.9'      -> '-0.9'", c9hu);
-//             TSub("subx163 subtract '0'     '0.102'   -> '-0.102'", c9hu);
-//             TSub("subx164 subtract '0'     '.4'      -> '-0.4'", c9hu);
-//             TSub("subx165 subtract '0'     '.307'    -> '-0.307'", c9hu);
-//             TSub("subx166 subtract '0'     '.43822'  -> '-0.43822'", c9hu);
-//             TSub("subx167 subtract '0'     '.911'    -> '-0.911'", c9hu);
-//             TSub("subx168 subtract '.0'    '.02'     -> '-0.02'", c9hu);
-//             TSub("subx169 subtract '00'    '.392'    -> '-0.392'", c9hu);
-//             TSub("subx170 subtract '0'     '.26'     -> '-0.26'", c9hu);
-//             TSub("subx171 subtract '0'     '0.51'    -> '-0.51'", c9hu);
-//             TSub("subx172 subtract '0'     '.2234'   -> '-0.2234'", c9hu);
-//             TSub("subx173 subtract '0'     '.2'      -> '-0.2'", c9hu);
-//             TSub("subx174 subtract '.0'    '.0008'   -> '-0.0008'", c9hu);
-//             //-- 0. on left
-//             TSub("subx180 subtract '0.0'     '-.1'      -> '0.1'", c9hu);
-//             TSub("subx181 subtract '0.00'    '-.97983'  -> '0.97983'", c9hu);
-//             TSub("subx182 subtract '0.0'     '-.9'      -> '0.9'", c9hu);
-//             TSub("subx183 subtract '0.0'     '-0.102'   -> '0.102'", c9hu);
-//             TSub("subx184 subtract '0.0'     '-.4'      -> '0.4'", c9hu);
-//             TSub("subx185 subtract '0.0'     '-.307'    -> '0.307'", c9hu);
-//             TSub("subx186 subtract '0.0'     '-.43822'  -> '0.43822'", c9hu);
-//             TSub("subx187 subtract '0.0'     '-.911'    -> '0.911'", c9hu);
-//             TSub("subx188 subtract '0.0'     '-.02'     -> '0.02'", c9hu);
-//             TSub("subx189 subtract '0.00'    '-.392'    -> '0.392'", c9hu);
-//             TSub("subx190 subtract '0.0'     '-.26'     -> '0.26'", c9hu);
-//             TSub("subx191 subtract '0.0'     '-0.51'    -> '0.51'", c9hu);
-//             TSub("subx192 subtract '0.0'     '-.2234'   -> '0.2234'", c9hu);
-//             TSub("subx193 subtract '0.0'     '-.2'      -> '0.2'", c9hu);
-//             TSub("subx194 subtract '0.0'     '-.0008'   -> '0.0008'", c9hu);
-//             //-- negatives of same
-//             TSub("subx200 subtract '0'     '-.1'      -> '0.1'", c9hu);
-//             TSub("subx201 subtract '00'    '-.97983'  -> '0.97983'", c9hu);
-//             TSub("subx202 subtract '0'     '-.9'      -> '0.9'", c9hu);
-//             TSub("subx203 subtract '0'     '-0.102'   -> '0.102'", c9hu);
-//             TSub("subx204 subtract '0'     '-.4'      -> '0.4'", c9hu);
-//             TSub("subx205 subtract '0'     '-.307'    -> '0.307'", c9hu);
-//             TSub("subx206 subtract '0'     '-.43822'  -> '0.43822'", c9hu);
-//             TSub("subx207 subtract '0'     '-.911'    -> '0.911'", c9hu);
-//             TSub("subx208 subtract '.0'    '-.02'     -> '0.02'", c9hu);
-//             TSub("subx209 subtract '00'    '-.392'    -> '0.392'", c9hu);
-//             TSub("subx210 subtract '0'     '-.26'     -> '0.26'", c9hu);
-//             TSub("subx211 subtract '0'     '-0.51'    -> '0.51'", c9hu);
-//             TSub("subx212 subtract '0'     '-.2234'   -> '0.2234'", c9hu);
-//             TSub("subx213 subtract '0'     '-.2'      -> '0.2'", c9hu);
-//             TSub("subx214 subtract '.0'    '-.0008'   -> '0.0008'", c9hu);
-
-//             //-- more fixed, LHS swaps [really the same as testcases under add]
-//             TSub("subx220 subtract '-56267E-12' 0  -> '-5.6267E-8'", c9hu);
-//             TSub("subx221 subtract '-56267E-11' 0  -> '-5.6267E-7'", c9hu);
-//             TSub("subx222 subtract '-56267E-10' 0  -> '-0.0000056267'", c9hu);
-//             TSub("subx223 subtract '-56267E-9'  0  -> '-0.000056267'", c9hu);
-//             TSub("subx224 subtract '-56267E-8'  0  -> '-0.00056267'", c9hu);
-//             TSub("subx225 subtract '-56267E-7'  0  -> '-0.0056267'", c9hu);
-//             TSub("subx226 subtract '-56267E-6'  0  -> '-0.056267'", c9hu);
-//             TSub("subx227 subtract '-56267E-5'  0  -> '-0.56267'", c9hu);
-//             TSub("subx228 subtract '-56267E-2'  0  -> '-562.67'", c9hu);
-//             TSub("subx229 subtract '-56267E-1'  0  -> '-5626.7'", c9hu);
-//             TSub("subx230 subtract '-56267E-0'  0  -> '-56267'", c9hu);
-//             //-- symmetry ...
-//             TSub("subx240 subtract 0 '-56267E-12'  -> '5.6267E-8'", c9hu);
-//             TSub("subx241 subtract 0 '-56267E-11'  -> '5.6267E-7'", c9hu);
-//             TSub("subx242 subtract 0 '-56267E-10'  -> '0.0000056267'", c9hu);
-//             TSub("subx243 subtract 0 '-56267E-9'   -> '0.000056267'", c9hu);
-//             TSub("subx244 subtract 0 '-56267E-8'   -> '0.00056267'", c9hu);
-//             TSub("subx245 subtract 0 '-56267E-7'   -> '0.0056267'", c9hu);
-//             TSub("subx246 subtract 0 '-56267E-6'   -> '0.056267'", c9hu);
-//             TSub("subx247 subtract 0 '-56267E-5'   -> '0.56267'", c9hu);
-//             TSub("subx248 subtract 0 '-56267E-2'   -> '562.67'", c9hu);
-//             TSub("subx249 subtract 0 '-56267E-1'   -> '5626.7'", c9hu);
-//             TSub("subx250 subtract 0 '-56267E-0'   -> '56267'", c9hu);
-
-//             //-- now some more from the 'new' add
-//             //precision: 9
-//             TSub("subx301 subtract '1.23456789'  '1.00000000' -> '0.23456789'", c9hu);
-//             TSub("subx302 subtract '1.23456789'  '1.00000011' -> '0.23456778'", c9hu);
-
-//             TSub("subx311 subtract '0.4444444444'  '0.5555555555' -> '-0.111111111' Inexact Rounded", c9hu);
-//             TSub("subx312 subtract '0.4444444440'  '0.5555555555' -> '-0.111111112' Inexact Rounded", c9hu);
-//             TSub("subx313 subtract '0.4444444444'  '0.5555555550' -> '-0.111111111' Inexact Rounded", c9hu);
-//             TSub("subx314 subtract '0.44444444449'    '0' -> '0.444444444' Inexact Rounded", c9hu);
-//             TSub("subx315 subtract '0.444444444499'   '0' -> '0.444444444' Inexact Rounded", c9hu);
-//             TSub("subx316 subtract '0.4444444444999'  '0' -> '0.444444444' Inexact Rounded", c9hu);
-//             TSub("subx317 subtract '0.4444444445000'  '0' -> '0.444444445' Inexact Rounded", c9hu);
-//             TSub("subx318 subtract '0.4444444445001'  '0' -> '0.444444445' Inexact Rounded", c9hu);
-//             TSub("subx319 subtract '0.444444444501'   '0' -> '0.444444445' Inexact Rounded", c9hu);
-//             TSub("subx320 subtract '0.44444444451'    '0' -> '0.444444445' Inexact Rounded", c9hu);
-
-//             //-- some carrying effects
-//             TSub("subx321 subtract '0.9998'  '0.0000' -> '0.9998'", c9hu);
-//             TSub("subx322 subtract '0.9998'  '0.0001' -> '0.9997'", c9hu);
-//             TSub("subx323 subtract '0.9998'  '0.0002' -> '0.9996'", c9hu);
-//             TSub("subx324 subtract '0.9998'  '0.0003' -> '0.9995'", c9hu);
-//             TSub("subx325 subtract '0.9998'  '-0.0000' -> '0.9998'", c9hu);
-//             TSub("subx326 subtract '0.9998'  '-0.0001' -> '0.9999'", c9hu);
-//             TSub("subx327 subtract '0.9998'  '-0.0002' -> '1.0000'", c9hu);
-//             TSub("subx328 subtract '0.9998'  '-0.0003' -> '1.0001'", c9hu);
-
-//             TSub("subx330 subtract '70'  '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx331 subtract '700'  '10000e+9' -> '-1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx332 subtract '7000'  '10000e+9' -> '-9.99999999E+12' Inexact Rounded", c9hu);
-//             TSub("subx333 subtract '70000'  '10000e+9' -> '-9.99999993E+12' Rounded", c9hu);
-//             TSub("subx334 subtract '700000'  '10000e+9' -> '-9.99999930E+12' Rounded", c9hu);
-//             TSub("subx335 subtract '7000000'  '10000e+9' -> '-9.99999300E+12' Rounded", c9hu);
-//             //-- symmetry:
-//             TSub("subx340 subtract '10000e+9'  '70' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx341 subtract '10000e+9'  '700' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TSub("subx342 subtract '10000e+9'  '7000' -> '9.99999999E+12' Inexact Rounded", c9hu);
-//             TSub("subx343 subtract '10000e+9'  '70000' -> '9.99999993E+12' Rounded", c9hu);
-//             TSub("subx344 subtract '10000e+9'  '700000' -> '9.99999930E+12' Rounded", c9hu);
-//             TSub("subx345 subtract '10000e+9'  '7000000' -> '9.99999300E+12' Rounded", c9hu);
-
-//             //-- same, higher precision
-//             //precision: 15
-//             TSub("subx346 subtract '10000e+9'  '7'   -> '9999999999993'", c15hu);
-//             TSub("subx347 subtract '10000e+9'  '70'   -> '9999999999930'", c15hu);
-//             TSub("subx348 subtract '10000e+9'  '700'   -> '9999999999300'", c15hu);
-//             TSub("subx349 subtract '10000e+9'  '7000'   -> '9999999993000'", c15hu);
-//             TSub("subx350 subtract '10000e+9'  '70000'   -> '9999999930000'", c15hu);
-//             TSub("subx351 subtract '10000e+9'  '700000'   -> '9999999300000'", c15hu);
-//             TSub("subx352 subtract '7' '10000e+9'   -> '-9999999999993'", c15hu);
-//             TSub("subx353 subtract '70' '10000e+9'   -> '-9999999999930'", c15hu);
-//             TSub("subx354 subtract '700' '10000e+9'   -> '-9999999999300'", c15hu);
-//             TSub("subx355 subtract '7000' '10000e+9'   -> '-9999999993000'", c15hu);
-//             TSub("subx356 subtract '70000' '10000e+9'   -> '-9999999930000'", c15hu);
-//             TSub("subx357 subtract '700000' '10000e+9'   -> '-9999999300000'", c15hu);
-
-//             //-- zero preservation
-//             //precision: 6
-//             TSub("subx360 subtract '10000e+9'  '70000' -> '1.00000E+13' Inexact Rounded", c6hu);
-//             TSub("subx361 subtract 1 '0.0001' -> '0.9999'", c6hu);
-//             TSub("subx362 subtract 1 '0.00001' -> '0.99999'", c6hu);
-//             TSub("subx363 subtract 1 '0.000001' -> '0.999999'", c6hu);
-//             TSub("subx364 subtract 1 '0.0000001' -> '1.00000' Inexact Rounded", c6hu);
-//             TSub("subx365 subtract 1 '0.00000001' -> '1.00000' Inexact Rounded", c6hu);
-
-//             //-- some funny zeros [in case of bad signum]
-//             TSub("subx370 subtract 1  0  -> 1", c6hu);
-//             TSub("subx371 subtract 1 0.  -> 1", c6hu);
-//             TSub("subx372 subtract 1  .0 -> 1.0", c6hu);
-//             TSub("subx373 subtract 1 0.0 -> 1.0", c6hu);
-//             TSub("subx374 subtract  0  1 -> -1", c6hu);
-//             TSub("subx375 subtract 0.  1 -> -1", c6hu);
-//             TSub("subx376 subtract  .0 1 -> -1.0", c6hu);
-//             TSub("subx377 subtract 0.0 1 -> -1.0", c6hu);
-
-//             //precision: 9
-
-//             //-- leading 0 digit before round
-//             TSub("subx910 subtract -103519362 -51897955.3 -> -51621406.7", c9hu);
-//             TSub("subx911 subtract 159579.444 89827.5229 -> 69751.9211", c9hu);
-
-//             TSub("subx920 subtract 333.123456 33.1234566 -> 299.999999 Inexact Rounded", c9hu);
-//             TSub("subx921 subtract 333.123456 33.1234565 -> 300.000000 Inexact Rounded", c9hu);
-//             TSub("subx922 subtract 133.123456 33.1234565 ->  99.9999995", c9hu);
-//             TSub("subx923 subtract 133.123456 33.1234564 ->  99.9999996", c9hu);
-//             TSub("subx924 subtract 133.123456 33.1234540 -> 100.000002 Rounded", c9hu);
-//             TSub("subx925 subtract 133.123456 43.1234560 ->  90.0000000", c9hu);
-//             TSub("subx926 subtract 133.123456 43.1234561 ->  89.9999999", c9hu);
-//             TSub("subx927 subtract 133.123456 43.1234566 ->  89.9999994", c9hu);
-//             TSub("subx928 subtract 101.123456 91.1234566 ->   9.9999994", c9hu);
-//             TSub("subx929 subtract 101.123456 99.1234566 ->   1.9999994", c9hu);
-
-//             //-- more of the same; probe for cluster boundary problems
-
-//             BigDecimal.Context c1hu = new BigDecimal.Context(1, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c2hu = new BigDecimal.Context(2, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c4hu = new BigDecimal.Context(4, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c5hu = new BigDecimal.Context(5, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c7hu = new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c8hu = new BigDecimal.Context(8, BigDecimal.RoundingMode.HalfUp);
-
-//             //precision: 1
-//             TSub("subx930 subtract  11 2           -> 9", c1hu);
-//             //precision: 2
-//             TSub("subx932 subtract 101 2           -> 99", c2hu);
-//             //precision: 3
-//             TSub("subx934 subtract 101 2.1         -> 98.9", c3hu);
-//             TSub("subx935 subtract 101 92.01       ->  8.99", c3hu);
-//             //precision: 4
-//             TSub("subx936 subtract 101 2.01        -> 98.99", c4hu);
-//             TSub("subx937 subtract 101 92.01       ->  8.99", c4hu);
-//             TSub("subx938 subtract 101 92.006      ->  8.994", c4hu);
-//             //precision: 5
-//             TSub("subx939 subtract 101 2.001       -> 98.999", c5hu);
-//             TSub("subx940 subtract 101 92.001      ->  8.999", c5hu);
-//             TSub("subx941 subtract 101 92.0006     ->  8.9994", c5hu);
-//             //precision: 6
-//             TSub("subx942 subtract 101 2.0001      -> 98.9999", c6hu);
-//             TSub("subx943 subtract 101 92.0001     ->  8.9999", c6hu);
-//             TSub("subx944 subtract 101 92.00006    ->  8.99994", c6hu);
-//             //precision: 7
-//             TSub("subx945 subtract 101 2.00001     -> 98.99999", c7hu);
-//             TSub("subx946 subtract 101 92.00001    ->  8.99999", c7hu);
-//             TSub("subx947 subtract 101 92.000006   ->  8.999994", c7hu);
-//             //precision: 8
-//             TSub("subx948 subtract 101 2.000001    -> 98.999999", c8hu);
-//             TSub("subx949 subtract 101 92.000001   ->  8.999999", c8hu);
-//             TSub("subx950 subtract 101 92.0000006  ->  8.9999994", c8hu);
-//             //precision: 9
-//             TSub("subx951 subtract 101 2.0000001   -> 98.9999999", c9hu);
-//             TSub("subx952 subtract 101 92.0000001  ->  8.9999999", c9hu);
-//             TSub("subx953 subtract 101 92.00000006 ->  8.99999994", c9hu);
-
-//             //precision: 9
-
-//             //-- more LHS swaps [were fixed]
-//             TSub("subx390 subtract '-56267E-10'   0 ->  '-0.0000056267'", c9hu);
-//             TSub("subx391 subtract '-56267E-6'    0 ->  '-0.056267'", c9hu);
-//             TSub("subx392 subtract '-56267E-5'    0 ->  '-0.56267'", c9hu);
-//             TSub("subx393 subtract '-56267E-4'    0 ->  '-5.6267'", c9hu);
-//             TSub("subx394 subtract '-56267E-3'    0 ->  '-56.267'", c9hu);
-//             TSub("subx395 subtract '-56267E-2'    0 ->  '-562.67'", c9hu);
-//             TSub("subx396 subtract '-56267E-1'    0 ->  '-5626.7'", c9hu);
-//             TSub("subx397 subtract '-56267E-0'    0 ->  '-56267'", c9hu);
-//             TSub("subx398 subtract '-5E-10'       0 ->  '-5E-10'", c9hu);
-//             TSub("subx399 subtract '-5E-7'        0 ->  '-5E-7'", c9hu);
-//             TSub("subx400 subtract '-5E-6'        0 ->  '-0.000005'", c9hu);
-//             TSub("subx401 subtract '-5E-5'        0 ->  '-0.00005'", c9hu);
-//             TSub("subx402 subtract '-5E-4'        0 ->  '-0.0005'", c9hu);
-//             TSub("subx403 subtract '-5E-1'        0 ->  '-0.5'", c9hu);
-//             TSub("subx404 subtract '-5E0'         0 ->  '-5'", c9hu);
-//             TSub("subx405 subtract '-5E1'         0 ->  '-50'", c9hu);
-//             TSub("subx406 subtract '-5E5'         0 ->  '-500000'", c9hu);
-//             TSub("subx407 subtract '-5E8'         0 ->  '-500000000'", c9hu);
-//             TSub("subx408 subtract '-5E9'         0 ->  '-5.00000000E+9'   Rounded", c9hu);
-//             TSub("subx409 subtract '-5E10'        0 ->  '-5.00000000E+10'  Rounded", c9hu);
-//             TSub("subx410 subtract '-5E11'        0 ->  '-5.00000000E+11'  Rounded", c9hu);
-//             TSub("subx411 subtract '-5E100'       0 ->  '-5.00000000E+100' Rounded", c9hu);
-
-//             //-- more RHS swaps [were fixed]
-//             TSub("subx420 subtract 0  '-56267E-10' ->  '0.0000056267'", c9hu);
-//             TSub("subx421 subtract 0  '-56267E-6'  ->  '0.056267'", c9hu);
-//             TSub("subx422 subtract 0  '-56267E-5'  ->  '0.56267'", c9hu);
-//             TSub("subx423 subtract 0  '-56267E-4'  ->  '5.6267'", c9hu);
-//             TSub("subx424 subtract 0  '-56267E-3'  ->  '56.267'", c9hu);
-//             TSub("subx425 subtract 0  '-56267E-2'  ->  '562.67'", c9hu);
-//             TSub("subx426 subtract 0  '-56267E-1'  ->  '5626.7'", c9hu);
-//             TSub("subx427 subtract 0  '-56267E-0'  ->  '56267'", c9hu);
-//             TSub("subx428 subtract 0  '-5E-10'     ->  '5E-10'", c9hu);
-//             TSub("subx429 subtract 0  '-5E-7'      ->  '5E-7'", c9hu);
-//             TSub("subx430 subtract 0  '-5E-6'      ->  '0.000005'", c9hu);
-//             TSub("subx431 subtract 0  '-5E-5'      ->  '0.00005'", c9hu);
-//             TSub("subx432 subtract 0  '-5E-4'      ->  '0.0005'", c9hu);
-//             TSub("subx433 subtract 0  '-5E-1'      ->  '0.5'", c9hu);
-//             TSub("subx434 subtract 0  '-5E0'       ->  '5'", c9hu);
-//             TSub("subx435 subtract 0  '-5E1'       ->  '50'", c9hu);
-//             TSub("subx436 subtract 0  '-5E5'       ->  '500000'", c9hu);
-//             TSub("subx437 subtract 0  '-5E8'       ->  '500000000'", c9hu);
-//             TSub("subx438 subtract 0  '-5E9'       ->  '5.00000000E+9'    Rounded", c9hu);
-//             TSub("subx439 subtract 0  '-5E10'      ->  '5.00000000E+10'   Rounded", c9hu);
-//             TSub("subx440 subtract 0  '-5E11'      ->  '5.00000000E+11'   Rounded", c9hu);
-//             TSub("subx441 subtract 0  '-5E100'     ->  '5.00000000E+100'  Rounded", c9hu);
-
-
-//             //-- try borderline precision, with carries, etc.
-//             //precision: 15
-//             TSub("subx461 subtract '1E+12' '1'       -> '999999999999'", c15hu);
-//             TSub("subx462 subtract '1E+12' '-1.11'   -> '1000000000001.11'", c15hu);
-//             TSub("subx463 subtract '1.11'  '-1E+12'  -> '1000000000001.11'", c15hu);
-//             TSub("subx464 subtract '-1'    '-1E+12'  -> '999999999999'", c15hu);
-//             TSub("subx465 subtract '7E+12' '1'       -> '6999999999999'", c15hu);
-//             TSub("subx466 subtract '7E+12' '-1.11'   -> '7000000000001.11'", c15hu);
-//             TSub("subx467 subtract '1.11'  '-7E+12'  -> '7000000000001.11'", c15hu);
-//             TSub("subx468 subtract '-1'    '-7E+12'  -> '6999999999999'", c15hu);
-
-//             //--                 123456789012345       123456789012345      1 23456789012345
-//             TSub("subx470 subtract '0.444444444444444'  '-0.555555555555563' -> '1.00000000000001' Inexact Rounded", c15hu);
-//             TSub("subx471 subtract '0.444444444444444'  '-0.555555555555562' -> '1.00000000000001' Inexact Rounded", c15hu);
-//             TSub("subx472 subtract '0.444444444444444'  '-0.555555555555561' -> '1.00000000000001' Inexact Rounded", c15hu);
-//             TSub("subx473 subtract '0.444444444444444'  '-0.555555555555560' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TSub("subx474 subtract '0.444444444444444'  '-0.555555555555559' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TSub("subx475 subtract '0.444444444444444'  '-0.555555555555558' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TSub("subx476 subtract '0.444444444444444'  '-0.555555555555557' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TSub("subx477 subtract '0.444444444444444'  '-0.555555555555556' -> '1.00000000000000' Rounded", c15hu);
-//             TSub("subx478 subtract '0.444444444444444'  '-0.555555555555555' -> '0.999999999999999'", c15hu);
-//             TSub("subx479 subtract '0.444444444444444'  '-0.555555555555554' -> '0.999999999999998'", c15hu);
-//             TSub("subx480 subtract '0.444444444444444'  '-0.555555555555553' -> '0.999999999999997'", c15hu);
-//             TSub("subx481 subtract '0.444444444444444'  '-0.555555555555552' -> '0.999999999999996'", c15hu);
-//             TSub("subx482 subtract '0.444444444444444'  '-0.555555555555551' -> '0.999999999999995'", c15hu);
-//             TSub("subx483 subtract '0.444444444444444'  '-0.555555555555550' -> '0.999999999999994'", c15hu);
-
-
-//             //-- and some more, including residue effects and different roundings
-//             //precision: 9
-//             //rounding: half_up
-//             TSub("subx500 subtract '123456789' 0             -> '123456789'", c9hu);
-//             TSub("subx501 subtract '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx502 subtract '123456789' 0.000001      -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx503 subtract '123456789' 0.1           -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx504 subtract '123456789' 0.4           -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx505 subtract '123456789' 0.49          -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx506 subtract '123456789' 0.499999      -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx507 subtract '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx508 subtract '123456789' 0.5           -> '123456789' Inexact Rounded", c9hu);
-//             TSub("subx509 subtract '123456789' 0.500000001   -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx510 subtract '123456789' 0.500001      -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx511 subtract '123456789' 0.51          -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx512 subtract '123456789' 0.6           -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx513 subtract '123456789' 0.9           -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx514 subtract '123456789' 0.99999       -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx515 subtract '123456789' 0.999999999   -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx516 subtract '123456789' 1             -> '123456788'", c9hu);
-//             TSub("subx517 subtract '123456789' 1.000000001   -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx518 subtract '123456789' 1.00001       -> '123456788' Inexact Rounded", c9hu);
-//             TSub("subx519 subtract '123456789' 1.1           -> '123456788' Inexact Rounded", c9hu);
-
-//             //rounding: half_even
-//             BigDecimal.Context c9he = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfEven);
-//             TSub("subx520 subtract '123456789' 0             -> '123456789'", c9he);
-//             TSub("subx521 subtract '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9he);
-//             TSub("subx522 subtract '123456789' 0.000001      -> '123456789' Inexact Rounded", c9he);
-//             TSub("subx523 subtract '123456789' 0.1           -> '123456789' Inexact Rounded", c9he);
-//             TSub("subx524 subtract '123456789' 0.4           -> '123456789' Inexact Rounded", c9he);
-//             TSub("subx525 subtract '123456789' 0.49          -> '123456789' Inexact Rounded", c9he);
-//             TSub("subx526 subtract '123456789' 0.499999      -> '123456789' Inexact Rounded", c9he);
-//             TSub("subx527 subtract '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9he);
-//             TSub("subx528 subtract '123456789' 0.5           -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx529 subtract '123456789' 0.500000001   -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx530 subtract '123456789' 0.500001      -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx531 subtract '123456789' 0.51          -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx532 subtract '123456789' 0.6           -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx533 subtract '123456789' 0.9           -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx534 subtract '123456789' 0.99999       -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx535 subtract '123456789' 0.999999999   -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx536 subtract '123456789' 1             -> '123456788'", c9he);
-//             TSub("subx537 subtract '123456789' 1.00000001    -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx538 subtract '123456789' 1.00001       -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx539 subtract '123456789' 1.1           -> '123456788' Inexact Rounded", c9he);
-//             //-- critical few with even bottom digit...
-//             TSub("subx540 subtract '123456788' 0.499999999   -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx541 subtract '123456788' 0.5           -> '123456788' Inexact Rounded", c9he);
-//             TSub("subx542 subtract '123456788' 0.500000001   -> '123456787' Inexact Rounded", c9he);
-
-//             //rounding: down
-//             BigDecimal.Context c9d = new BigDecimal.Context(9, BigDecimal.RoundingMode.Down);
-
-//             TSub("subx550 subtract '123456789' 0             -> '123456789'", c9d);
-//             TSub("subx551 subtract '123456789' 0.000000001   -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx552 subtract '123456789' 0.000001      -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx553 subtract '123456789' 0.1           -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx554 subtract '123456789' 0.4           -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx555 subtract '123456789' 0.49          -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx556 subtract '123456789' 0.499999      -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx557 subtract '123456789' 0.499999999   -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx558 subtract '123456789' 0.5           -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx559 subtract '123456789' 0.500000001   -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx560 subtract '123456789' 0.500001      -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx561 subtract '123456789' 0.51          -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx562 subtract '123456789' 0.6           -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx563 subtract '123456789' 0.9           -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx564 subtract '123456789' 0.99999       -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx565 subtract '123456789' 0.999999999   -> '123456788' Inexact Rounded", c9d);
-//             TSub("subx566 subtract '123456789' 1             -> '123456788'", c9d);
-//             TSub("subx567 subtract '123456789' 1.00000001    -> '123456787' Inexact Rounded", c9d);
-//             TSub("subx568 subtract '123456789' 1.00001       -> '123456787' Inexact Rounded", c9d);
-//             TSub("subx569 subtract '123456789' 1.1           -> '123456787' Inexact Rounded", c9d);
-
-//             //-- symmetry...
-//             //rounding: half_up
-//             TSub("subx600 subtract 0             '123456789' -> '-123456789'", c9hu);
-//             TSub("subx601 subtract 0.000000001   '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx602 subtract 0.000001      '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx603 subtract 0.1           '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx604 subtract 0.4           '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx605 subtract 0.49          '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx606 subtract 0.499999      '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx607 subtract 0.499999999   '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx608 subtract 0.5           '123456789' -> '-123456789' Inexact Rounded", c9hu);
-//             TSub("subx609 subtract 0.500000001   '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx610 subtract 0.500001      '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx611 subtract 0.51          '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx612 subtract 0.6           '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx613 subtract 0.9           '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx614 subtract 0.99999       '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx615 subtract 0.999999999   '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx616 subtract 1             '123456789' -> '-123456788'", c9hu);
-//             TSub("subx617 subtract 1.000000001   '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx618 subtract 1.00001       '123456789' -> '-123456788' Inexact Rounded", c9hu);
-//             TSub("subx619 subtract 1.1           '123456789' -> '-123456788' Inexact Rounded", c9hu);
-
-//             //rounding: half_even
-//             TSub("subx620 subtract 0             '123456789' -> '-123456789'", c9he);
-//             TSub("subx621 subtract 0.000000001   '123456789' -> '-123456789' Inexact Rounded", c9he);
-//             TSub("subx622 subtract 0.000001      '123456789' -> '-123456789' Inexact Rounded", c9he);
-//             TSub("subx623 subtract 0.1           '123456789' -> '-123456789' Inexact Rounded", c9he);
-//             TSub("subx624 subtract 0.4           '123456789' -> '-123456789' Inexact Rounded", c9he);
-//             TSub("subx625 subtract 0.49          '123456789' -> '-123456789' Inexact Rounded", c9he);
-//             TSub("subx626 subtract 0.499999      '123456789' -> '-123456789' Inexact Rounded", c9he);
-//             TSub("subx627 subtract 0.499999999   '123456789' -> '-123456789' Inexact Rounded", c9he);
-//             TSub("subx628 subtract 0.5           '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx629 subtract 0.500000001   '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx630 subtract 0.500001      '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx631 subtract 0.51          '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx632 subtract 0.6           '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx633 subtract 0.9           '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx634 subtract 0.99999       '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx635 subtract 0.999999999   '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx636 subtract 1             '123456789' -> '-123456788'", c9he);
-//             TSub("subx637 subtract 1.00000001    '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx638 subtract 1.00001       '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx639 subtract 1.1           '123456789' -> '-123456788' Inexact Rounded", c9he);
-//             //-- critical few with even bottom digit...
-//             TSub("subx640 subtract 0.499999999   '123456788' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx641 subtract 0.5           '123456788' -> '-123456788' Inexact Rounded", c9he);
-//             TSub("subx642 subtract 0.500000001   '123456788' -> '-123456787' Inexact Rounded", c9he);
-
-//             //rounding: down
-//             TSub("subx650 subtract 0             '123456789' -> '-123456789'", c9d);
-//             TSub("subx651 subtract 0.000000001   '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx652 subtract 0.000001      '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx653 subtract 0.1           '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx654 subtract 0.4           '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx655 subtract 0.49          '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx656 subtract 0.499999      '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx657 subtract 0.499999999   '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx658 subtract 0.5           '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx659 subtract 0.500000001   '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx660 subtract 0.500001      '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx661 subtract 0.51          '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx662 subtract 0.6           '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx663 subtract 0.9           '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx664 subtract 0.99999       '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx665 subtract 0.999999999   '123456789' -> '-123456788' Inexact Rounded", c9d);
-//             TSub("subx666 subtract 1             '123456789' -> '-123456788'", c9d);
-//             TSub("subx667 subtract 1.00000001    '123456789' -> '-123456787' Inexact Rounded", c9d);
-//             TSub("subx668 subtract 1.00001       '123456789' -> '-123456787' Inexact Rounded", c9d);
-//             TSub("subx669 subtract 1.1           '123456789' -> '-123456787' Inexact Rounded", c9d);
-
-
-//             //-- lots of leading zeros in intermediate result, and showing effects of
-//             //-- input rounding would have affected the following
-//             //precision: 9
-//             //rounding: half_up
-//             TSub("subx670 subtract '123456789' '123456788.1' -> 0.9", c9hu);
-//             TSub("subx671 subtract '123456789' '123456788.9' -> 0.1", c9hu);
-//             TSub("subx672 subtract '123456789' '123456789.1' -> -0.1", c9hu);
-//             TSub("subx673 subtract '123456789' '123456789.5' -> -0.5", c9hu);
-//             TSub("subx674 subtract '123456789' '123456789.9' -> -0.9", c9hu);
-
-//             //rounding: half_even
-//             TSub("subx680 subtract '123456789' '123456788.1' -> 0.9", c9he);
-//             TSub("subx681 subtract '123456789' '123456788.9' -> 0.1", c9he);
-//             TSub("subx682 subtract '123456789' '123456789.1' -> -0.1", c9he);
-//             TSub("subx683 subtract '123456789' '123456789.5' -> -0.5", c9he);
-//             TSub("subx684 subtract '123456789' '123456789.9' -> -0.9", c9he);
-
-//             TSub("subx685 subtract '123456788' '123456787.1' -> 0.9", c9he);
-//             TSub("subx686 subtract '123456788' '123456787.9' -> 0.1", c9he);
-//             TSub("subx687 subtract '123456788' '123456788.1' -> -0.1", c9he);
-//             TSub("subx688 subtract '123456788' '123456788.5' -> -0.5", c9he);
-//             TSub("subx689 subtract '123456788' '123456788.9' -> -0.9", c9he);
-
-//             //rounding: down
-//             TSub("subx690 subtract '123456789' '123456788.1' -> 0.9", c9d);
-//             TSub("subx691 subtract '123456789' '123456788.9' -> 0.1", c9d);
-//             TSub("subx692 subtract '123456789' '123456789.1' -> -0.1", c9d);
-//             TSub("subx693 subtract '123456789' '123456789.5' -> -0.5", c9d);
-//             TSub("subx694 subtract '123456789' '123456789.9' -> -0.9", c9d);
-
-//             //-- input preparation tests
-//             //rounding: half_up
-//             //precision: 3
-
-//             TSub("subx700 subtract '12345678900000'  -9999999999999 ->  '2.23E+13' Inexact Rounded", c3hu);
-//             TSub("subx701 subtract  '9999999999999' -12345678900000 ->  '2.23E+13' Inexact Rounded", c3hu);
-//             TSub("subx702 subtract '12E+3'  '-3456' ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TSub("subx703 subtract '12E+3'  '-3446' ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TSub("subx704 subtract '12E+3'  '-3454' ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TSub("subx705 subtract '12E+3'  '-3444' ->  '1.54E+4' Inexact Rounded", c3hu);
-
-//             TSub("subx706 subtract '3456'  '-12E+3' ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TSub("subx707 subtract '3446'  '-12E+3' ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TSub("subx708 subtract '3454'  '-12E+3' ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TSub("subx709 subtract '3444'  '-12E+3' ->  '1.54E+4' Inexact Rounded", c3hu);
-
-//             //-- overflow and underflow tests [subnormals now possible]
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-//             //precision: 9
-//             //rounding: down
-//             //TSub("subx710 subtract 1E+999999999    -9E+999999999   -> 9.99999999E+999999999 Overflow Inexact Rounded", c9d);
-//             //TSub("subx711 subtract 9E+999999999    -1E+999999999   -> 9.99999999E+999999999 Overflow Inexact Rounded", c9d);
-//             //rounding: half_up
-//             //TSub("subx712 subtract 1E+999999999    -9E+999999999   -> Infinity Overflow Inexact Rounded", c9hu);
-//             //TSub("subx713 subtract 9E+999999999    -1E+999999999   -> Infinity Overflow Inexact Rounded", c9hu);
-//             //TSub("subx714 subtract -1.1E-999999999 -1E-999999999   -> -1E-1000000000 Subnormal", c9hu);
-//             //TSub("subx715 subtract 1E-999999999    +1.1e-999999999 -> -1E-1000000000 Subnormal", c9hu);
-//             //TSub("subx716 subtract -1E+999999999   +9E+999999999   -> -Infinity Overflow Inexact Rounded", c9hu);
-//             //TSub("subx717 subtract -9E+999999999   +1E+999999999   -> -Infinity Overflow Inexact Rounded", c9hu);
-//             //TSub("subx718 subtract +1.1E-999999999 +1E-999999999   -> 1E-1000000000 Subnormal", c9hu);
-//             //TSub("subx719 subtract -1E-999999999   -1.1e-999999999 -> 1E-1000000000 Subnormal", c9hu);
-
-//             //precision: 3
-//             //TSub("subx720 subtract 1  9.999E+999999999   -> -Infinity Inexact Overflow Rounded", c3hu);
-//             //TSub("subx721 subtract 1 -9.999E+999999999   ->  Infinity Inexact Overflow Rounded", c3hu);
-//             //TSub("subx722 subtract    9.999E+999999999 1 ->  Infinity Inexact Overflow Rounded", c3hu);
-//             //TSub("subx723 subtract   -9.999E+999999999 1 -> -Infinity Inexact Overflow Rounded", c3hu);
-//             //TSub("subx724 subtract 1  9.999E+999999999   -> -Infinity Inexact Overflow Rounded", c3hu);
-//             //TSub("subx725 subtract 1 -9.999E+999999999   ->  Infinity Inexact Overflow Rounded", c3hu);
-//             //TSub("subx726 subtract    9.999E+999999999 1 ->  Infinity Inexact Overflow Rounded", c3hu);
-//             //TSub("subx727 subtract   -9.999E+999999999 1 -> -Infinity Inexact Overflow Rounded", c3hu);
-
-//             //-- [more below]
-
-//             //-- long operand checks
-//             //maxexponent: 999
-//             //minexponent: -999
-//             //precision: 9
-//             TSub("sub731 subtract 12345678000 0 ->  1.23456780E+10 Rounded", c9hu);
-//             TSub("sub732 subtract 0 12345678000 -> -1.23456780E+10 Rounded", c9hu);
-//             TSub("sub733 subtract 1234567800  0 ->  1.23456780E+9 Rounded", c9hu);
-//             TSub("sub734 subtract 0 1234567800  -> -1.23456780E+9 Rounded", c9hu);
-//             TSub("sub735 subtract 1234567890  0 ->  1.23456789E+9 Rounded", c9hu);
-//             TSub("sub736 subtract 0 1234567890  -> -1.23456789E+9 Rounded", c9hu);
-//             TSub("sub737 subtract 1234567891  0 ->  1.23456789E+9 Inexact Rounded", c9hu);
-//             TSub("sub738 subtract 0 1234567891  -> -1.23456789E+9 Inexact Rounded", c9hu);
-//             TSub("sub739 subtract 12345678901 0 ->  1.23456789E+10 Inexact Rounded", c9hu);
-//             TSub("sub740 subtract 0 12345678901 -> -1.23456789E+10 Inexact Rounded", c9hu);
-//             TSub("sub741 subtract 1234567896  0 ->  1.23456790E+9 Inexact Rounded", c9hu);
-//             TSub("sub742 subtract 0 1234567896  -> -1.23456790E+9 Inexact Rounded", c9hu);
-
-//             //precision: 15
-//             TSub("sub751 subtract 12345678000 0 ->  12345678000", c15hu);
-//             TSub("sub752 subtract 0 12345678000 -> -12345678000", c15hu);
-//             TSub("sub753 subtract 1234567800  0 ->  1234567800", c15hu);
-//             TSub("sub754 subtract 0 1234567800  -> -1234567800", c15hu);
-//             TSub("sub755 subtract 1234567890  0 ->  1234567890", c15hu);
-//             TSub("sub756 subtract 0 1234567890  -> -1234567890", c15hu);
-//             TSub("sub757 subtract 1234567891  0 ->  1234567891", c15hu);
-//             TSub("sub758 subtract 0 1234567891  -> -1234567891", c15hu);
-//             TSub("sub759 subtract 12345678901 0 ->  12345678901", c15hu);
-//             TSub("sub760 subtract 0 12345678901 -> -12345678901", c15hu);
-//             TSub("sub761 subtract 1234567896  0 ->  1234567896", c15hu);
-//             TSub("sub762 subtract 0 1234567896  -> -1234567896", c15hu);
-
-//             //-- Specials
-//             //TSub("subx780 subtract -Inf   Inf   -> -Infinity
-//             //TSub("subx781 subtract -Inf   1000  -> -Infinity
-//             //TSub("subx782 subtract -Inf   1     -> -Infinity
-//             //TSub("subx783 subtract -Inf  -0     -> -Infinity
-//             //TSub("subx784 subtract -Inf  -1     -> -Infinity
-//             //TSub("subx785 subtract -Inf  -1000  -> -Infinity
-//             //TSub("subx787 subtract -1000  Inf   -> -Infinity
-//             //TSub("subx788 subtract -Inf   Inf   -> -Infinity
-//             //TSub("subx789 subtract -1     Inf   -> -Infinity
-//             //TSub("subx790 subtract  0     Inf   -> -Infinity
-//             //TSub("subx791 subtract  1     Inf   -> -Infinity
-//             //TSub("subx792 subtract  1000  Inf   -> -Infinity
-
-//             //TSub("subx800 subtract  Inf   Inf   ->  NaN  Invalid_operation
-//             ///TSub("subx801 subtract  Inf   1000  ->  Infinity
-//             //TSub("subx802 subtract  Inf   1     ->  Infinity
-//             //TSub("subx803 subtract  Inf   0     ->  Infinity
-//             //TSub("subx804 subtract  Inf  -0     ->  Infinity
-//             //TSub("subx805 subtract  Inf  -1     ->  Infinity
-//             //TSub("subx806 subtract  Inf  -1000  ->  Infinity
-//             //TSub("subx807 subtract  Inf  -Inf   ->  Infinity
-//             //TSub("subx808 subtract -1000 -Inf   ->  Infinity
-//             //TSub("subx809 subtract -Inf  -Inf   ->  NaN  Invalid_operation
-//             //TSub("subx810 subtract -1    -Inf   ->  Infinity
-//             //TSub("subx811 subtract -0    -Inf   ->  Infinity
-//             //TSub("subx812 subtract  0    -Inf   ->  Infinity
-//             //TSub("subx813 subtract  1    -Inf   ->  Infinity
-//             //TSub("subx814 subtract  1000 -Inf   ->  Infinity
-//             //TSub("subx815 subtract  Inf  -Inf   ->  Infinity
-
-//             //TSub("subx821 subtract  NaN   Inf   ->  NaN
-//             //TSub("subx822 subtract -NaN   1000  -> -NaN
-//             //TSub("subx823 subtract  NaN   1     ->  NaN
-//             //TSub("subx824 subtract  NaN   0     ->  NaN
-//             //TSub("subx825 subtract  NaN  -0     ->  NaN
-//             //TSub("subx826 subtract  NaN  -1     ->  NaN
-//             //TSub("subx827 subtract  NaN  -1000  ->  NaN
-//             //TSub("subx828 subtract  NaN  -Inf   ->  NaN
-//             //TSub("subx829 subtract -NaN   NaN   -> -NaN
-//             //TSub("subx830 subtract -Inf   NaN   ->  NaN
-//             //TSub("subx831 subtract -1000  NaN   ->  NaN
-//             //TSub("subx832 subtract -1     NaN   ->  NaN
-//             //TSub("subx833 subtract -0     NaN   ->  NaN
-//             //TSub("subx834 subtract  0     NaN   ->  NaN
-//             //TSub("subx835 subtract  1     NaN   ->  NaN
-//             //TSub("subx836 subtract  1000 -NaN   -> -NaN
-//             //TSub("subx837 subtract  Inf   NaN   ->  NaN
-
-//             //TSub("subx841 subtract  sNaN  Inf   ->  NaN  Invalid_operation
-//             //TSub("subx842 subtract -sNaN  1000  -> -NaN  Invalid_operation
-//             //TSub("subx843 subtract  sNaN  1     ->  NaN  Invalid_operation
-//             //TSub("subx844 subtract  sNaN  0     ->  NaN  Invalid_operation
-//             //TSub("subx845 subtract  sNaN -0     ->  NaN  Invalid_operation
-//             //TSub("subx846 subtract  sNaN -1     ->  NaN  Invalid_operation
-//             //TSub("subx847 subtract  sNaN -1000  ->  NaN  Invalid_operation
-//             //TSub("subx848 subtract  sNaN  NaN   ->  NaN  Invalid_operation
-//             //TSub("subx849 subtract  sNaN sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx850 subtract  NaN  sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx851 subtract -Inf -sNaN   -> -NaN  Invalid_operation
-//             //TSub("subx852 subtract -1000 sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx853 subtract -1    sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx854 subtract -0    sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx855 subtract  0    sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx856 subtract  1    sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx857 subtract  1000 sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx858 subtract  Inf  sNaN   ->  NaN  Invalid_operation
-//             //TSub("subx859 subtract  NaN  sNaN   ->  NaN  Invalid_operation
-
-//             //-- propagating NaNs
-//             //TSub("subx861 subtract  NaN01   -Inf     ->  NaN1
-//             //TSub("subx862 subtract -NaN02   -1000    -> -NaN2
-//             //TSub("subx863 subtract  NaN03    1000    ->  NaN3
-//             //TSub("subx864 subtract  NaN04    Inf     ->  NaN4
-//             //TSub("subx865 subtract  NaN05    NaN61   ->  NaN5
-//             //TSub("subx866 subtract -Inf     -NaN71   -> -NaN71
-//             //TSub("subx867 subtract -1000     NaN81   ->  NaN81
-//             //TSub("subx868 subtract  1000     NaN91   ->  NaN91
-//             //TSub("subx869 subtract  Inf      NaN101  ->  NaN101
-//             //TSub("subx871 subtract  sNaN011  -Inf    ->  NaN11  Invalid_operation
-//             //TSub("subx872 subtract  sNaN012  -1000   ->  NaN12  Invalid_operation
-//             //TSub("subx873 subtract -sNaN013   1000   -> -NaN13  Invalid_operation
-//             //TSub("subx874 subtract  sNaN014   NaN171 ->  NaN14  Invalid_operation
-//             //TSub("subx875 subtract  sNaN015  sNaN181 ->  NaN15  Invalid_operation
-//             //TSub("subx876 subtract  NaN016   sNaN191 ->  NaN191 Invalid_operation
-//             //TSub("subx877 subtract -Inf      sNaN201 ->  NaN201 Invalid_operation
-//             //TSub("subx878 subtract -1000     sNaN211 ->  NaN211 Invalid_operation
-//             //TSub("subx879 subtract  1000    -sNaN221 -> -NaN221 Invalid_operation
-//             //TSub("subx880 subtract  Inf      sNaN231 ->  NaN231 Invalid_operation
-//             //TSub("subx881 subtract  NaN025   sNaN241 ->  NaN241 Invalid_operation
-
-//             //-- edge case spills
-//             TSub("subx901 subtract  2.E-3  1.002  -> -1.000", c15hu);
-//             TSub("subx902 subtract  2.0E-3  1.002  -> -1.0000", c15hu);
-//             TSub("subx903 subtract  2.00E-3  1.0020  -> -1.00000", c15hu);
-//             TSub("subx904 subtract  2.000E-3  1.00200  -> -1.000000", c15hu);
-//             TSub("subx905 subtract  2.0000E-3  1.002000  -> -1.0000000", c15hu);
-//             TSub("subx906 subtract  2.00000E-3  1.0020000  -> -1.00000000", c15hu);
-//             TSub("subx907 subtract  2.000000E-3  1.00200000  -> -1.000000000", c15hu);
-//             TSub("subx908 subtract  2.0000000E-3  1.002000000  -> -1.0000000000", c15hu);
-
-//             //-- subnormals and underflows
-//             //precision: 3
-//             //maxexponent: 999
-//             //minexponent: -999
-//             TSub("subx1010 subtract  0  1.00E-999       ->  -1.00E-999", c3hu);
-//             TSub("subx1011 subtract  0  0.1E-999        ->  -1E-1000   Subnormal", c3hu);
-//             TSub("subx1012 subtract  0  0.10E-999       ->  -1.0E-1000 Subnormal", c3hu);
-//             //?TSub("subx1013 subtract  0  0.100E-999      ->  -1.0E-1000 Subnormal Rounded", c3hu);
-//             TSub("subx1014 subtract  0  0.01E-999       ->  -1E-1001   Subnormal", c3hu);
-//             //-- next is rounded to Emin
-//             //?TSub("subx1015 subtract  0  0.999E-999      ->  -1.00E-999 Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1016 subtract  0  0.099E-999      ->  -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1017 subtract  0  0.009E-999      ->  -1E-1001   Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1018 subtract  0  0.001E-999      ->  -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
-//             //?TSub("subx1019 subtract  0  0.0009E-999     ->  -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
-//             //?TSub("subx1020 subtract  0  0.0001E-999     ->  -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
-
-//             //?TSub("subx1030 subtract  0 -1.00E-999       ->   1.00E-999", c3hu);
-//             //?TSub("subx1031 subtract  0 -0.1E-999        ->   1E-1000   Subnormal", c3hu);
-//             //?TSub("subx1032 subtract  0 -0.10E-999       ->   1.0E-1000 Subnormal", c3hu);
-//             //?TSub("subx1033 subtract  0 -0.100E-999      ->   1.0E-1000 Subnormal Rounded", c3hu);
-//             //?TSub("subx1034 subtract  0 -0.01E-999       ->   1E-1001   Subnormal", c3hu);
-//             //-- next is rounded to Emin
-//             //?TSub("subx1035 subtract  0 -0.999E-999      ->   1.00E-999 Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1036 subtract  0 -0.099E-999      ->   1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1037 subtract  0 -0.009E-999      ->   1E-1001   Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1038 subtract  0 -0.001E-999      ->   0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
-//             //?TSub("subx1039 subtract  0 -0.0009E-999     ->   0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
-//             //?TSub("subx1040 subtract  0 -0.0001E-999     ->   0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
-
-//             //-- some non-zero subnormal subtracts
-//             //-- TSub("subx1056 is a tricky case
-//             //rounding: half_up
-//             //?TSub("subx1050 subtract  1.00E-999   0.1E-999  ->   9.0E-1000  Subnormal", c3hu);
-//             //?TSub("subx1051 subtract  0.1E-999    0.1E-999  ->   0E-1000", c3hu);
-//             //?TSub("subx1052 subtract  0.10E-999   0.1E-999  ->   0E-1001", c3hu);
-//             //?TSub("subx1053 subtract  0.100E-999  0.1E-999  ->   0E-1001    Clamped", c3hu);
-//             //?TSub("subx1054 subtract  0.01E-999   0.1E-999  ->   -9E-1001   Subnormal", c3hu);
-//             //?TSub("subx1055 subtract  0.999E-999  0.1E-999  ->   9.0E-1000  Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1056 subtract  0.099E-999  0.1E-999  ->   -0E-1001   Inexact Rounded Subnormal Underflow Clamped", c3hu);
-//             //?TSub("subx1057 subtract  0.009E-999  0.1E-999  ->   -9E-1001   Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1058 subtract  0.001E-999  0.1E-999  ->   -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1059 subtract  0.0009E-999 0.1E-999  ->   -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
-//             //?TSub("subx1060 subtract  0.0001E-999 0.1E-999  ->   -1.0E-1000 Inexact Rounded Subnormal Underflow", c3hu);
-
-
-//             //-- check for double-rounded subnormals
-//             //precision:   5
-//             //maxexponent: 79
-//             //minexponent: -79
-//             //?TSub("subx1101 subtract  0 1.52444E-80 -> -1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
-//             //?TSub("subx1102 subtract  0 1.52445E-80 -> -1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
-//             //?TSub("subx1103 subtract  0 1.52446E-80 -> -1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
-//             //?TSub("subx1104 subtract  1.52444E-80 0 ->  1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
-//             //?TSub("subx1105 subtract  1.52445E-80 0 ->  1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
-//             //?TSub("subx1106 subtract  1.52446E-80 0 ->  1.524E-80 Inexact Rounded Subnormal Underflow", c5hu);
-
-//             //?TSub("subx1111 subtract  1.2345678E-80  1.2345671E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
-//             //?TSub("subx1112 subtract  1.2345678E-80  1.2345618E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
-//             //?TSub("subx1113 subtract  1.2345678E-80  1.2345178E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
-//             //?TSub("subx1114 subtract  1.2345678E-80  1.2341678E-80 ->  0E-83 Inexact Rounded Subnormal Underflow Clamped", c5hu);
-//             //?TSub("subx1115 subtract  1.2345678E-80  1.2315678E-80 ->  3E-83         Rounded Subnormal", c5hu);
-//             //?TSub("subx1116 subtract  1.2345678E-80  1.2145678E-80 ->  2.0E-82       Rounded Subnormal", c5hu);
-//             //?TSub("subx1117 subtract  1.2345678E-80  1.1345678E-80 ->  1.00E-81      Rounded Subnormal", c5hu);
-//             //?TSub("subx1118 subtract  1.2345678E-80  0.2345678E-80 ->  1.000E-80     Rounded Subnormal", c5hu);
-
-//             //precision:   34
-//             //rounding:    half_up
-//             //maxExponent: 6144
-//             //minExponent: -6143
-//             //-- Examples from SQL proposal (Krishna Kulkarni)
-//             BigDecimal.Context c34hu = new BigDecimal.Context(34, BigDecimal.RoundingMode.HalfUp);
-
-//             TSub("subx1125  subtract 130E-2  120E-2 -> 0.10", c34hu);
-//             TSub("subx1126  subtract 130E-2  12E-1  -> 0.10", c34hu);
-//             TSub("subx1127  subtract 130E-2  1E0    -> 0.30", c34hu);
-//             TSub("subx1128  subtract 1E2     1E4    -> -9.9E+3", c34hu);
-
-//             //-- Null tests
-//             //subx9990 subtract 10  # -> NaN Invalid_operation
-//             //subx9991 subtract  # 10 -> NaN Invalid_operation
-
-//         }
-
-
-//         static void TSub(string test, BigDecimal.Context c)
-//         {
-//             GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//             TestSubtraction(arg1Str, arg2Str, c, resultStr);
-//         }
-
-//         static void TestSubtraction(string arg1Str, string arg2Str, BigDecimal.Context c, string resultStr)
-//         {
-//             BigDecimal arg1 = BigDecimal.Parse(arg1Str);
-//             BigDecimal arg2 = BigDecimal.Parse(arg2Str);
-//             BigDecimal val = arg1.Subtract(arg2, c);
-//             string valStr = val.ToScientificString();
-//             Expect(valStr).To.Equal(resultStr);
-//         }
-
-//         #endregion
 
 //         #region Multiply
 
@@ -2921,397 +3257,9 @@ let addTestList = testList "addition examples" (createAddTests addTests)
 //         public void SpecTestMultiply()
 //         {
 
-//             //version: 2.59
-
-//             //extended:    1
-//             //precision:   9
-//             //rounding:    half_up
-//             //maxExponent: 384
-//             //minexponent: -383
-
-//             BigDecimal.Context c6hu = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c7hu = new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c8hu = new BigDecimal.Context(8, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c15hu = new BigDecimal.Context(15, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c30hu = new BigDecimal.Context(30, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c33hu = new BigDecimal.Context(33, BigDecimal.RoundingMode.HalfUp);
-
-//             //-- sanity checks (as base, above)
-//             TMul("mulx000 multiply 2      2 -> 4", c9hu);
-//             TMul("mulx001 multiply 2      3 -> 6", c9hu);
-//             TMul("mulx002 multiply 5      1 -> 5", c9hu);
-//             TMul("mulx003 multiply 5      2 -> 10", c9hu);
-//             TMul("mulx004 multiply 1.20   2 -> 2.40", c9hu);
-//             TMul("mulx005 multiply 1.20   0 -> 0.00", c9hu);
-//             TMul("mulx006 multiply 1.20  -2 -> -2.40", c9hu);
-//             TMul("mulx007 multiply -1.20  2 -> -2.40", c9hu);
-//             TMul("mulx008 multiply -1.20  0 -> 0.00", c9hu);  // mod: neg 0
-//             TMul("mulx009 multiply -1.20 -2 -> 2.40", c9hu);
-//             TMul("mulx010 multiply 5.09 7.1 -> 36.139", c9hu);
-//             TMul("mulx011 multiply 2.5    4 -> 10.0", c9hu);
-//             TMul("mulx012 multiply 2.50   4 -> 10.00", c9hu);
-//             TMul("mulx013 multiply 1.23456789 1.00000000 -> 1.23456789 Rounded", c9hu);
-//             TMul("mulx014 multiply 9.999999999 9.999999999 -> 100.000000 Inexact Rounded", c9hu);
-//             TMul("mulx015 multiply 2.50   4 -> 10.00", c9hu);
-//             //precision: 6
-//             TMul("mulx016 multiply 2.50   4 -> 10.00", c6hu);
-//             TMul("mulx017 multiply  9.999999999  9.999999999 ->  100.000 Inexact Rounded", c6hu);
-//             TMul("mulx018 multiply  9.999999999 -9.999999999 -> -100.000 Inexact Rounded", c6hu);
-//             TMul("mulx019 multiply -9.999999999  9.999999999 -> -100.000 Inexact Rounded", c6hu);
-//             TMul("mulx020 multiply -9.999999999 -9.999999999 ->  100.000 Inexact Rounded", c6hu);
-
-//             //-- 1999.12.21: next one is a edge case if intermediate longs are used
-//             //precision: 15
-//             TMul("mulx059 multiply 999999999999 9765625 -> 9.76562499999023E+18 Inexact Rounded", c15hu);
-//             //precision: 30
-//             TMul("mulx160 multiply 999999999999 9765625 -> 9765624999990234375", c30hu);
-//             //precision: 9
-//             //-----
-
-//             //-- zeros, etc.
-//             TMul("mulx021 multiply  0      0     ->  0", c9hu);
-//             TMul("mulx022 multiply  0     -0     -> 0", c9hu);  // mod: neg 0
-//             TMul("mulx023 multiply -0      0     -> 0", c9hu); // mod: neg 0
-//             TMul("mulx024 multiply -0     -0     ->  0", c9hu);
-//             TMul("mulx025 multiply -0.0   -0.0   ->  0.00", c9hu);
-//             TMul("mulx026 multiply -0.0   -0.0   ->  0.00", c9hu);
-//             TMul("mulx027 multiply -0.0   -0.0   ->  0.00", c9hu);
-//             TMul("mulx028 multiply -0.0   -0.0   ->  0.00", c9hu);
-//             TMul("mulx030 multiply  5.00   1E-3  ->  0.00500", c9hu);
-//             TMul("mulx031 multiply  00.00  0.000 ->  0.00000", c9hu);
-//             TMul("mulx032 multiply  00.00  0E-3  ->  0.00000     -- rhs is 0", c9hu);
-//             TMul("mulx033 multiply  0E-3   00.00 ->  0.00000     -- lhs is 0", c9hu);
-//             TMul("mulx034 multiply -5.00   1E-3  -> -0.00500", c9hu);
-//             TMul("mulx035 multiply -00.00  0.000 -> 0.00000", c9hu); // mod: neg 0
-//             TMul("mulx036 multiply -00.00  0E-3  -> 0.00000     -- rhs is 0", c9hu); // mod: neg 0
-//             TMul("mulx037 multiply -0E-3   00.00 -> 0.00000     -- lhs is 0", c9hu); // mod: neg 0
-//             TMul("mulx038 multiply  5.00  -1E-3  -> -0.00500", c9hu);
-//             TMul("mulx039 multiply  00.00 -0.000 -> 0.00000", c9hu); // mod: neg 0
-//             TMul("mulx040 multiply  00.00 -0E-3  -> 0.00000     -- rhs is 0", c9hu); // mod: neg 0
-//             TMul("mulx041 multiply  0E-3  -00.00 -> 0.00000     -- lhs is 0", c9hu); // mod: neg 0
-//             TMul("mulx042 multiply -5.00  -1E-3  ->  0.00500", c9hu);
-//             TMul("mulx043 multiply -00.00 -0.000 ->  0.00000", c9hu);
-//             TMul("mulx044 multiply -00.00 -0E-3  ->  0.00000     -- rhs is 0", c9hu);
-//             TMul("mulx045 multiply -0E-3  -00.00 ->  0.00000     -- lhs is 0", c9hu);
-
-//             //-- examples from decarith
-//             TMul("mulx050 multiply 1.20 3        -> 3.60", c9hu);
-//             TMul("mulx051 multiply 7    3        -> 21", c9hu);
-//             TMul("mulx052 multiply 0.9  0.8      -> 0.72", c9hu);
-//             TMul("mulx053 multiply 0.9  -0       -> 0.0", c9hu); // mod: neg 0
-//             TMul("mulx054 multiply 654321 654321 -> 4.28135971E+11  Inexact Rounded", c9hu);
-
-//             TMul("mulx060 multiply 123.45 1e7  ->  1.2345E+9", c9hu);
-//             TMul("mulx061 multiply 123.45 1e8  ->  1.2345E+10", c9hu);
-//             TMul("mulx062 multiply 123.45 1e+9 ->  1.2345E+11", c9hu);
-//             TMul("mulx063 multiply 123.45 1e10 ->  1.2345E+12", c9hu);
-//             TMul("mulx064 multiply 123.45 1e11 ->  1.2345E+13", c9hu);
-//             TMul("mulx065 multiply 123.45 1e12 ->  1.2345E+14", c9hu);
-//             TMul("mulx066 multiply 123.45 1e13 ->  1.2345E+15", c9hu);
-
-
-//             //-- test some intermediate lengths
-//             //precision: 9
-//             TMul("mulx080 multiply 0.1 123456789          -> 12345678.9", c9hu);
-//             TMul("mulx081 multiply 0.1 1234567891         -> 123456789 Inexact Rounded", c9hu);
-//             TMul("mulx082 multiply 0.1 12345678912        -> 1.23456789E+9 Inexact Rounded", c9hu);
-//             TMul("mulx083 multiply 0.1 12345678912345     -> 1.23456789E+12 Inexact Rounded", c9hu);
-//             TMul("mulx084 multiply 0.1 123456789          -> 12345678.9", c9hu);
-//             //precision: 8
-//             TMul("mulx085 multiply 0.1 12345678912        -> 1.2345679E+9 Inexact Rounded", c8hu);
-//             TMul("mulx086 multiply 0.1 12345678912345     -> 1.2345679E+12 Inexact Rounded", c8hu);
-//             //precision: 7
-//             TMul("mulx087 multiply 0.1 12345678912        -> 1.234568E+9 Inexact Rounded", c7hu);
-//             TMul("mulx088 multiply 0.1 12345678912345     -> 1.234568E+12 Inexact Rounded", c7hu);
-
-//             //precision: 9
-//             TMul("mulx090 multiply 123456789          0.1 -> 12345678.9", c9hu);
-//             TMul("mulx091 multiply 1234567891         0.1 -> 123456789 Inexact Rounded", c9hu);
-//             TMul("mulx092 multiply 12345678912        0.1 -> 1.23456789E+9 Inexact Rounded", c9hu);
-//             TMul("mulx093 multiply 12345678912345     0.1 -> 1.23456789E+12 Inexact Rounded", c9hu);
-//             TMul("mulx094 multiply 123456789          0.1 -> 12345678.9", c9hu);
-//             //precision: 8
-//             TMul("mulx095 multiply 12345678912        0.1 -> 1.2345679E+9 Inexact Rounded", c8hu);
-//             TMul("mulx096 multiply 12345678912345     0.1 -> 1.2345679E+12 Inexact Rounded", c8hu);
-//             //precision: 7
-//             TMul("mulx097 multiply 12345678912        0.1 -> 1.234568E+9 Inexact Rounded", c7hu);
-//             TMul("mulx098 multiply 12345678912345     0.1 -> 1.234568E+12 Inexact Rounded", c7hu);
-
-//             //-- test some more edge cases and carries
-//             //maxexponent: 9999
-//             //minexponent: -9999
-//             //precision: 33
-//             TMul("mulx101 multiply 9 9   -> 81", c33hu);
-//             TMul("mulx102 multiply 9 90   -> 810", c33hu);
-//             TMul("mulx103 multiply 9 900   -> 8100", c33hu);
-//             TMul("mulx104 multiply 9 9000   -> 81000", c33hu);
-//             TMul("mulx105 multiply 9 90000   -> 810000", c33hu);
-//             TMul("mulx106 multiply 9 900000   -> 8100000", c33hu);
-//             TMul("mulx107 multiply 9 9000000   -> 81000000", c33hu);
-//             TMul("mulx108 multiply 9 90000000   -> 810000000", c33hu);
-//             TMul("mulx109 multiply 9 900000000   -> 8100000000", c33hu);
-//             TMul("mulx110 multiply 9 9000000000   -> 81000000000", c33hu);
-//             TMul("mulx111 multiply 9 90000000000   -> 810000000000", c33hu);
-//             TMul("mulx112 multiply 9 900000000000   -> 8100000000000", c33hu);
-//             TMul("mulx113 multiply 9 9000000000000   -> 81000000000000", c33hu);
-//             TMul("mulx114 multiply 9 90000000000000   -> 810000000000000", c33hu);
-//             TMul("mulx115 multiply 9 900000000000000   -> 8100000000000000", c33hu);
-//             TMul("mulx116 multiply 9 9000000000000000   -> 81000000000000000", c33hu);
-//             TMul("mulx117 multiply 9 90000000000000000   -> 810000000000000000", c33hu);
-//             TMul("mulx118 multiply 9 900000000000000000   -> 8100000000000000000", c33hu);
-//             TMul("mulx119 multiply 9 9000000000000000000   -> 81000000000000000000", c33hu);
-//             TMul("mulx120 multiply 9 90000000000000000000   -> 810000000000000000000", c33hu);
-//             TMul("mulx121 multiply 9 900000000000000000000   -> 8100000000000000000000", c33hu);
-//             TMul("mulx122 multiply 9 9000000000000000000000   -> 81000000000000000000000", c33hu);
-//             TMul("mulx123 multiply 9 90000000000000000000000   -> 810000000000000000000000", c33hu);
-//             //-- test some more edge cases without carries
-//             TMul("mulx131 multiply 3 3   -> 9", c33hu);
-//             TMul("mulx132 multiply 3 30   -> 90", c33hu);
-//             TMul("mulx133 multiply 3 300   -> 900", c33hu);
-//             TMul("mulx134 multiply 3 3000   -> 9000", c33hu);
-//             TMul("mulx135 multiply 3 30000   -> 90000", c33hu);
-//             TMul("mulx136 multiply 3 300000   -> 900000", c33hu);
-//             TMul("mulx137 multiply 3 3000000   -> 9000000", c33hu);
-//             TMul("mulx138 multiply 3 30000000   -> 90000000", c33hu);
-//             TMul("mulx139 multiply 3 300000000   -> 900000000", c33hu);
-//             TMul("mulx140 multiply 3 3000000000   -> 9000000000", c33hu);
-//             TMul("mulx141 multiply 3 30000000000   -> 90000000000", c33hu);
-//             TMul("mulx142 multiply 3 300000000000   -> 900000000000", c33hu);
-//             TMul("mulx143 multiply 3 3000000000000   -> 9000000000000", c33hu);
-//             TMul("mulx144 multiply 3 30000000000000   -> 90000000000000", c33hu);
-//             TMul("mulx145 multiply 3 300000000000000   -> 900000000000000", c33hu);
-//             TMul("mulx146 multiply 3 3000000000000000   -> 9000000000000000", c33hu);
-//             TMul("mulx147 multiply 3 30000000000000000   -> 90000000000000000", c33hu);
-//             TMul("mulx148 multiply 3 300000000000000000   -> 900000000000000000", c33hu);
-//             TMul("mulx149 multiply 3 3000000000000000000   -> 9000000000000000000", c33hu);
-//             TMul("mulx150 multiply 3 30000000000000000000   -> 90000000000000000000", c33hu);
-//             TMul("mulx151 multiply 3 300000000000000000000   -> 900000000000000000000", c33hu);
-//             TMul("mulx152 multiply 3 3000000000000000000000   -> 9000000000000000000000", c33hu);
-//             TMul("mulx153 multiply 3 30000000000000000000000   -> 90000000000000000000000", c33hu);
-
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-//             //precision: 9
-//             //-- test some cases that are close to exponent overflow/underflow
-//             TMul("mulx170 multiply 1 9e999999999    -> 9E+999999999", c9hu);
-//             TMul("mulx171 multiply 1 9.9e999999999  -> 9.9E+999999999", c9hu);
-//             TMul("mulx172 multiply 1 9.99e999999999 -> 9.99E+999999999", c9hu);
-//             TMul("mulx173 multiply 9e999999999    1 -> 9E+999999999", c9hu);
-//             TMul("mulx174 multiply 9.9e999999999  1 -> 9.9E+999999999", c9hu);
-//             TMul("mulx176 multiply 9.99e999999999 1 -> 9.99E+999999999", c9hu);
-//             TMul("mulx177 multiply 1 9.99999999e999999999 -> 9.99999999E+999999999", c9hu);
-//             TMul("mulx178 multiply 9.99999999e999999999 1 -> 9.99999999E+999999999", c9hu);
-
-//             TMul("mulx180 multiply 0.1 9e-999999998   -> 9E-999999999", c9hu);
-//             TMul("mulx181 multiply 0.1 99e-999999998  -> 9.9E-999999998", c9hu);
-//             TMul("mulx182 multiply 0.1 999e-999999998 -> 9.99E-999999997", c9hu);
-
-//             TMul("mulx183 multiply 0.1 9e-999999998     -> 9E-999999999", c9hu);
-//             TMul("mulx184 multiply 0.1 99e-999999998    -> 9.9E-999999998", c9hu);
-//             TMul("mulx185 multiply 0.1 999e-999999998   -> 9.99E-999999997", c9hu);
-//             TMul("mulx186 multiply 0.1 999e-999999997   -> 9.99E-999999996", c9hu);
-//             TMul("mulx187 multiply 0.1 9999e-999999997  -> 9.999E-999999995", c9hu);
-//             TMul("mulx188 multiply 0.1 99999e-999999997 -> 9.9999E-999999994", c9hu);
-
-//             TMul("mulx190 multiply 1 9e-999999998   -> 9E-999999998", c9hu);
-//             TMul("mulx191 multiply 1 99e-999999998  -> 9.9E-999999997", c9hu);
-//             TMul("mulx192 multiply 1 999e-999999998 -> 9.99E-999999996", c9hu);
-//             TMul("mulx193 multiply 9e-999999998   1 -> 9E-999999998", c9hu);
-//             TMul("mulx194 multiply 99e-999999998  1 -> 9.9E-999999997", c9hu);
-//             TMul("mulx195 multiply 999e-999999998 1 -> 9.99E-999999996", c9hu);
-
-//             TMul("mulx196 multiply 1e-599999999 1e-400000000 -> 1E-999999999", c9hu);
-//             TMul("mulx197 multiply 1e-600000000 1e-399999999 -> 1E-999999999", c9hu);
-//             TMul("mulx198 multiply 1.2e-599999999 1.2e-400000000 -> 1.44E-999999999", c9hu);
-//             TMul("mulx199 multiply 1.2e-600000000 1.2e-399999999 -> 1.44E-999999999", c9hu);
-
-//             TMul("mulx201 multiply 1e599999999 1e400000000 -> 1E+999999999", c9hu);
-//             TMul("mulx202 multiply 1e600000000 1e399999999 -> 1E+999999999", c9hu);
-//             TMul("mulx203 multiply 1.2e599999999 1.2e400000000 -> 1.44E+999999999", c9hu);
-//             TMul("mulx204 multiply 1.2e600000000 1.2e399999999 -> 1.44E+999999999", c9hu);
-
-//             //-- long operand triangle
-//             //precision: 33
-//             TMul("mulx246 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671916511992830 Inexact Rounded", new BigDecimal.Context(33, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 32
-//             TMul("mulx247 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967191651199283  Inexact Rounded", new BigDecimal.Context(32, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 31
-//             TMul("mulx248 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719165119928   Inexact Rounded", new BigDecimal.Context(31, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 30
-//             TMul("mulx249 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671916511993    Inexact Rounded", new BigDecimal.Context(30, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 29
-//             TMul("mulx250 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967191651199     Inexact Rounded", new BigDecimal.Context(29, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 28
-//             TMul("mulx251 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719165120      Inexact Rounded", new BigDecimal.Context(28, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 27
-//             TMul("mulx252 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671916512       Inexact Rounded", new BigDecimal.Context(27, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 26
-//             TMul("mulx253 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967191651        Inexact Rounded", new BigDecimal.Context(26, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 25
-//             TMul("mulx254 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719165         Inexact Rounded", new BigDecimal.Context(25, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 24
-//             TMul("mulx255 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369671917          Inexact Rounded", new BigDecimal.Context(24, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 23
-//             TMul("mulx256 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967192           Inexact Rounded", new BigDecimal.Context(23, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 22
-//             TMul("mulx257 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933696719            Inexact Rounded", new BigDecimal.Context(22, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 21
-//             TMul("mulx258 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193369672             Inexact Rounded", new BigDecimal.Context(21, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 20
-//             TMul("mulx259 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119336967              Inexact Rounded", new BigDecimal.Context(20, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 19
-//             TMul("mulx260 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011933697               Inexact Rounded", new BigDecimal.Context(19, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 18
-//             TMul("mulx261 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193370                Inexact Rounded", new BigDecimal.Context(18, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 17
-//             TMul("mulx262 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119337                 Inexact Rounded", new BigDecimal.Context(17, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 16
-//             TMul("mulx263 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908011934                  Inexact Rounded", new BigDecimal.Context(16, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 15
-//             TMul("mulx264 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801193                   Inexact Rounded", new BigDecimal.Context(15, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 14
-//             TMul("mulx265 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080119                    Inexact Rounded", new BigDecimal.Context(14, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 13
-//             TMul("mulx266 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908012                     Inexact Rounded", new BigDecimal.Context(13, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 12
-//             TMul("mulx267 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.290801                      Inexact Rounded", new BigDecimal.Context(12, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 11
-//             TMul("mulx268 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29080                       Inexact Rounded", new BigDecimal.Context(11, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 10
-//             TMul("mulx269 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.2908                        Inexact Rounded", new BigDecimal.Context(10, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  9
-//             TMul("mulx270 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.291                         Inexact Rounded", new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  8
-//             TMul("mulx271 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.29                          Inexact Rounded", new BigDecimal.Context(8, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  7
-//             TMul("mulx272 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433.3                           Inexact Rounded", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  6
-//             TMul("mulx273 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 145433                            Inexact Rounded", new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  5
-//             TMul("mulx274 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.4543E+5                         Inexact Rounded", new BigDecimal.Context(5, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  4
-//             TMul("mulx275 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.454E+5                         Inexact Rounded", new BigDecimal.Context(4, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  3
-//             TMul("mulx276 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.45E+5                         Inexact Rounded", new BigDecimal.Context(3, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  2
-//             TMul("mulx277 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1.5E+5                         Inexact Rounded", new BigDecimal.Context(2, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  1
-//             TMul("mulx278 multiply 30269.587755640502150977251770554 4.8046009735990873395936309640543 -> 1E+5                          Inexact Rounded", new BigDecimal.Context(1, BigDecimal.RoundingMode.HalfUp));
-
-//             //-- test some edge cases with exact rounding
-//             //maxexponent: 9999
-//             //minexponent: -9999
-//             //precision: 9
-//             TMul("mulx301 multiply 9 9   -> 81", c9hu);
-//             TMul("mulx302 multiply 9 90   -> 810", c9hu);
-//             TMul("mulx303 multiply 9 900   -> 8100", c9hu);
-//             TMul("mulx304 multiply 9 9000   -> 81000", c9hu);
-//             TMul("mulx305 multiply 9 90000   -> 810000", c9hu);
-//             TMul("mulx306 multiply 9 900000   -> 8100000", c9hu);
-//             TMul("mulx307 multiply 9 9000000   -> 81000000", c9hu);
-//             TMul("mulx308 multiply 9 90000000   -> 810000000", c9hu);
-//             TMul("mulx309 multiply 9 900000000   -> 8.10000000E+9   Rounded", c9hu);
-//             TMul("mulx310 multiply 9 9000000000   -> 8.10000000E+10  Rounded", c9hu);
-//             TMul("mulx311 multiply 9 90000000000   -> 8.10000000E+11  Rounded", c9hu);
-//             TMul("mulx312 multiply 9 900000000000   -> 8.10000000E+12  Rounded", c9hu);
-//             TMul("mulx313 multiply 9 9000000000000   -> 8.10000000E+13  Rounded", c9hu);
-//             TMul("mulx314 multiply 9 90000000000000   -> 8.10000000E+14  Rounded", c9hu);
-//             TMul("mulx315 multiply 9 900000000000000   -> 8.10000000E+15  Rounded", c9hu);
-//             TMul("mulx316 multiply 9 9000000000000000   -> 8.10000000E+16  Rounded", c9hu);
-//             TMul("mulx317 multiply 9 90000000000000000   -> 8.10000000E+17  Rounded", c9hu);
-//             TMul("mulx318 multiply 9 900000000000000000   -> 8.10000000E+18  Rounded", c9hu);
-//             TMul("mulx319 multiply 9 9000000000000000000   -> 8.10000000E+19  Rounded", c9hu);
-//             TMul("mulx320 multiply 9 90000000000000000000   -> 8.10000000E+20  Rounded", c9hu);
-//             TMul("mulx321 multiply 9 900000000000000000000   -> 8.10000000E+21  Rounded", c9hu);
-//             TMul("mulx322 multiply 9 9000000000000000000000   -> 8.10000000E+22  Rounded", c9hu);
-//             TMul("mulx323 multiply 9 90000000000000000000000   -> 8.10000000E+23  Rounded", c9hu);
-
-//             //-- fastpath breakers
-//             //precision:   29
-//             TMul("mulx330 multiply 1.491824697641270317824852952837224 1.105170918075647624811707826490246514675628614562883537345747603 -> 1.6487212707001281468486507878 Inexact Rounded", new BigDecimal.Context(29, BigDecimal.RoundingMode.HalfUp));
-//             //precision:   55
-//             TMul("mulx331 multiply 0.8958341352965282506768545828765117803873717284891040428 0.8958341352965282506768545828765117803873717284891040428 -> 0.8025187979624784829842553829934069955890983696752228299 Inexact Rounded", new BigDecimal.Context(55, BigDecimal.RoundingMode.HalfUp));
-
-
-//             //-- tryzeros cases
-//             //precision:   7
-//             //rounding:    half_up
-//             //maxExponent: 92
-//             //minexponent: -92
-//             //TMul("mulx504  multiply  0E-60 1000E-60  -> 0E-98 Clamped", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
-//             //TMul("mulx505  multiply  100E+60 0E+60   -> 0E+92 Clamped", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
-
-//             //-- mixed with zeros
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-//             //precision: 9
-//             TMul("mulx541 multiply  0    -1     -> 0", c9hu);  // mod: neg zero
-//             TMul("mulx542 multiply -0    -1     ->  0", c9hu);
-//             TMul("mulx543 multiply  0     1     ->  0", c9hu);
-//             TMul("mulx544 multiply -0     1     -> 0", c9hu);  // mod: neg zero
-//             TMul("mulx545 multiply -1     0     -> 0", c9hu);  // mod: neg zero
-//             TMul("mulx546 multiply -1    -0     ->  0", c9hu);
-//             TMul("mulx547 multiply  1     0     ->  0", c9hu);
-//             TMul("mulx548 multiply  1    -0     -> 0", c9hu);  // mod: neg zero
-
-//             TMul("mulx551 multiply  0.0  -1     -> 0.0", c9hu);  // mod: neg zero
-//             TMul("mulx552 multiply -0.0  -1     ->  0.0", c9hu);
-//             TMul("mulx553 multiply  0.0   1     ->  0.0", c9hu);
-//             TMul("mulx554 multiply -0.0   1     -> 0.0", c9hu);  // mod: neg zero
-//             TMul("mulx555 multiply -1.0   0     -> 0.0", c9hu);  // mod: neg zero
-//             TMul("mulx556 multiply -1.0  -0     ->  0.0", c9hu);
-//             TMul("mulx557 multiply  1.0   0     ->  0.0", c9hu);
-//             TMul("mulx558 multiply  1.0  -0     -> 0.0", c9hu);  // mod: neg zero
-
-//             TMul("mulx561 multiply  0    -1.0   -> 0.0", c9hu);  // mod: neg zero
-//             TMul("mulx562 multiply -0    -1.0   ->  0.0", c9hu);
-//             TMul("mulx563 multiply  0     1.0   ->  0.0", c9hu);
-//             TMul("mulx564 multiply -0     1.0   -> 0.0", c9hu);  // mod: neg zero
-//             TMul("mulx565 multiply -1     0.0   -> 0.0", c9hu);  // mod: neg zero
-//             TMul("mulx566 multiply -1    -0.0   ->  0.0", c9hu);
-//             TMul("mulx567 multiply  1     0.0   ->  0.0", c9hu);
-//             TMul("mulx568 multiply  1    -0.0   -> 0.0", c9hu);  // mod: neg zero
-
-//             TMul("mulx571 multiply  0.0  -1.0   -> 0.00", c9hu);  // mod: neg zero
-//             TMul("mulx572 multiply -0.0  -1.0   ->  0.00", c9hu);
-//             TMul("mulx573 multiply  0.0   1.0   ->  0.00", c9hu);
-//             TMul("mulx574 multiply -0.0   1.0   -> 0.00", c9hu);  // mod: neg zero
-//             TMul("mulx575 multiply -1.0   0.0   -> 0.00", c9hu);  // mod: neg zero
-//             TMul("mulx576 multiply -1.0  -0.0   ->  0.00", c9hu);
-//             TMul("mulx577 multiply  1.0   0.0   ->  0.00", c9hu);
-//             TMul("mulx578 multiply  1.0  -0.0   -> 0.00", c9hu);  // mod: neg zero
-
-
-//             //-- Specials
-
-
-
-//             //-- test subnormals rounding
-//             //precision:   5
-//             //maxExponent: 999
-//             //minexponent: -999
-//             //rounding:    half_even
-
-
-//             //...
 
 //         }
 
-//         static void TMul(string test, BigDecimal.Context c)
-//         {
-//             GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//             TestMultiply(arg1Str, arg2Str, c, resultStr);
-//         }
-
-//         static void TestMultiply(string arg1Str, string arg2Str, BigDecimal.Context c, string resultStr)
-//         {
-//             BigDecimal arg1 = BigDecimal.Parse(arg1Str);
-//             BigDecimal arg2 = BigDecimal.Parse(arg2Str);
-//             BigDecimal val = arg1.Multiply(arg2, c);
-//             string valStr = val.ToScientificString();
-//             Expect(valStr).To.Equal(resultStr);
-//         }
 
 //         #endregion
 

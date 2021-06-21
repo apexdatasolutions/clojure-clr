@@ -517,6 +517,39 @@ type BigDecimal private (coeff, exp, precision) =
     static member Abs(x:BigDecimal) = x.Abs()
     static member Abs(x:BigDecimal, c) = x.Abs(c)
 
+    /// Align the bigger BigDecimal by increasing its coefficient and decreasing its exponent
+    static member private computeAlign (big:BigDecimal) (small:BigDecimal) =
+        let deltaExp = (big.Exponent - small.Exponent) |> uint
+        BigDecimal(big.Coefficient * ArithmeticHelpers.biPowerOfTen(deltaExp), small.Exponent, 0u)
+
+    /// Create matching pair with the same alignment (exponent)
+    static member private align (x:BigDecimal) (y:BigDecimal) =
+        if y.Exponent > x.Exponent then x, BigDecimal.computeAlign y x
+        elif x.Exponent > y.Exponent then BigDecimal.computeAlign x y, y
+        else x, y
+
+    /// Compute the sum with y
+    member x.Add (y:BigDecimal) = 
+        let xa, ya = BigDecimal.align x y in BigDecimal(xa.Coefficient + ya.Coefficient,xa.Exponent,0u)
+       
+    /// Compute the sum with y, result rounded by context
+    member x.Add(y:BigDecimal, c:Context) = 
+        // TODO: Optimize for one arg or the other being zero.
+        // TODO: Optimize for differences in exponent along with the desired precision is large enough that the add is irreleveant
+        // Translated the Sun Java code pretty directly.
+        let result = x.Add(y)
+        if c.precision = 0u || c.roundingMode = RoundingMode.Unnecessary then result else BigDecimal.round result c
+
+    /// Compute x+y
+    static member Add(x:BigDecimal, y:BigDecimal) = x.Add(y)
+
+    /// Compute x+y, result rounded per the context
+    static member Add(x:BigDecimal, y:BigDecimal, c:Context) = x.Add(y,c)
+    
+    /// Compute x+y
+    static member (+) (x:BigDecimal, y:BigDecimal) = x.Add(y)
+
+   
 
 
 //           [Serializable]
@@ -1263,29 +1296,6 @@ type BigDecimal private (coeff, exp, precision) =
 
 //               #endregion
 
-//               #region Arithmetic methods (static)
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> + <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The sum</returns>
-//               public static BigDecimal Add(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Add(y);
-//               }
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> + <paramref name="y"/> with the result rounded per the context.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The sum</returns>
-//               public static BigDecimal Add(BigDecimal x, BigDecimal y, Context c)
-//               {
-//                   return x.Add(y,c);
-//               }
 
 //               /// <summary>
 //               /// Compute <paramref name="x"/> - <paramref name="y"/>.
@@ -1463,62 +1473,8 @@ type BigDecimal private (coeff, exp, precision) =
 
 //               #region Arithmetic methods
 
-//               /// <summary>
-//               /// Returns this + y.
-//               /// </summary>
-//               /// <param name="y">The augend.</param>
-//               /// <returns>The sum</returns>
-//               public BigDecimal Add(BigDecimal y)
-//               {
-//                   BigDecimal x = this;
-//                   Align(ref x, ref y);
 
-//                   return new BigDecimal(x._coeff + y._coeff, x._exp);
-//               }
-
-
-//               /// <summary>
-//               /// Returns this + y, with the result rounded according to the context.
-//               /// </summary>
-//               /// <param name="y">The augend.</param>
-//               /// <returns>The sum</returns>
-//               /// <remarks>Translated the Sun Java code pretty directly.</remarks>
-//               public BigDecimal Add(BigDecimal y, Context c)
-//               {
-//                   // TODO: Optimize for one arg or the other being zero.
-//                   // TODO: Optimize for differences in exponent along with the desired precision is large enough that the add is irreleveant
-//                   BigDecimal result = Add(y);
-
-//                   if (c.Precision == 0 || c.RoundingMode == RoundingMode.Unnecessary)
-//                       return result;
-
-//                   return result.Round(c);
-//               }
            
-//               /// <summary>
-//               /// Change either x or y by a power of 10 in order to align them.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               static void Align(ref BigDecimal x, ref BigDecimal y)
-//               {
-//                   if (y._exp > x._exp)
-//                       y = ComputeAlign(y, x);
-//                   else if (x._exp > y._exp)
-//                       x = ComputeAlign(x, y);
-//               }
-
-//               /// <summary>
-//               /// Modify a larger BigDecimal to have the same exponent as a smaller one by multiplying the coefficient by a power of 10.
-//               /// </summary>
-//               /// <param name="big"></param>
-//               /// <param name="small"></param>
-//               /// <returns></returns>
-//               static BigDecimal ComputeAlign(BigDecimal big, BigDecimal small)
-//               {
-//                   int deltaExp = big._exp - small._exp;
-//                   return new BigDecimal(big._coeff.Multiply(BIPowerOfTen(deltaExp)), small._exp);            
-//               }
 
 
 //               /// <summary>

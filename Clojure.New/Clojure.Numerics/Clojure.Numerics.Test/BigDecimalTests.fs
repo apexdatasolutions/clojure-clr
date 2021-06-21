@@ -1315,6 +1315,518 @@ let specAbsTests =
 [<Tests>]
 let specAbsTestList = testList "quantize spec esome 9999 examples" (createSpecAbsTests specAbsTests)
 
+
+
+let addTest arg1Str arg2Str c resultStr =
+    let arg1 = BigDecimal.Parse(arg1Str)
+    let arg2 = BigDecimal.Parse(arg2Str)
+    let sum = arg1.Add(arg2,c)
+    let sumStr = sum.ToScientificString()
+    Expect.equal sumStr resultStr "Result of addition"
+
+let addTestFromStr test c =
+    let arg1Str, arg2Str, resultStr = getThreeArgs test
+    addTest arg1Str arg2Str c resultStr
+
+
+let createAddTests data =
+    data
+    |> List.map (fun (test, c) ->
+           testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                addTestFromStr test c
+           )
+
+let c6hu = Context.Create(6u, RoundingMode.HalfUp)
+let c15hu = Context.Create(15u, RoundingMode.HalfUp)
+let c9he = Context.Create(9u, RoundingMode.HalfEven)
+let c9d = Context.Create(9u, RoundingMode.Down)
+let c3hu = Context.Create(3u, RoundingMode.HalfUp);
+let c3hd = Context.Create(3u, RoundingMode.HalfDown);
+let c6hd = Context.Create(6u, RoundingMode.HalfDown);
+let c6he = Context.Create(6u, RoundingMode.HalfEven);
+let c7hu = Context.Create(7u, RoundingMode.HalfUp);
+let c10hd = Context.Create(10u, RoundingMode.HalfDown);
+let c10hu = Context.Create(10u, RoundingMode.HalfUp);
+let c10he = Context.Create(10u, RoundingMode.HalfEven);
+
+
+let addTests =
+    [
+        //-- [first group are 'quick confidence check']
+        ("addx001 add 1       1       ->  2", c9hu);
+        ("addx002 add 2       3       ->  5", c9hu);
+        ("addx003 add '5.75'  '3.3'   ->  9.05", c9hu);
+        ("addx004 add '5'     '-3'    ->  2", c9hu);
+        ("addx005 add '-5'    '-3'    ->  -8", c9hu);
+        ("addx006 add '-7'    '2.5'   ->  -4.5", c9hu);
+        ("addx007 add '0.7'   '0.3'   ->  1.0", c9hu);
+        ("addx008 add '1.25'  '1.25'  ->  2.50", c9hu);
+        ("addx009 add '1.23456789'  '1.00000000' -> '2.23456789'", c9hu);
+        ("addx010 add '1.23456789'  '1.00000011' -> '2.23456800'", c9hu);
+    
+        ("addx011 add '0.4444444444'  '0.5555555555' -> '1.00000000' Inexact Rounded", c9hu);
+        ("addx012 add '0.4444444440'  '0.5555555555' -> '1.00000000' Inexact Rounded", c9hu);
+        ("addx013 add '0.4444444444'  '0.5555555550' -> '0.999999999' Inexact Rounded", c9hu);
+        ("addx014 add '0.44444444449'    '0' -> '0.444444444' Inexact Rounded", c9hu);
+        ("addx015 add '0.444444444499'   '0' -> '0.444444444' Inexact Rounded", c9hu);
+        ("addx016 add '0.4444444444999'  '0' -> '0.444444444' Inexact Rounded", c9hu);
+        ("addx017 add '0.4444444445000'  '0' -> '0.444444445' Inexact Rounded", c9hu);
+        ("addx018 add '0.4444444445001'  '0' -> '0.444444445' Inexact Rounded", c9hu);
+        ("addx019 add '0.444444444501'   '0' -> '0.444444445' Inexact Rounded", c9hu);
+        ("addx020 add '0.44444444451'    '0' -> '0.444444445' Inexact Rounded", c9hu);
+    
+        ("addx021 add 0 1 -> 1", c9hu);
+        ("addx022 add 1 1 -> 2", c9hu);
+        ("addx023 add 2 1 -> 3", c9hu);
+        ("addx024 add 3 1 -> 4", c9hu);
+        ("addx025 add 4 1 -> 5", c9hu);
+        ("addx026 add 5 1 -> 6", c9hu);
+        ("addx027 add 6 1 -> 7", c9hu);
+        ("addx028 add 7 1 -> 8", c9hu);
+        ("addx029 add 8 1 -> 9", c9hu);
+        ("addx030 add 9 1 -> 10", c9hu);
+    
+        //-- some carrying effects
+    
+        ("addx031 add '0.9998'  '0.0000' -> '0.9998'", c9hu);
+        ("addx032 add '0.9998'  '0.0001' -> '0.9999'", c9hu);
+        ("addx033 add '0.9998'  '0.0002' -> '1.0000'", c9hu);
+        ("addx034 add '0.9998'  '0.0003' -> '1.0001'", c9hu);
+    
+        ("addx035 add '70'  '10000e+9' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("addx036 add '700'  '10000e+9' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("addx037 add '7000'  '10000e+9' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("addx038 add '70000'  '10000e+9' -> '1.00000001E+13' Inexact Rounded", c9hu);
+        ("addx039 add '700000'  '10000e+9' -> '1.00000007E+13' Rounded", c9hu);
+    
+        // -- symmetry:
+        ("addx040 add '10000e+9'  '70' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("addx041 add '10000e+9'  '700' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("addx042 add '10000e+9'  '7000' -> '1.00000000E+13' Inexact Rounded", c9hu);
+        ("addx044 add '10000e+9'  '70000' -> '1.00000001E+13' Inexact Rounded", c9hu);
+        ("addx045 add '10000e+9'  '700000' -> '1.00000007E+13' Rounded", c9hu);
+    
+        // -- same, higher precision
+        // precision: 15
+        ("addx046 add '10000e+9'  '7' -> '10000000000007'", c15hu);
+        ("addx047 add '10000e+9'  '70' -> '10000000000070'", c15hu);
+        ("addx048 add '10000e+9'  '700' -> '10000000000700'", c15hu);
+        ("addx049 add '10000e+9'  '7000' -> '10000000007000'", c15hu);
+        ("addx050 add '10000e+9'  '70000' -> '10000000070000'", c15hu);
+        ("addx051 add '10000e+9'  '700000' -> '10000000700000'", c15hu);
+        ("addx052 add '10000e+9'  '7000000' -> '10000007000000'", c15hu);
+    
+        // -- examples from decarith
+        ("addx053 add '12' '7.00' -> '19.00'", c9hu);
+        ("addx054 add '1.3' '-1.07' -> '0.23'", c9hu);
+        ("addx055 add '1.3' '-1.30' -> '0.00'", c9hu);
+        ("addx056 add '1.3' '-2.07' -> '-0.77'", c9hu);
+        ("addx057 add '1E+2' '1E+4' -> '1.01E+4'", c9hu);
+    
+        // -- zero preservation
+        // precision: 6
+        ("addx060 add '10000e+9'  '70000' -> '1.00000E+13' Inexact Rounded", c6hu);
+        ("addx061 add 1 '0.0001' -> '1.0001'", c6hu);
+        ("addx062 add 1 '0.00001' -> '1.00001'", c6hu);
+        ("addx063 add 1 '0.000001' -> '1.00000' Inexact Rounded", c6hu);
+        ("addx064 add 1 '0.0000001' -> '1.00000' Inexact Rounded", c6hu);
+        ("addx065 add 1 '0.00000001' -> '1.00000' Inexact Rounded", c6hu);
+    
+        // -- some funny zeros [in case of bad signum]
+        ("addx070 add 1  0    -> 1", c6hu);
+        ("addx071 add 1 0.    -> 1", c6hu);
+        ("addx072 add 1  .0   -> 1.0", c6hu);
+        ("addx073 add 1 0.0   -> 1.0", c6hu);
+        ("addx074 add 1 0.00  -> 1.00", c6hu);
+        ("addx075 add  0  1   -> 1", c6hu);
+        ("addx076 add 0.  1   -> 1", c6hu);
+        ("addx077 add  .0 1   -> 1.0", c6hu);
+        ("addx078 add 0.0 1   -> 1.0", c6hu);
+        ("addx079 add 0.00 1  -> 1.00", c6hu);
+    
+        // precision: 9
+    
+        // -- some carries
+        ("addx080 add 999999998 1  -> 999999999", c9hu);
+        ("addx081 add 999999999 1  -> 1.00000000E+9 Rounded", c9hu);
+        ("addx082 add  99999999 1  -> 100000000", c9hu);
+        ("addx083 add   9999999 1  -> 10000000", c9hu);
+        ("addx084 add    999999 1  -> 1000000", c9hu);
+        ("addx085 add     99999 1  -> 100000", c9hu);
+        ("addx086 add      9999 1  -> 10000", c9hu);
+        ("addx087 add       999 1  -> 1000", c9hu);
+        ("addx088 add        99 1  -> 100", c9hu);
+        ("addx089 add         9 1  -> 10", c9hu);
+    
+    
+        //-- more LHS swaps
+        ("addx090 add '-56267E-10'   0 ->  '-0.0000056267'", c9hu);
+        ("addx091 add '-56267E-6'    0 ->  '-0.056267'", c9hu);
+        ("addx092 add '-56267E-5'    0 ->  '-0.56267'", c9hu);
+        ("addx093 add '-56267E-4'    0 ->  '-5.6267'", c9hu);
+        ("addx094 add '-56267E-3'    0 ->  '-56.267'", c9hu);
+        ("addx095 add '-56267E-2'    0 ->  '-562.67'", c9hu);
+        ("addx096 add '-56267E-1'    0 ->  '-5626.7'", c9hu);
+        ("addx097 add '-56267E-0'    0 ->  '-56267'", c9hu);
+        ("addx098 add '-5E-10'       0 ->  '-5E-10'", c9hu);
+        ("addx099 add '-5E-7'        0 ->  '-5E-7'", c9hu);
+        ("addx100 add '-5E-6'        0 ->  '-0.000005'", c9hu);
+        ("addx101 add '-5E-5'        0 ->  '-0.00005'", c9hu);
+        ("addx102 add '-5E-4'        0 ->  '-0.0005'", c9hu);
+        ("addx103 add '-5E-1'        0 ->  '-0.5'", c9hu);
+        ("addx104 add '-5E0'         0 ->  '-5'", c9hu);
+        ("addx105 add '-5E1'         0 ->  '-50'", c9hu);
+        ("addx106 add '-5E5'         0 ->  '-500000'", c9hu);
+        ("addx107 add '-5E8'         0 ->  '-500000000'", c9hu);
+        ("addx108 add '-5E9'         0 ->  '-5.00000000E+9'   Rounded", c9hu);
+        ("addx109 add '-5E10'        0 ->  '-5.00000000E+10'  Rounded", c9hu);
+        ("addx110 add '-5E11'        0 ->  '-5.00000000E+11'  Rounded", c9hu);
+        ("addx111 add '-5E100'       0 ->  '-5.00000000E+100' Rounded", c9hu);
+    
+        // -- more RHS swaps
+        ("addx113 add 0  '-56267E-10' ->  '-0.0000056267'", c9hu);
+        ("addx114 add 0  '-56267E-6'  ->  '-0.056267'", c9hu);
+        ("addx116 add 0  '-56267E-5'  ->  '-0.56267'", c9hu);
+        ("addx117 add 0  '-56267E-4'  ->  '-5.6267'", c9hu);
+        ("addx119 add 0  '-56267E-3'  ->  '-56.267'", c9hu);
+        ("addx120 add 0  '-56267E-2'  ->  '-562.67'", c9hu);
+        ("addx121 add 0  '-56267E-1'  ->  '-5626.7'", c9hu);
+        ("addx122 add 0  '-56267E-0'  ->  '-56267'", c9hu);
+        ("addx123 add 0  '-5E-10'     ->  '-5E-10'", c9hu);
+        ("addx124 add 0  '-5E-7'      ->  '-5E-7'", c9hu);
+        ("addx125 add 0  '-5E-6'      ->  '-0.000005'", c9hu);
+        ("addx126 add 0  '-5E-5'      ->  '-0.00005'", c9hu);
+        ("addx127 add 0  '-5E-4'      ->  '-0.0005'", c9hu);
+        ("addx128 add 0  '-5E-1'      ->  '-0.5'", c9hu);
+        ("addx129 add 0  '-5E0'       ->  '-5'", c9hu);
+        ("addx130 add 0  '-5E1'       ->  '-50'", c9hu);
+        ("addx131 add 0  '-5E5'       ->  '-500000'", c9hu);
+        ("addx132 add 0  '-5E8'       ->  '-500000000'", c9hu);
+        ("addx133 add 0  '-5E9'       ->  '-5.00000000E+9'    Rounded", c9hu);
+        ("addx134 add 0  '-5E10'      ->  '-5.00000000E+10'   Rounded", c9hu);
+        ("addx135 add 0  '-5E11'      ->  '-5.00000000E+11'   Rounded", c9hu);
+        ("addx136 add 0  '-5E100'     ->  '-5.00000000E+100'  Rounded", c9hu);
+    
+        // -- related
+        ("addx137 add  1  '0E-12'      ->  '1.00000000'  Rounded", c9hu);
+        ("addx138 add -1  '0E-12'      ->  '-1.00000000' Rounded", c9hu);
+        ("addx139 add '0E-12' 1        ->  '1.00000000'  Rounded", c9hu);
+        ("addx140 add '0E-12' -1       ->  '-1.00000000' Rounded", c9hu);
+        ("addx141 add 1E+4    0.0000   ->  '10000.0000'", c9hu);
+        ("addx142 add 1E+4    0.00000  ->  '10000.0000'  Rounded", c9hu);
+        ("addx143 add 0.000   1E+5     ->  '100000.000'", c9hu);
+        ("addx144 add 0.0000  1E+5     ->  '100000.000'  Rounded", c9hu);
+    
+        // -- [some of the next group are really constructor tests]
+        ("addx146 add '00.0'  0       ->  '0.0'", c9hu);
+        ("addx147 add '0.00'  0       ->  '0.00'", c9hu);
+        ("addx148 add  0      '0.00'  ->  '0.00'", c9hu);
+        ("addx149 add  0      '00.0'  ->  '0.0'", c9hu);
+        ("addx150 add '00.0'  '0.00'  ->  '0.00'", c9hu);
+        ("addx151 add '0.00'  '00.0'  ->  '0.00'", c9hu);
+        ("addx152 add '3'     '.3'    ->  '3.3'", c9hu);
+        ("addx153 add '3.'    '.3'    ->  '3.3'", c9hu);
+        ("addx154 add '3.0'   '.3'    ->  '3.3'", c9hu);
+        ("addx155 add '3.00'  '.3'    ->  '3.30'", c9hu);
+        ("addx156 add '3'     '3'     ->  '6'", c9hu);
+        ("addx157 add '3'     '+3'    ->  '6'", c9hu);
+        ("addx158 add '3'     '-3'    ->  '0'", c9hu);
+        ("addx159 add '0.3'   '-0.3'  ->  '0.0'", c9hu);
+        ("addx160 add '0.03'  '-0.03' ->  '0.00'", c9hu);
+    
+        // -- try borderline precision, with carries, etc.
+        // precision: 15
+        ("addx161 add '1E+12' '-1'    -> '999999999999'", c15hu);
+        ("addx162 add '1E+12'  '1.11' -> '1000000000001.11'", c15hu);
+        ("addx163 add '1.11'  '1E+12' -> '1000000000001.11'", c15hu);
+        ("addx164 add '-1'    '1E+12' -> '999999999999'", c15hu);
+        ("addx165 add '7E+12' '-1'    -> '6999999999999'", c15hu);
+        ("addx166 add '7E+12'  '1.11' -> '7000000000001.11'", c15hu);
+        ("addx167 add '1.11'  '7E+12' -> '7000000000001.11'", c15hu);
+        ("addx168 add '-1'    '7E+12' -> '6999999999999'", c15hu);
+    
+        // --            123456789012345      123456789012345      1 23456789012345
+        ("addx170 add '0.444444444444444'  '0.555555555555563' -> '1.00000000000001' Inexact Rounded", c15hu);
+        ("addx171 add '0.444444444444444'  '0.555555555555562' -> '1.00000000000001' Inexact Rounded", c15hu);
+        ("addx172 add '0.444444444444444'  '0.555555555555561' -> '1.00000000000001' Inexact Rounded", c15hu);
+        ("addx173 add '0.444444444444444'  '0.555555555555560' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("addx174 add '0.444444444444444'  '0.555555555555559' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("addx175 add '0.444444444444444'  '0.555555555555558' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("addx176 add '0.444444444444444'  '0.555555555555557' -> '1.00000000000000' Inexact Rounded", c15hu);
+        ("addx177 add '0.444444444444444'  '0.555555555555556' -> '1.00000000000000' Rounded", c15hu);
+        ("addx178 add '0.444444444444444'  '0.555555555555555' -> '0.999999999999999'", c15hu);
+        ("addx179 add '0.444444444444444'  '0.555555555555554' -> '0.999999999999998'", c15hu);
+        ("addx180 add '0.444444444444444'  '0.555555555555553' -> '0.999999999999997'", c15hu);
+        ("addx181 add '0.444444444444444'  '0.555555555555552' -> '0.999999999999996'", c15hu);
+        ("addx182 add '0.444444444444444'  '0.555555555555551' -> '0.999999999999995'", c15hu);
+        ("addx183 add '0.444444444444444'  '0.555555555555550' -> '0.999999999999994'", c15hu);
+    
+        // -- and some more, including residue effects and different roundings
+        // precision: 9
+        // rounding: half_up
+        ("addx200 add '123456789' 0             -> '123456789'", c9hu);
+        ("addx201 add '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9hu);
+        ("addx202 add '123456789' 0.000001      -> '123456789' Inexact Rounded", c9hu);
+        ("addx203 add '123456789' 0.1           -> '123456789' Inexact Rounded", c9hu);
+        ("addx204 add '123456789' 0.4           -> '123456789' Inexact Rounded", c9hu);
+        ("addx205 add '123456789' 0.49          -> '123456789' Inexact Rounded", c9hu);
+        ("addx206 add '123456789' 0.499999      -> '123456789' Inexact Rounded", c9hu);
+        ("addx207 add '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9hu);
+        ("addx208 add '123456789' 0.5           -> '123456790' Inexact Rounded", c9hu);
+        ("addx209 add '123456789' 0.500000001   -> '123456790' Inexact Rounded", c9hu);
+        ("addx210 add '123456789' 0.500001      -> '123456790' Inexact Rounded", c9hu);
+        ("addx211 add '123456789' 0.51          -> '123456790' Inexact Rounded", c9hu);
+        ("addx212 add '123456789' 0.6           -> '123456790' Inexact Rounded", c9hu);
+        ("addx213 add '123456789' 0.9           -> '123456790' Inexact Rounded", c9hu);
+        ("addx214 add '123456789' 0.99999       -> '123456790' Inexact Rounded", c9hu);
+        ("addx215 add '123456789' 0.999999999   -> '123456790' Inexact Rounded", c9hu);
+        ("addx216 add '123456789' 1             -> '123456790'", c9hu);
+        ("addx217 add '123456789' 1.000000001   -> '123456790' Inexact Rounded", c9hu);
+        ("addx218 add '123456789' 1.00001       -> '123456790' Inexact Rounded", c9hu);
+        ("addx219 add '123456789' 1.1           -> '123456790' Inexact Rounded", c9hu);
+    
+        // rounding: half_even
+        ("addx220 add '123456789' 0             -> '123456789'", c9he);
+        ("addx221 add '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9he);
+        ("addx222 add '123456789' 0.000001      -> '123456789' Inexact Rounded", c9he);
+        ("addx223 add '123456789' 0.1           -> '123456789' Inexact Rounded", c9he);
+        ("addx224 add '123456789' 0.4           -> '123456789' Inexact Rounded", c9he);
+        ("addx225 add '123456789' 0.49          -> '123456789' Inexact Rounded", c9he);
+        ("addx226 add '123456789' 0.499999      -> '123456789' Inexact Rounded", c9he);
+        ("addx227 add '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9he);
+        ("addx228 add '123456789' 0.5           -> '123456790' Inexact Rounded", c9he);
+        ("addx229 add '123456789' 0.500000001   -> '123456790' Inexact Rounded", c9he);
+        ("addx230 add '123456789' 0.500001      -> '123456790' Inexact Rounded", c9he);
+        ("addx231 add '123456789' 0.51          -> '123456790' Inexact Rounded", c9he);
+        ("addx232 add '123456789' 0.6           -> '123456790' Inexact Rounded", c9he);
+        ("addx233 add '123456789' 0.9           -> '123456790' Inexact Rounded", c9he);
+        ("addx234 add '123456789' 0.99999       -> '123456790' Inexact Rounded", c9he);
+        ("addx235 add '123456789' 0.999999999   -> '123456790' Inexact Rounded", c9he);
+        ("addx236 add '123456789' 1             -> '123456790'", c9he);
+        ("addx237 add '123456789' 1.00000001    -> '123456790' Inexact Rounded", c9he);
+        ("addx238 add '123456789' 1.00001       -> '123456790' Inexact Rounded", c9he);
+        ("addx239 add '123456789' 1.1           -> '123456790' Inexact Rounded", c9he);
+        
+        // -- critical few with even bottom digit...
+        ("addx240 add '123456788' 0.499999999   -> '123456788' Inexact Rounded", c9he);
+        ("addx241 add '123456788' 0.5           -> '123456788' Inexact Rounded", c9he);
+        ("addx242 add '123456788' 0.500000001   -> '123456789' Inexact Rounded", c9he);
+
+    
+        // rounding: down
+        ("addx250 add '123456789' 0             -> '123456789'", c9d);
+        ("addx251 add '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9d);
+        ("addx252 add '123456789' 0.000001      -> '123456789' Inexact Rounded", c9d);
+        ("addx253 add '123456789' 0.1           -> '123456789' Inexact Rounded", c9d);
+        ("addx254 add '123456789' 0.4           -> '123456789' Inexact Rounded", c9d);
+        ("addx255 add '123456789' 0.49          -> '123456789' Inexact Rounded", c9d);
+        ("addx256 add '123456789' 0.499999      -> '123456789' Inexact Rounded", c9d);
+        ("addx257 add '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9d);
+        ("addx258 add '123456789' 0.5           -> '123456789' Inexact Rounded", c9d);
+        ("addx259 add '123456789' 0.500000001   -> '123456789' Inexact Rounded", c9d);
+        ("addx260 add '123456789' 0.500001      -> '123456789' Inexact Rounded", c9d);
+        ("addx261 add '123456789' 0.51          -> '123456789' Inexact Rounded", c9d);
+        ("addx262 add '123456789' 0.6           -> '123456789' Inexact Rounded", c9d);
+        ("addx263 add '123456789' 0.9           -> '123456789' Inexact Rounded", c9d);
+        ("addx264 add '123456789' 0.99999       -> '123456789' Inexact Rounded", c9d);
+        ("addx265 add '123456789' 0.999999999   -> '123456789' Inexact Rounded", c9d);
+        ("addx266 add '123456789' 1             -> '123456790'", c9d);
+        ("addx267 add '123456789' 1.00000001    -> '123456790' Inexact Rounded", c9d);
+        ("addx268 add '123456789' 1.00001       -> '123456790' Inexact Rounded", c9d);
+        ("addx269 add '123456789' 1.1           -> '123456790' Inexact Rounded", c9d);
+    
+        // -- input preparation tests (operands should not be rounded)
+        // precision: 3
+        // rounding: half_up
+        ("addx270 add '12345678900000'  9999999999999 ->  '2.23E+13' Inexact Rounded", c3hu);
+        ("addx271 add  '9999999999999' 12345678900000 ->  '2.23E+13' Inexact Rounded", c3hu);
+    
+        ("addx272 add '12E+3'  '3444'   ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("addx273 add '12E+3'  '3446'   ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("addx274 add '12E+3'  '3449.9' ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("addx275 add '12E+3'  '3450.0' ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("addx276 add '12E+3'  '3450.1' ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("addx277 add '12E+3'  '3454'   ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("addx278 add '12E+3'  '3456'   ->  '1.55E+4' Inexact Rounded", c3hu);
+    
+        ("addx281 add '3444'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("addx282 add '3446'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("addx283 add '3449.9' '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hu);
+        ("addx284 add '3450.0' '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("addx285 add '3450.1' '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("addx286 add '3454'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
+        ("addx287 add '3456'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
+    
+        //rounding: half_down
+        ("addx291 add '3444'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
+        ("addx292 add '3446'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
+        ("addx293 add '3449.9' '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
+        ("addx294 add '3450.0' '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
+        ("addx295 add '3450.1' '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hd);
+        ("addx296 add '3454'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hd);
+        ("addx297 add '3456'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hd);
+    
+        // -- 1 in last place tests
+        // rounding: half_up
+        ("addx301 add  -1   1      ->   0", c3hu);
+        ("addx302 add   0   1      ->   1", c3hu);
+        ("addx303 add   1   1      ->   2", c3hu);
+        ("addx304 add  12   1      ->  13", c3hu);
+        ("addx305 add  98   1      ->  99", c3hu);
+        ("addx306 add  99   1      -> 100", c3hu);
+        ("addx307 add 100   1      -> 101", c3hu);
+        ("addx308 add 101   1      -> 102", c3hu);
+        ("addx309 add  -1  -1      ->  -2", c3hu);
+        ("addx310 add   0  -1      ->  -1", c3hu);
+        ("addx311 add   1  -1      ->   0", c3hu);
+        ("addx312 add  12  -1      ->  11", c3hu);
+        ("addx313 add  98  -1      ->  97", c3hu);
+        ("addx314 add  99  -1      ->  98", c3hu);
+        ("addx315 add 100  -1      ->  99", c3hu);
+        ("addx316 add 101  -1      -> 100", c3hu);
+    
+        ("addx321 add -0.01  0.01    ->  0.00", c3hu);
+        ("addx322 add  0.00  0.01    ->  0.01", c3hu);
+        ("addx323 add  0.01  0.01    ->  0.02", c3hu);
+        ("addx324 add  0.12  0.01    ->  0.13", c3hu);
+        ("addx325 add  0.98  0.01    ->  0.99", c3hu);
+        ("addx326 add  0.99  0.01    ->  1.00", c3hu);
+        ("addx327 add  1.00  0.01    ->  1.01", c3hu);
+        ("addx328 add  1.01  0.01    ->  1.02", c3hu);
+        ("addx329 add -0.01 -0.01    -> -0.02", c3hu);
+        ("addx330 add  0.00 -0.01    -> -0.01", c3hu);
+        ("addx331 add  0.01 -0.01    ->  0.00", c3hu);
+        ("addx332 add  0.12 -0.01    ->  0.11", c3hu);
+        ("addx333 add  0.98 -0.01    ->  0.97", c3hu);
+        ("addx334 add  0.99 -0.01    ->  0.98", c3hu);
+        ("addx335 add  1.00 -0.01    ->  0.99", c3hu);
+        ("addx336 add  1.01 -0.01    ->  1.00", c3hu);
+    
+        // -- some more cases where adding 0 affects the coefficient
+        //    precision: 9
+        ("addx340 add 1E+3    0    ->         1000", c9hu);
+        ("addx341 add 1E+8    0    ->    100000000", c9hu);
+        ("addx342 add 1E+9    0    ->   1.00000000E+9   Rounded", c9hu);
+        ("addx343 add 1E+10   0    ->   1.00000000E+10  Rounded", c9hu);
+        // -- which simply follow from these cases ...
+        ("addx344 add 1E+3    1    ->         1001", c9hu);
+        ("addx345 add 1E+8    1    ->    100000001", c9hu);
+        ("addx346 add 1E+9    1    ->   1.00000000E+9   Inexact Rounded", c9hu);
+        ("addx347 add 1E+10   1    ->   1.00000000E+10  Inexact Rounded", c9hu);
+        ("addx348 add 1E+3    7    ->         1007", c9hu);
+        ("addx349 add 1E+8    7    ->    100000007", c9hu);
+        ("addx350 add 1E+9    7    ->   1.00000001E+9   Inexact Rounded", c9hu);
+        ("addx351 add 1E+10   7    ->   1.00000000E+10  Inexact Rounded", c9hu);
+    
+        // -- tryzeros cases
+        // precision:   7
+        // rounding:    half_up
+        // maxExponent: 92
+        // minexponent: -92    
+        ("addx361  add 0E+50 10000E+1  -> 1.0000E+5", c7hu);
+        ("addx362  add 10000E+1 0E-50  -> 100000.0  Rounded", c7hu);
+        ("addx363  add 10000E+1 10000E-50  -> 100000.0  Rounded Inexact", c7hu);
+        ("addx364  add 9.999999E+92 -9.999999E+92 -> 0E+86", c7hu);
+    
+        // -- a curiosity from JSR 13 testing
+        // rounding:    half_down
+        // precision:   10
+        ("addx370 add 99999999 81512 -> 100081511", c10hd);
+        // precision:      6
+        ("addx371 add 99999999 81512 -> 1.00082E+8 Rounded Inexact", c6hd);
+        // rounding:    half_up
+        // precision:   10
+        ("addx372 add 99999999 81512 -> 100081511", c10hu);
+        // precision:      6
+        ("addx373 add 99999999 81512 -> 1.00082E+8 Rounded Inexact", c6hu);
+        // rounding:    half_even
+        // precision:   10
+        ("addx374 add 99999999 81512 -> 100081511", c10he);
+        // precision:      6
+        ("addx375 add 99999999 81512 -> 1.00082E+8 Rounded Inexact", c6he);
+    
+        // -- ulp replacement tests
+        // precision: 9
+        // maxexponent: 999999999
+        // minexponent: -999999999
+        ("addx400 add   1   77e-7       ->  1.0000077", c9he);
+        ("addx401 add   1   77e-8       ->  1.00000077", c9he);
+        ("addx402 add   1   77e-9       ->  1.00000008 Inexact Rounded", c9he);
+        ("addx403 add   1   77e-10      ->  1.00000001 Inexact Rounded", c9he);
+        ("addx404 add   1   77e-11      ->  1.00000000 Inexact Rounded", c9he);
+        ("addx405 add   1   77e-12      ->  1.00000000 Inexact Rounded", c9he);
+        ("addx406 add   1   77e-999     ->  1.00000000 Inexact Rounded", c9he);
+        //("addx407 add   1   77e-9999999 ->  1.00000000 Inexact Rounded", c9he);
+    
+        ("addx410 add  10   77e-7       ->  10.0000077", c9he);
+        ("addx411 add  10   77e-8       ->  10.0000008 Inexact Rounded", c9he);
+        ("addx412 add  10   77e-9       ->  10.0000001 Inexact Rounded", c9he);
+        ("addx413 add  10   77e-10      ->  10.0000000 Inexact Rounded", c9he);
+        ("addx414 add  10   77e-11      ->  10.0000000 Inexact Rounded", c9he);
+        ("addx415 add  10   77e-12      ->  10.0000000 Inexact Rounded", c9he);
+        ("addx416 add  10   77e-999     ->  10.0000000 Inexact Rounded", c9he);
+        //("addx417 add  10   77e-9999999 ->  10.0000000 Inexact Rounded", c9he);
+    
+        ("addx420 add  77e-7        1   ->  1.0000077", c9he);
+        ("addx421 add  77e-8        1   ->  1.00000077", c9he);
+        ("addx422 add  77e-9        1   ->  1.00000008 Inexact Rounded", c9he);
+        ("addx423 add  77e-10       1   ->  1.00000001 Inexact Rounded", c9he);
+        ("addx424 add  77e-11       1   ->  1.00000000 Inexact Rounded", c9he);
+        ("addx425 add  77e-12       1   ->  1.00000000 Inexact Rounded", c9he);
+        ("addx426 add  77e-999      1   ->  1.00000000 Inexact Rounded", c9he);
+        //("addx427 add  77e-9999999  1   ->  1.00000000 Inexact Rounded", c9he);
+    
+        ("addx430 add  77e-7       10   ->  10.0000077", c9he);
+        ("addx431 add  77e-8       10   ->  10.0000008 Inexact Rounded", c9he);
+        ("addx432 add  77e-9       10   ->  10.0000001 Inexact Rounded", c9he);
+        ("addx433 add  77e-10      10   ->  10.0000000 Inexact Rounded", c9he);
+        ("addx434 add  77e-11      10   ->  10.0000000 Inexact Rounded", c9he);
+        ("addx435 add  77e-12      10   ->  10.0000000 Inexact Rounded", c9he);
+        ("addx436 add  77e-999     10   ->  10.0000000 Inexact Rounded", c9he);
+        //("addx437 add  77e-9999999 10   ->  10.0000000 Inexact Rounded", c9he);
+    
+        // -- negative ulps
+        ("addx440 add   1   -77e-7       ->  0.9999923", c9he);
+        ("addx441 add   1   -77e-8       ->  0.99999923", c9he);
+        ("addx442 add   1   -77e-9       ->  0.999999923", c9he);
+        ("addx443 add   1   -77e-10      ->  0.999999992 Inexact Rounded", c9he);
+        ("addx444 add   1   -77e-11      ->  0.999999999 Inexact Rounded", c9he);
+        ("addx445 add   1   -77e-12      ->  1.00000000 Inexact Rounded", c9he);
+        ("addx446 add   1   -77e-999     ->  1.00000000 Inexact Rounded", c9he);
+        //("addx447 add   1   -77e-9999999 ->  1.00000000 Inexact Rounded", c9he);
+    
+        ("addx450 add  10   -77e-7       ->   9.9999923", c9he);
+        ("addx451 add  10   -77e-8       ->   9.99999923", c9he);
+        ("addx452 add  10   -77e-9       ->   9.99999992 Inexact Rounded", c9he);
+        ("addx453 add  10   -77e-10      ->   9.99999999 Inexact Rounded", c9he);
+        ("addx454 add  10   -77e-11      ->  10.0000000 Inexact Rounded", c9he);
+        ("addx455 add  10   -77e-12      ->  10.0000000 Inexact Rounded", c9he);
+        ("addx456 add  10   -77e-999     ->  10.0000000 Inexact Rounded", c9he);
+        //("addx457 add  10   -77e-9999999 ->  10.0000000 Inexact Rounded", c9he);
+    
+        ("addx460 add  -77e-7        1   ->  0.9999923", c9he);
+        ("addx461 add  -77e-8        1   ->  0.99999923", c9he);
+        ("addx462 add  -77e-9        1   ->  0.999999923", c9he);
+        ("addx463 add  -77e-10       1   ->  0.999999992 Inexact Rounded", c9he);
+        ("addx464 add  -77e-11       1   ->  0.999999999 Inexact Rounded", c9he);
+        ("addx465 add  -77e-12       1   ->  1.00000000 Inexact Rounded", c9he);
+        ("addx466 add  -77e-999      1   ->  1.00000000 Inexact Rounded", c9he);
+         //("addx467 add  -77e-9999999  1   ->  1.00000000 Inexact Rounded", c9he);
+    
+        ("addx470 add  -77e-7       10   ->   9.9999923", c9he);
+        ("addx471 add  -77e-8       10   ->   9.99999923", c9he);
+        ("addx472 add  -77e-9       10   ->   9.99999992 Inexact Rounded", c9he);
+        ("addx473 add  -77e-10      10   ->   9.99999999 Inexact Rounded", c9he);
+        ("addx474 add  -77e-11      10   ->  10.0000000 Inexact Rounded", c9he);
+        ("addx475 add  -77e-12      10   ->  10.0000000 Inexact Rounded", c9he);
+        ("addx476 add  -77e-999     10   ->  10.0000000 Inexact Rounded", c9he);
+        //("addx477 add  -77e-9999999 10   ->  10.0000000 Inexact Rounded", c9he);
+    ]
+
+
+[<Tests>]
+let addTestList = testList "addition examples" (createAddTests addTests)
+
 //     [TestFixture]
 //     public class BigDecimalTests
 //     {
@@ -1491,536 +2003,14 @@ let specAbsTestList = testList "quantize spec esome 9999 examples" (createSpecAb
 
 //         #region Addition tests
 
-//         //[Test]
-//         //public void TestAddition()
-//         //{
-//         //    TestAddition("12345", "678e00", "13023", 0);
-//         //    TestAddition("12345", "678e-1", "124128", -1);
-//         //    TestAddition("12345", "678e-2", "1235178", -2);
-//         //    TestAddition("12345", "678e-3", "12345678", -3);
-//         //    TestAddition("12345", "678e-4", "123450678", -4);
-//         //    TestAddition("12345", "678e-5", "1234500678", -5);
-//         //    TestAddition("12345", "678e-6", "12345000678", -6);
-//         //}
-
-//         //private void TestAddition(string xStr, string yStr, string biStr, int exponent)
-//         //{
-//         //    BigDecimal x = BigDecimal.Parse(xStr);
-//         //    BigDecimal y = BigDecimal.Parse(yStr);
-//         //    BigDecimal z = x.Add(y);
-//         //    BigInteger bi = BigInteger.Parse(biStr);
-//         //    Expect(z.Coefficient).To.Equal(bi));
-//         //    Expect(z.Exponent).To.Equal(exponent));
-//         //}
 
 //         [Test]
 //         public void SpecAdd()
 //         {
-//             BigDecimal.Context c6hu = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c15hu = new BigDecimal.Context(15, BigDecimal.RoundingMode.HalfUp);
-
-//             //-- [first group are 'quick confidence check']
-//             TAdd("addx001 add 1       1       ->  2", c9hu);
-//             TAdd("addx002 add 2       3       ->  5", c9hu);
-//             TAdd("addx003 add '5.75'  '3.3'   ->  9.05", c9hu);
-//             TAdd("addx004 add '5'     '-3'    ->  2", c9hu);
-//             TAdd("addx005 add '-5'    '-3'    ->  -8", c9hu);
-//             TAdd("addx006 add '-7'    '2.5'   ->  -4.5", c9hu);
-//             TAdd("addx007 add '0.7'   '0.3'   ->  1.0", c9hu);
-//             TAdd("addx008 add '1.25'  '1.25'  ->  2.50", c9hu);
-//             TAdd("addx009 add '1.23456789'  '1.00000000' -> '2.23456789'", c9hu);
-//             TAdd("addx010 add '1.23456789'  '1.00000011' -> '2.23456800'", c9hu);
-
-//             TAdd("addx011 add '0.4444444444'  '0.5555555555' -> '1.00000000' Inexact Rounded", c9hu);
-//             TAdd("addx012 add '0.4444444440'  '0.5555555555' -> '1.00000000' Inexact Rounded", c9hu);
-//             TAdd("addx013 add '0.4444444444'  '0.5555555550' -> '0.999999999' Inexact Rounded", c9hu);
-//             TAdd("addx014 add '0.44444444449'    '0' -> '0.444444444' Inexact Rounded", c9hu);
-//             TAdd("addx015 add '0.444444444499'   '0' -> '0.444444444' Inexact Rounded", c9hu);
-//             TAdd("addx016 add '0.4444444444999'  '0' -> '0.444444444' Inexact Rounded", c9hu);
-//             TAdd("addx017 add '0.4444444445000'  '0' -> '0.444444445' Inexact Rounded", c9hu);
-//             TAdd("addx018 add '0.4444444445001'  '0' -> '0.444444445' Inexact Rounded", c9hu);
-//             TAdd("addx019 add '0.444444444501'   '0' -> '0.444444445' Inexact Rounded", c9hu);
-//             TAdd("addx020 add '0.44444444451'    '0' -> '0.444444445' Inexact Rounded", c9hu);
-
-//             TAdd("addx021 add 0 1 -> 1", c9hu);
-//             TAdd("addx022 add 1 1 -> 2", c9hu);
-//             TAdd("addx023 add 2 1 -> 3", c9hu);
-//             TAdd("addx024 add 3 1 -> 4", c9hu);
-//             TAdd("addx025 add 4 1 -> 5", c9hu);
-//             TAdd("addx026 add 5 1 -> 6", c9hu);
-//             TAdd("addx027 add 6 1 -> 7", c9hu);
-//             TAdd("addx028 add 7 1 -> 8", c9hu);
-//             TAdd("addx029 add 8 1 -> 9", c9hu);
-//             TAdd("addx030 add 9 1 -> 10", c9hu);
-
-//             //-- some carrying effects
-
-//             TAdd("addx031 add '0.9998'  '0.0000' -> '0.9998'", c9hu);
-//             TAdd("addx032 add '0.9998'  '0.0001' -> '0.9999'", c9hu);
-//             TAdd("addx033 add '0.9998'  '0.0002' -> '1.0000'", c9hu);
-//             TAdd("addx034 add '0.9998'  '0.0003' -> '1.0001'", c9hu);
-
-//             TAdd("addx035 add '70'  '10000e+9' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TAdd("addx036 add '700'  '10000e+9' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TAdd("addx037 add '7000'  '10000e+9' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TAdd("addx038 add '70000'  '10000e+9' -> '1.00000001E+13' Inexact Rounded", c9hu);
-//             TAdd("addx039 add '700000'  '10000e+9' -> '1.00000007E+13' Rounded", c9hu);
-
-//             // -- symmetry:
-//             TAdd("addx040 add '10000e+9'  '70' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TAdd("addx041 add '10000e+9'  '700' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TAdd("addx042 add '10000e+9'  '7000' -> '1.00000000E+13' Inexact Rounded", c9hu);
-//             TAdd("addx044 add '10000e+9'  '70000' -> '1.00000001E+13' Inexact Rounded", c9hu);
-//             TAdd("addx045 add '10000e+9'  '700000' -> '1.00000007E+13' Rounded", c9hu);
-
-//             //-- same, higher precision
-//             //precision: 15
-//             TAdd("addx046 add '10000e+9'  '7' -> '10000000000007'", c15hu);
-//             TAdd("addx047 add '10000e+9'  '70' -> '10000000000070'", c15hu);
-//             TAdd("addx048 add '10000e+9'  '700' -> '10000000000700'", c15hu);
-//             TAdd("addx049 add '10000e+9'  '7000' -> '10000000007000'", c15hu);
-//             TAdd("addx050 add '10000e+9'  '70000' -> '10000000070000'", c15hu);
-//             TAdd("addx051 add '10000e+9'  '700000' -> '10000000700000'", c15hu);
-//             TAdd("addx052 add '10000e+9'  '7000000' -> '10000007000000'", c15hu);
-
-//             // -- examples from decarith
-//             TAdd("addx053 add '12' '7.00' -> '19.00'", c9hu);
-//             TAdd("addx054 add '1.3' '-1.07' -> '0.23'", c9hu);
-//             TAdd("addx055 add '1.3' '-1.30' -> '0.00'", c9hu);
-//             TAdd("addx056 add '1.3' '-2.07' -> '-0.77'", c9hu);
-//             TAdd("addx057 add '1E+2' '1E+4' -> '1.01E+4'", c9hu);
-
-//             // -- zero preservation
-//             // precision: 6
-//             TAdd("addx060 add '10000e+9'  '70000' -> '1.00000E+13' Inexact Rounded", c6hu);
-//             TAdd("addx061 add 1 '0.0001' -> '1.0001'", c6hu);
-//             TAdd("addx062 add 1 '0.00001' -> '1.00001'", c6hu);
-//             TAdd("addx063 add 1 '0.000001' -> '1.00000' Inexact Rounded", c6hu);
-//             TAdd("addx064 add 1 '0.0000001' -> '1.00000' Inexact Rounded", c6hu);
-//             TAdd("addx065 add 1 '0.00000001' -> '1.00000' Inexact Rounded", c6hu);
-
-//             // -- some funny zeros [in case of bad signum]
-//             TAdd("addx070 add 1  0    -> 1", c6hu);
-//             TAdd("addx071 add 1 0.    -> 1", c6hu);
-//             TAdd("addx072 add 1  .0   -> 1.0", c6hu);
-//             TAdd("addx073 add 1 0.0   -> 1.0", c6hu);
-//             TAdd("addx074 add 1 0.00  -> 1.00", c6hu);
-//             TAdd("addx075 add  0  1   -> 1", c6hu);
-//             TAdd("addx076 add 0.  1   -> 1", c6hu);
-//             TAdd("addx077 add  .0 1   -> 1.0", c6hu);
-//             TAdd("addx078 add 0.0 1   -> 1.0", c6hu);
-//             TAdd("addx079 add 0.00 1  -> 1.00", c6hu);
-
-//             // precision: 9
-
-//             // -- some carries
-//             TAdd("addx080 add 999999998 1  -> 999999999", c9hu);
-//             TAdd("addx081 add 999999999 1  -> 1.00000000E+9 Rounded", c9hu);
-//             TAdd("addx082 add  99999999 1  -> 100000000", c9hu);
-//             TAdd("addx083 add   9999999 1  -> 10000000", c9hu);
-//             TAdd("addx084 add    999999 1  -> 1000000", c9hu);
-//             TAdd("addx085 add     99999 1  -> 100000", c9hu);
-//             TAdd("addx086 add      9999 1  -> 10000", c9hu);
-//             TAdd("addx087 add       999 1  -> 1000", c9hu);
-//             TAdd("addx088 add        99 1  -> 100", c9hu);
-//             TAdd("addx089 add         9 1  -> 10", c9hu);
 
 
-//             //-- more LHS swaps
-//             TAdd("addx090 add '-56267E-10'   0 ->  '-0.0000056267'", c9hu);
-//             TAdd("addx091 add '-56267E-6'    0 ->  '-0.056267'", c9hu);
-//             TAdd("addx092 add '-56267E-5'    0 ->  '-0.56267'", c9hu);
-//             TAdd("addx093 add '-56267E-4'    0 ->  '-5.6267'", c9hu);
-//             TAdd("addx094 add '-56267E-3'    0 ->  '-56.267'", c9hu);
-//             TAdd("addx095 add '-56267E-2'    0 ->  '-562.67'", c9hu);
-//             TAdd("addx096 add '-56267E-1'    0 ->  '-5626.7'", c9hu);
-//             TAdd("addx097 add '-56267E-0'    0 ->  '-56267'", c9hu);
-//             TAdd("addx098 add '-5E-10'       0 ->  '-5E-10'", c9hu);
-//             TAdd("addx099 add '-5E-7'        0 ->  '-5E-7'", c9hu);
-//             TAdd("addx100 add '-5E-6'        0 ->  '-0.000005'", c9hu);
-//             TAdd("addx101 add '-5E-5'        0 ->  '-0.00005'", c9hu);
-//             TAdd("addx102 add '-5E-4'        0 ->  '-0.0005'", c9hu);
-//             TAdd("addx103 add '-5E-1'        0 ->  '-0.5'", c9hu);
-//             TAdd("addx104 add '-5E0'         0 ->  '-5'", c9hu);
-//             TAdd("addx105 add '-5E1'         0 ->  '-50'", c9hu);
-//             TAdd("addx106 add '-5E5'         0 ->  '-500000'", c9hu);
-//             TAdd("addx107 add '-5E8'         0 ->  '-500000000'", c9hu);
-//             TAdd("addx108 add '-5E9'         0 ->  '-5.00000000E+9'   Rounded", c9hu);
-//             TAdd("addx109 add '-5E10'        0 ->  '-5.00000000E+10'  Rounded", c9hu);
-//             TAdd("addx110 add '-5E11'        0 ->  '-5.00000000E+11'  Rounded", c9hu);
-//             TAdd("addx111 add '-5E100'       0 ->  '-5.00000000E+100' Rounded", c9hu);
 
-//             // -- more RHS swaps
-//             TAdd("addx113 add 0  '-56267E-10' ->  '-0.0000056267'", c9hu);
-//             TAdd("addx114 add 0  '-56267E-6'  ->  '-0.056267'", c9hu);
-//             TAdd("addx116 add 0  '-56267E-5'  ->  '-0.56267'", c9hu);
-//             TAdd("addx117 add 0  '-56267E-4'  ->  '-5.6267'", c9hu);
-//             TAdd("addx119 add 0  '-56267E-3'  ->  '-56.267'", c9hu);
-//             TAdd("addx120 add 0  '-56267E-2'  ->  '-562.67'", c9hu);
-//             TAdd("addx121 add 0  '-56267E-1'  ->  '-5626.7'", c9hu);
-//             TAdd("addx122 add 0  '-56267E-0'  ->  '-56267'", c9hu);
-//             TAdd("addx123 add 0  '-5E-10'     ->  '-5E-10'", c9hu);
-//             TAdd("addx124 add 0  '-5E-7'      ->  '-5E-7'", c9hu);
-//             TAdd("addx125 add 0  '-5E-6'      ->  '-0.000005'", c9hu);
-//             TAdd("addx126 add 0  '-5E-5'      ->  '-0.00005'", c9hu);
-//             TAdd("addx127 add 0  '-5E-4'      ->  '-0.0005'", c9hu);
-//             TAdd("addx128 add 0  '-5E-1'      ->  '-0.5'", c9hu);
-//             TAdd("addx129 add 0  '-5E0'       ->  '-5'", c9hu);
-//             TAdd("addx130 add 0  '-5E1'       ->  '-50'", c9hu);
-//             TAdd("addx131 add 0  '-5E5'       ->  '-500000'", c9hu);
-//             TAdd("addx132 add 0  '-5E8'       ->  '-500000000'", c9hu);
-//             TAdd("addx133 add 0  '-5E9'       ->  '-5.00000000E+9'    Rounded", c9hu);
-//             TAdd("addx134 add 0  '-5E10'      ->  '-5.00000000E+10'   Rounded", c9hu);
-//             TAdd("addx135 add 0  '-5E11'      ->  '-5.00000000E+11'   Rounded", c9hu);
-//             TAdd("addx136 add 0  '-5E100'     ->  '-5.00000000E+100'  Rounded", c9hu);
 
-//             //-- related
-//             TAdd("addx137 add  1  '0E-12'      ->  '1.00000000'  Rounded", c9hu);
-//             TAdd("addx138 add -1  '0E-12'      ->  '-1.00000000' Rounded", c9hu);
-//             TAdd("addx139 add '0E-12' 1        ->  '1.00000000'  Rounded", c9hu);
-//             TAdd("addx140 add '0E-12' -1       ->  '-1.00000000' Rounded", c9hu);
-//             TAdd("addx141 add 1E+4    0.0000   ->  '10000.0000'", c9hu);
-//             TAdd("addx142 add 1E+4    0.00000  ->  '10000.0000'  Rounded", c9hu);
-//             TAdd("addx143 add 0.000   1E+5     ->  '100000.000'", c9hu);
-//             TAdd("addx144 add 0.0000  1E+5     ->  '100000.000'  Rounded", c9hu);
-
-//             // -- [some of the next group are really constructor tests]
-//             TAdd("addx146 add '00.0'  0       ->  '0.0'", c9hu);
-//             TAdd("addx147 add '0.00'  0       ->  '0.00'", c9hu);
-//             TAdd("addx148 add  0      '0.00'  ->  '0.00'", c9hu);
-//             TAdd("addx149 add  0      '00.0'  ->  '0.0'", c9hu);
-//             TAdd("addx150 add '00.0'  '0.00'  ->  '0.00'", c9hu);
-//             TAdd("addx151 add '0.00'  '00.0'  ->  '0.00'", c9hu);
-//             TAdd("addx152 add '3'     '.3'    ->  '3.3'", c9hu);
-//             TAdd("addx153 add '3.'    '.3'    ->  '3.3'", c9hu);
-//             TAdd("addx154 add '3.0'   '.3'    ->  '3.3'", c9hu);
-//             TAdd("addx155 add '3.00'  '.3'    ->  '3.30'", c9hu);
-//             TAdd("addx156 add '3'     '3'     ->  '6'", c9hu);
-//             TAdd("addx157 add '3'     '+3'    ->  '6'", c9hu);
-//             TAdd("addx158 add '3'     '-3'    ->  '0'", c9hu);
-//             TAdd("addx159 add '0.3'   '-0.3'  ->  '0.0'", c9hu);
-//             TAdd("addx160 add '0.03'  '-0.03' ->  '0.00'", c9hu);
-
-//             // -- try borderline precision, with carries, etc.
-//             // precision: 15
-//             TAdd("addx161 add '1E+12' '-1'    -> '999999999999'", c15hu);
-//             TAdd("addx162 add '1E+12'  '1.11' -> '1000000000001.11'", c15hu);
-//             TAdd("addx163 add '1.11'  '1E+12' -> '1000000000001.11'", c15hu);
-//             TAdd("addx164 add '-1'    '1E+12' -> '999999999999'", c15hu);
-//             TAdd("addx165 add '7E+12' '-1'    -> '6999999999999'", c15hu);
-//             TAdd("addx166 add '7E+12'  '1.11' -> '7000000000001.11'", c15hu);
-//             TAdd("addx167 add '1.11'  '7E+12' -> '7000000000001.11'", c15hu);
-//             TAdd("addx168 add '-1'    '7E+12' -> '6999999999999'", c15hu);
-
-//             //--                 123456789012345      123456789012345      1 23456789012345
-//             TAdd("addx170 add '0.444444444444444'  '0.555555555555563' -> '1.00000000000001' Inexact Rounded", c15hu);
-//             TAdd("addx171 add '0.444444444444444'  '0.555555555555562' -> '1.00000000000001' Inexact Rounded", c15hu);
-//             TAdd("addx172 add '0.444444444444444'  '0.555555555555561' -> '1.00000000000001' Inexact Rounded", c15hu);
-//             TAdd("addx173 add '0.444444444444444'  '0.555555555555560' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TAdd("addx174 add '0.444444444444444'  '0.555555555555559' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TAdd("addx175 add '0.444444444444444'  '0.555555555555558' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TAdd("addx176 add '0.444444444444444'  '0.555555555555557' -> '1.00000000000000' Inexact Rounded", c15hu);
-//             TAdd("addx177 add '0.444444444444444'  '0.555555555555556' -> '1.00000000000000' Rounded", c15hu);
-//             TAdd("addx178 add '0.444444444444444'  '0.555555555555555' -> '0.999999999999999'", c15hu);
-//             TAdd("addx179 add '0.444444444444444'  '0.555555555555554' -> '0.999999999999998'", c15hu);
-//             TAdd("addx180 add '0.444444444444444'  '0.555555555555553' -> '0.999999999999997'", c15hu);
-//             TAdd("addx181 add '0.444444444444444'  '0.555555555555552' -> '0.999999999999996'", c15hu);
-//             TAdd("addx182 add '0.444444444444444'  '0.555555555555551' -> '0.999999999999995'", c15hu);
-//             TAdd("addx183 add '0.444444444444444'  '0.555555555555550' -> '0.999999999999994'", c15hu);
-
-//             // -- and some more, including residue effects and different roundings
-//             // precision: 9
-//             // rounding: half_up
-//             TAdd("addx200 add '123456789' 0             -> '123456789'", c9hu);
-//             TAdd("addx201 add '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9hu);
-//             TAdd("addx202 add '123456789' 0.000001      -> '123456789' Inexact Rounded", c9hu);
-//             TAdd("addx203 add '123456789' 0.1           -> '123456789' Inexact Rounded", c9hu);
-//             TAdd("addx204 add '123456789' 0.4           -> '123456789' Inexact Rounded", c9hu);
-//             TAdd("addx205 add '123456789' 0.49          -> '123456789' Inexact Rounded", c9hu);
-//             TAdd("addx206 add '123456789' 0.499999      -> '123456789' Inexact Rounded", c9hu);
-//             TAdd("addx207 add '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9hu);
-//             TAdd("addx208 add '123456789' 0.5           -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx209 add '123456789' 0.500000001   -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx210 add '123456789' 0.500001      -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx211 add '123456789' 0.51          -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx212 add '123456789' 0.6           -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx213 add '123456789' 0.9           -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx214 add '123456789' 0.99999       -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx215 add '123456789' 0.999999999   -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx216 add '123456789' 1             -> '123456790'", c9hu);
-//             TAdd("addx217 add '123456789' 1.000000001   -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx218 add '123456789' 1.00001       -> '123456790' Inexact Rounded", c9hu);
-//             TAdd("addx219 add '123456789' 1.1           -> '123456790' Inexact Rounded", c9hu);
-
-//             BigDecimal.Context c9he = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfEven);
-
-//             // rounding: half_even
-//             TAdd("addx220 add '123456789' 0             -> '123456789'", c9he);
-//             TAdd("addx221 add '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9he);
-//             TAdd("addx222 add '123456789' 0.000001      -> '123456789' Inexact Rounded", c9he);
-//             TAdd("addx223 add '123456789' 0.1           -> '123456789' Inexact Rounded", c9he);
-//             TAdd("addx224 add '123456789' 0.4           -> '123456789' Inexact Rounded", c9he);
-//             TAdd("addx225 add '123456789' 0.49          -> '123456789' Inexact Rounded", c9he);
-//             TAdd("addx226 add '123456789' 0.499999      -> '123456789' Inexact Rounded", c9he);
-//             TAdd("addx227 add '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9he);
-//             TAdd("addx228 add '123456789' 0.5           -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx229 add '123456789' 0.500000001   -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx230 add '123456789' 0.500001      -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx231 add '123456789' 0.51          -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx232 add '123456789' 0.6           -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx233 add '123456789' 0.9           -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx234 add '123456789' 0.99999       -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx235 add '123456789' 0.999999999   -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx236 add '123456789' 1             -> '123456790'", c9he);
-//             TAdd("addx237 add '123456789' 1.00000001    -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx238 add '123456789' 1.00001       -> '123456790' Inexact Rounded", c9he);
-//             TAdd("addx239 add '123456789' 1.1           -> '123456790' Inexact Rounded", c9he);
-//             //-- critical few with even bottom digit...
-//             TAdd("addx240 add '123456788' 0.499999999   -> '123456788' Inexact Rounded", c9he);
-//             TAdd("addx241 add '123456788' 0.5           -> '123456788' Inexact Rounded", c9he);
-//             TAdd("addx242 add '123456788' 0.500000001   -> '123456789' Inexact Rounded", c9he);
-
-//             BigDecimal.Context c9d = new BigDecimal.Context(9, BigDecimal.RoundingMode.Down);
-
-//             // rounding: down
-//             TAdd("addx250 add '123456789' 0             -> '123456789'", c9d);
-//             TAdd("addx251 add '123456789' 0.000000001   -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx252 add '123456789' 0.000001      -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx253 add '123456789' 0.1           -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx254 add '123456789' 0.4           -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx255 add '123456789' 0.49          -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx256 add '123456789' 0.499999      -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx257 add '123456789' 0.499999999   -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx258 add '123456789' 0.5           -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx259 add '123456789' 0.500000001   -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx260 add '123456789' 0.500001      -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx261 add '123456789' 0.51          -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx262 add '123456789' 0.6           -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx263 add '123456789' 0.9           -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx264 add '123456789' 0.99999       -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx265 add '123456789' 0.999999999   -> '123456789' Inexact Rounded", c9d);
-//             TAdd("addx266 add '123456789' 1             -> '123456790'", c9d);
-//             TAdd("addx267 add '123456789' 1.00000001    -> '123456790' Inexact Rounded", c9d);
-//             TAdd("addx268 add '123456789' 1.00001       -> '123456790' Inexact Rounded", c9d);
-//             TAdd("addx269 add '123456789' 1.1           -> '123456790' Inexact Rounded", c9d);
-
-//             //-- input preparation tests (operands should not be rounded)
-//             //precision: 3
-//             //rounding: half_up
-//             BigDecimal.Context c3hu = new BigDecimal.Context(3, BigDecimal.RoundingMode.HalfUp);
-
-//             TAdd("addx270 add '12345678900000'  9999999999999 ->  '2.23E+13' Inexact Rounded", c3hu);
-//             TAdd("addx271 add  '9999999999999' 12345678900000 ->  '2.23E+13' Inexact Rounded", c3hu);
-
-//             TAdd("addx272 add '12E+3'  '3444'   ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TAdd("addx273 add '12E+3'  '3446'   ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TAdd("addx274 add '12E+3'  '3449.9' ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TAdd("addx275 add '12E+3'  '3450.0' ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TAdd("addx276 add '12E+3'  '3450.1' ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TAdd("addx277 add '12E+3'  '3454'   ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TAdd("addx278 add '12E+3'  '3456'   ->  '1.55E+4' Inexact Rounded", c3hu);
-
-//             TAdd("addx281 add '3444'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TAdd("addx282 add '3446'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TAdd("addx283 add '3449.9' '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hu);
-//             TAdd("addx284 add '3450.0' '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TAdd("addx285 add '3450.1' '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TAdd("addx286 add '3454'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
-//             TAdd("addx287 add '3456'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hu);
-
-//             //rounding: half_down
-
-//             BigDecimal.Context c3hd = new BigDecimal.Context(3, BigDecimal.RoundingMode.HalfDown);
-
-//             TAdd("addx291 add '3444'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
-//             TAdd("addx292 add '3446'   '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
-//             TAdd("addx293 add '3449.9' '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
-//             TAdd("addx294 add '3450.0' '12E+3'  ->  '1.54E+4' Inexact Rounded", c3hd);
-//             TAdd("addx295 add '3450.1' '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hd);
-//             TAdd("addx296 add '3454'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hd);
-//             TAdd("addx297 add '3456'   '12E+3'  ->  '1.55E+4' Inexact Rounded", c3hd);
-
-//             // -- 1 in last place tests
-//             // rounding: half_up
-//             TAdd("addx301 add  -1   1      ->   0", c3hu);
-//             TAdd("addx302 add   0   1      ->   1", c3hu);
-//             TAdd("addx303 add   1   1      ->   2", c3hu);
-//             TAdd("addx304 add  12   1      ->  13", c3hu);
-//             TAdd("addx305 add  98   1      ->  99", c3hu);
-//             TAdd("addx306 add  99   1      -> 100", c3hu);
-//             TAdd("addx307 add 100   1      -> 101", c3hu);
-//             TAdd("addx308 add 101   1      -> 102", c3hu);
-//             TAdd("addx309 add  -1  -1      ->  -2", c3hu);
-//             TAdd("addx310 add   0  -1      ->  -1", c3hu);
-//             TAdd("addx311 add   1  -1      ->   0", c3hu);
-//             TAdd("addx312 add  12  -1      ->  11", c3hu);
-//             TAdd("addx313 add  98  -1      ->  97", c3hu);
-//             TAdd("addx314 add  99  -1      ->  98", c3hu);
-//             TAdd("addx315 add 100  -1      ->  99", c3hu);
-//             TAdd("addx316 add 101  -1      -> 100", c3hu);
-
-//             TAdd("addx321 add -0.01  0.01    ->  0.00", c3hu);
-//             TAdd("addx322 add  0.00  0.01    ->  0.01", c3hu);
-//             TAdd("addx323 add  0.01  0.01    ->  0.02", c3hu);
-//             TAdd("addx324 add  0.12  0.01    ->  0.13", c3hu);
-//             TAdd("addx325 add  0.98  0.01    ->  0.99", c3hu);
-//             TAdd("addx326 add  0.99  0.01    ->  1.00", c3hu);
-//             TAdd("addx327 add  1.00  0.01    ->  1.01", c3hu);
-//             TAdd("addx328 add  1.01  0.01    ->  1.02", c3hu);
-//             TAdd("addx329 add -0.01 -0.01    -> -0.02", c3hu);
-//             TAdd("addx330 add  0.00 -0.01    -> -0.01", c3hu);
-//             TAdd("addx331 add  0.01 -0.01    ->  0.00", c3hu);
-//             TAdd("addx332 add  0.12 -0.01    ->  0.11", c3hu);
-//             TAdd("addx333 add  0.98 -0.01    ->  0.97", c3hu);
-//             TAdd("addx334 add  0.99 -0.01    ->  0.98", c3hu);
-//             TAdd("addx335 add  1.00 -0.01    ->  0.99", c3hu);
-//             TAdd("addx336 add  1.01 -0.01    ->  1.00", c3hu);
-
-//             // -- some more cases where adding 0 affects the coefficient
-//             //    precision: 9
-//             TAdd("addx340 add 1E+3    0    ->         1000", c9hu);
-//             TAdd("addx341 add 1E+8    0    ->    100000000", c9hu);
-//             TAdd("addx342 add 1E+9    0    ->   1.00000000E+9   Rounded", c9hu);
-//             TAdd("addx343 add 1E+10   0    ->   1.00000000E+10  Rounded", c9hu);
-//             // -- which simply follow from these cases ...
-//             TAdd("addx344 add 1E+3    1    ->         1001", c9hu);
-//             TAdd("addx345 add 1E+8    1    ->    100000001", c9hu);
-//             TAdd("addx346 add 1E+9    1    ->   1.00000000E+9   Inexact Rounded", c9hu);
-//             TAdd("addx347 add 1E+10   1    ->   1.00000000E+10  Inexact Rounded", c9hu);
-//             TAdd("addx348 add 1E+3    7    ->         1007", c9hu);
-//             TAdd("addx349 add 1E+8    7    ->    100000007", c9hu);
-//             TAdd("addx350 add 1E+9    7    ->   1.00000001E+9   Inexact Rounded", c9hu);
-//             TAdd("addx351 add 1E+10   7    ->   1.00000000E+10  Inexact Rounded", c9hu);
-
-//             // -- tryzeros cases
-//             // precision:   7
-//             // rounding:    half_up
-//             // maxExponent: 92
-//             // minexponent: -92
-
-//             BigDecimal.Context c6hd = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfDown);
-//             BigDecimal.Context c6he = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfEven);
-//             BigDecimal.Context c7hu = new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c10hd = new BigDecimal.Context(10, BigDecimal.RoundingMode.HalfDown);
-//             BigDecimal.Context c10hu = new BigDecimal.Context(10, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c10he = new BigDecimal.Context(10, BigDecimal.RoundingMode.HalfEven);
-
-//             TAdd("addx361  add 0E+50 10000E+1  -> 1.0000E+5", c7hu);
-//             TAdd("addx362  add 10000E+1 0E-50  -> 100000.0  Rounded", c7hu);
-//             TAdd("addx363  add 10000E+1 10000E-50  -> 100000.0  Rounded Inexact", c7hu);
-//             TAdd("addx364  add 9.999999E+92 -9.999999E+92 -> 0E+86", c7hu);
-
-//             // -- a curiosity from JSR 13 testing
-//             // rounding:    half_down
-//             // precision:   10
-//             TAdd("addx370 add 99999999 81512 -> 100081511", c10hd);
-//             // precision:      6
-//             TAdd("addx371 add 99999999 81512 -> 1.00082E+8 Rounded Inexact", c6hd);
-//             // rounding:    half_up
-//             // precision:   10
-//             TAdd("addx372 add 99999999 81512 -> 100081511", c10hu);
-//             // precision:      6
-//             TAdd("addx373 add 99999999 81512 -> 1.00082E+8 Rounded Inexact", c6hu);
-//             // rounding:    half_even
-//             // precision:   10
-//             TAdd("addx374 add 99999999 81512 -> 100081511", c10he);
-//             // precision:      6
-//             TAdd("addx375 add 99999999 81512 -> 1.00082E+8 Rounded Inexact", c6he);
-
-//             // -- ulp replacement tests
-//             // precision: 9
-//             // maxexponent: 999999999
-//             // minexponent: -999999999
-//             TAdd("addx400 add   1   77e-7       ->  1.0000077", c9he);
-//             TAdd("addx401 add   1   77e-8       ->  1.00000077", c9he);
-//             TAdd("addx402 add   1   77e-9       ->  1.00000008 Inexact Rounded", c9he);
-//             TAdd("addx403 add   1   77e-10      ->  1.00000001 Inexact Rounded", c9he);
-//             TAdd("addx404 add   1   77e-11      ->  1.00000000 Inexact Rounded", c9he);
-//             TAdd("addx405 add   1   77e-12      ->  1.00000000 Inexact Rounded", c9he);
-//             TAdd("addx406 add   1   77e-999     ->  1.00000000 Inexact Rounded", c9he);
-//             //TAdd("addx407 add   1   77e-9999999 ->  1.00000000 Inexact Rounded", c9he);
-
-//             TAdd("addx410 add  10   77e-7       ->  10.0000077", c9he);
-//             TAdd("addx411 add  10   77e-8       ->  10.0000008 Inexact Rounded", c9he);
-//             TAdd("addx412 add  10   77e-9       ->  10.0000001 Inexact Rounded", c9he);
-//             TAdd("addx413 add  10   77e-10      ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx414 add  10   77e-11      ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx415 add  10   77e-12      ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx416 add  10   77e-999     ->  10.0000000 Inexact Rounded", c9he);
-//             //TAdd("addx417 add  10   77e-9999999 ->  10.0000000 Inexact Rounded", c9he);
-
-//             TAdd("addx420 add  77e-7        1   ->  1.0000077", c9he);
-//             TAdd("addx421 add  77e-8        1   ->  1.00000077", c9he);
-//             TAdd("addx422 add  77e-9        1   ->  1.00000008 Inexact Rounded", c9he);
-//             TAdd("addx423 add  77e-10       1   ->  1.00000001 Inexact Rounded", c9he);
-//             TAdd("addx424 add  77e-11       1   ->  1.00000000 Inexact Rounded", c9he);
-//             TAdd("addx425 add  77e-12       1   ->  1.00000000 Inexact Rounded", c9he);
-//             TAdd("addx426 add  77e-999      1   ->  1.00000000 Inexact Rounded", c9he);
-//             //TAdd("addx427 add  77e-9999999  1   ->  1.00000000 Inexact Rounded", c9he);
-
-//             TAdd("addx430 add  77e-7       10   ->  10.0000077", c9he);
-//             TAdd("addx431 add  77e-8       10   ->  10.0000008 Inexact Rounded", c9he);
-//             TAdd("addx432 add  77e-9       10   ->  10.0000001 Inexact Rounded", c9he);
-//             TAdd("addx433 add  77e-10      10   ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx434 add  77e-11      10   ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx435 add  77e-12      10   ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx436 add  77e-999     10   ->  10.0000000 Inexact Rounded", c9he);
-//             //TAdd("addx437 add  77e-9999999 10   ->  10.0000000 Inexact Rounded", c9he);
-
-//             // -- negative ulps
-//             TAdd("addx440 add   1   -77e-7       ->  0.9999923", c9he);
-//             TAdd("addx441 add   1   -77e-8       ->  0.99999923", c9he);
-//             TAdd("addx442 add   1   -77e-9       ->  0.999999923", c9he);
-//             TAdd("addx443 add   1   -77e-10      ->  0.999999992 Inexact Rounded", c9he);
-//             TAdd("addx444 add   1   -77e-11      ->  0.999999999 Inexact Rounded", c9he);
-//             TAdd("addx445 add   1   -77e-12      ->  1.00000000 Inexact Rounded", c9he);
-//             TAdd("addx446 add   1   -77e-999     ->  1.00000000 Inexact Rounded", c9he);
-//             //TAdd("addx447 add   1   -77e-9999999 ->  1.00000000 Inexact Rounded", c9he);
-
-//             TAdd("addx450 add  10   -77e-7       ->   9.9999923", c9he);
-//             TAdd("addx451 add  10   -77e-8       ->   9.99999923", c9he);
-//             TAdd("addx452 add  10   -77e-9       ->   9.99999992 Inexact Rounded", c9he);
-//             TAdd("addx453 add  10   -77e-10      ->   9.99999999 Inexact Rounded", c9he);
-//             TAdd("addx454 add  10   -77e-11      ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx455 add  10   -77e-12      ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx456 add  10   -77e-999     ->  10.0000000 Inexact Rounded", c9he);
-//             //TAdd("addx457 add  10   -77e-9999999 ->  10.0000000 Inexact Rounded", c9he);
-
-//             TAdd("addx460 add  -77e-7        1   ->  0.9999923", c9he);
-//             TAdd("addx461 add  -77e-8        1   ->  0.99999923", c9he);
-//             TAdd("addx462 add  -77e-9        1   ->  0.999999923", c9he);
-//             TAdd("addx463 add  -77e-10       1   ->  0.999999992 Inexact Rounded", c9he);
-//             TAdd("addx464 add  -77e-11       1   ->  0.999999999 Inexact Rounded", c9he);
-//             TAdd("addx465 add  -77e-12       1   ->  1.00000000 Inexact Rounded", c9he);
-//             TAdd("addx466 add  -77e-999      1   ->  1.00000000 Inexact Rounded", c9he);
-//             //TAdd("addx467 add  -77e-9999999  1   ->  1.00000000 Inexact Rounded", c9he);
-
-//             TAdd("addx470 add  -77e-7       10   ->   9.9999923", c9he);
-//             TAdd("addx471 add  -77e-8       10   ->   9.99999923", c9he);
-//             TAdd("addx472 add  -77e-9       10   ->   9.99999992 Inexact Rounded", c9he);
-//             TAdd("addx473 add  -77e-10      10   ->   9.99999999 Inexact Rounded", c9he);
-//             TAdd("addx474 add  -77e-11      10   ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx475 add  -77e-12      10   ->  10.0000000 Inexact Rounded", c9he);
-//             TAdd("addx476 add  -77e-999     10   ->  10.0000000 Inexact Rounded", c9he);
-//             //TAdd("addx477 add  -77e-9999999 10   ->  10.0000000 Inexact Rounded", c9he);
-
-//         }
-
-//         static void TAdd(string test, BigDecimal.Context c)
-//         {
-//             GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//             TestAddition(arg1Str, arg2Str, c, resultStr);
-//         }
-
-//         static void TestAddition(string arg1Str, string arg2Str, BigDecimal.Context c, string resultStr)
-//         {
-//             BigDecimal arg1 = BigDecimal.Parse(arg1Str);
-//             BigDecimal arg2 = BigDecimal.Parse(arg2Str);
-//             BigDecimal val = arg1.Add(arg2, c);
-//             string valStr = val.ToScientificString();
-//             Expect(valStr).To.Equal(resultStr);
-//         }
 
 //         #endregion
 

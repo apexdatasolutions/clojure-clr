@@ -504,6 +504,19 @@ type BigDecimal private (coeff, exp, precision) =
         | Ok bd -> value <- BigDecimal.round bd c; true
         | Error _ -> false
 
+    // Arithmetic operations
+
+    member x.Negate() = if x.Coefficient.IsZero then x else BigDecimal(BigInteger.Negate(x.Coefficient),x.Exponent,x.RawPrecision)
+    member x.Negate(c) = BigDecimal.round (x.Negate()) c
+    static member Negate(x : BigDecimal) = x.Negate()
+    static member Negate(x:BigDecimal, c) = x.Negate(c)
+
+    
+    member x.Abs() = if x.Coefficient.Sign < 0 then x.Negate() else x
+    member x.Abs(c) = if x.Coefficient.Sign < 0 then x.Negate(c) else BigDecimal.round x c
+    static member Abs(x:BigDecimal) = x.Abs()
+    static member Abs(x:BigDecimal, c) = x.Abs(c)
+
 
 
 //           [Serializable]
@@ -1202,6 +1215,7 @@ type BigDecimal private (coeff, exp, precision) =
 //                   return x.Subtract(y);
 //               }
 
+
 //               /// <summary>
 //               /// Compute the negation of <paramref name="x"/>.
 //               /// </summary>
@@ -1212,6 +1226,7 @@ type BigDecimal private (coeff, exp, precision) =
 //               {
 //                   return x.Negate();
 //               }
+
 
 //               /// <summary>
 //               /// Compute <paramref name="x"/> * <paramref name="y"/>.
@@ -1293,28 +1308,6 @@ type BigDecimal private (coeff, exp, precision) =
 //               public static BigDecimal Subtract(BigDecimal x, BigDecimal y, Context c)
 //               {
 //                   return x.Subtract(y,c);
-//               }
-
-//               /// <summary>
-//               /// Compute the negation of <paramref name="x"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The negation</returns>
-//               public static BigDecimal Negate(BigDecimal x)
-//               {
-//                   return x.Negate();
-//               }
-
-//               /// <summary>
-//               /// Compute the negation of <paramref name="x"/>, with result rounded according to the context
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The negation</returns>
-//               public static BigDecimal Negate(BigDecimal x, Context c)
-//               {
-//                   return x.Negate(c);
 //               }
 
 //               /// <summary>
@@ -1410,26 +1403,6 @@ type BigDecimal private (coeff, exp, precision) =
 //               }
 
 
-//               /// <summary>
-//               /// Compute the absolute value.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <returns>The absolute value</returns>
-//               public static BigDecimal Abs(BigDecimal x)
-//               {
-//                   return x.Abs(); ;
-//               }
-
-
-//               /// <summary>
-//               /// Compute the absolute value, with result rounded according to the context.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <returns>The absolute value</returns>
-//               public static BigDecimal Abs(BigDecimal x, Context c)
-//               {
-//                   return x.Abs(c); ;
-//               }
 
 //               /// <summary>
 //               /// Returns a <see cref="BigInteger"/> raised to an int power.
@@ -1576,28 +1549,6 @@ type BigDecimal private (coeff, exp, precision) =
 //                       return result;
 
 //                   return result.Round(c);
-//               }
-
-//               /// <summary>
-//               /// Returns the negation of this value.
-//               /// </summary>
-//               /// <returns>The negation</returns>
-//               public BigDecimal Negate()
-//               {
-//                   if (_coeff.IsZero)
-//                       return this;
-//                   return new BigDecimal(_coeff.Negate(), _exp, _precision);
-//               }
-
-//               /// <summary>
-//               /// Returns the negation of this value, with result rounded according to the context.
-//               /// </summary>
-//               /// <param name="mc"></param>
-//               /// <returns></returns>
-//               public BigDecimal Negate(Context c)
-//               {
-//                   return Round(Negate(),c);
-//               }
 
 
 //               /// <summary>
@@ -2000,27 +1951,6 @@ type BigDecimal private (coeff, exp, precision) =
 //                   return quotient;
 //               }        
 
-//               /// <summary>
-//               /// Returns the absolute value of this instance.
-//               /// </summary>
-//               /// <returns>The absolute value</returns>
-//               public BigDecimal Abs()
-//               {
-//                   if (_coeff.IsNegative)
-//                       return Negate();
-//                   return this;
-//               }
-
-//               /// <summary>
-//               /// Returns the absolute value of this instance.
-//               /// </summary>
-//               /// <returns>The absolute value</returns>
-//               public BigDecimal Abs(Context c)
-//               {
-//                   if (_coeff.IsNegative)
-//                       return Negate(c);
-//                   return Round(this,c);
-//               }
 
 
 

@@ -644,37 +644,235 @@ let basicRoundingList = testList "basic rounding" (createRoundingTests basicRoun
 let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaDocRoundingTests)
 
 
+// support functions for parsing the standardized tests
 
-  //testList "samples" [
-  //  testCase "universe exists (╭ರᴥ•́)" <| fun _ ->
-  //    let subject = true
-  //    Expect.isTrue subject "I compute, therefore I am."
 
-  //  testCase "when true is not (should fail)" <| fun _ ->
-  //    let subject = false
-  //    Expect.isTrue subject "I should fail because the subject is false"
+let stripSingleQuotes (str:string) =
+    let start, len = 
+        match str.[0] = '\'', str.[str.Length-1] = '\''with
+        | true, true -> 1, str.Length-1
+        | true, false -> 1, str.Length
+        | false, true -> 0, str.Length-1
+        | false, false -> 0, str.Length
 
-  //  testCase "I'm skipped (should skip)" <| fun _ ->
-  //    Tests.skiptest "Yup, waiting for a sunny day..."
+    str.Substring(start,len)
 
-  //  testCase "I'm always fail (should fail)" <| fun _ ->
-  //    Tests.failtest "This was expected..."
 
-  //  testCase "contains things" <| fun _ ->
-  //    Expect.containsAll [| 2; 3; 4 |] [| 2; 4 |]
-  //                       "This is the case; {2,3,4} contains {2,4}"
+let getTwpArgs (test:string) =
+    let atoms : string array = test.Split(System.Array.Empty<char>(), System.StringSplitOptions.RemoveEmptyEntries)
+    stripSingleQuotes(atoms.[2]),  stripSingleQuotes(atoms.[4])
 
-  //  testCase "contains things (should fail)" <| fun _ ->
-  //    Expect.containsAll [| 2; 3; 4 |] [| 2; 4; 1 |]
-  //                       "Expecting we have one (1) in there"
+let getThreeArgs (test:string) =
+    let atoms : string array = test.Split(System.Array.Empty<char>(), System.StringSplitOptions.RemoveEmptyEntries)
+    stripSingleQuotes(atoms.[2]),  stripSingleQuotes(atoms.[3]), stripSingleQuotes(atoms.[5])
 
-  //  testCase "Sometimes I want to ༼ノಠل͟ಠ༽ノ ︵ ┻━┻" <| fun _ ->
-  //    Expect.equal "abcdëf" "abcdef" "These should equal"
 
-  //  test "I am (should fail)" {
-  //    "╰〳 ಠ 益 ಠೃ 〵╯" |> Expect.equal true false
-  //}
-  
+// quantization tests
+
+let testQuantize lhsStr rhsStr mode expectStr =
+    let lhs = BigDecimal.Parse(lhsStr)
+    let rhs = BigDecimal.Parse(rhsStr)
+    let result = BigDecimal.Quantize(lhs,rhs,mode)
+    let resultStr = result.ToScientificString();
+    Expect.equal resultStr expectStr "Quantization incorrect"
+
+
+let createTestQuantizeTests data =
+    data
+    |> List.map (fun (lhsStr, rhsStr, mode, expectStr) ->
+           testCase (sprintf "quantize'%s' with using '%s' with mode %s " lhsStr rhsStr (mode.ToString()) ) <| fun _ -> 
+                testQuantize lhsStr rhsStr mode expectStr
+           )
+
+
+let TQ test mode =
+    let lhs, rhs, result = getThreeArgs test
+    testQuantize lhs rhs mode result
+
+
+
+let createTQTests data =
+    data
+    |> List.map (fun (str, mode) ->
+           testCase (sprintf "quantize'%s' with mode %s " str (mode.ToString()) ) <| fun _ -> 
+               TQ str mode
+           )
+
+
+// The following tests are taken from the spec test cases.
+
+let mhu = RoundingMode.HalfUp
+
+let quantizeSpecSanityChecks = 
+    [   
+        ("0", "1e0", mhu, "0");
+        ("1", "1e0", mhu, "1");
+        ("0.1", "1e+2", mhu, "0E+2");
+        ("0.1", "1e+1", mhu, "0E+1");
+        ("0.1", "1e0", mhu, "0");
+        ("0.1", "1e-1", mhu, "0.1");
+        ("0.1", "1e-2", mhu, "0.10");
+        ("0.1", "1e-3", mhu, "0.100");
+        ("0.9", "1e+2", mhu, "0E+2");
+        ("0.9", "1e+1", mhu, "0E+1");
+        ("0.9", "1e+0", mhu, "1");
+        ("0.9", "1e-1", mhu, "0.9");
+        ("0.9", "1e-3", mhu, "0.900");
+    ]
+
+let quantizeExamplesFromSpec = 
+    [
+        ("2.17", "0.001", mhu, "2.170");
+        ("2.17", "0.01", mhu, "2.17");
+        ("2.17", "0.1", mhu, "2.2");
+        ("2.17", "1e+0", mhu, "2");
+        ("2.17", "1e+1", mhu, "0E+1");
+        ("-0.1", "1", mhu, "0");
+        ("0", "1e+5", mhu, "0E+5");
+        ("217", "1e-1", mhu, "217.0");
+        ("217", "1e+0", mhu, "217");
+        ("217", "1e+1", mhu, "2.2E+2");
+        ("217", "1e+2", mhu, "2E+2");
+        ("+35236450.6", "1e-2", mhu, "35236450.60");
+        ("-35236450.6", "1e-2", mhu, "-35236450.60");        
+    ]
+
+[<Tests>]
+let quantizeSpecSanityCheckList = testList "quantize spec sanity check" (createTestQuantizeTests quantizeSpecSanityChecks)
+
+[<Tests>]
+let quantizeExamplesFromCheckList = testList "quantize examples from spec" (createTestQuantizeTests quantizeExamplesFromSpec)
+
+let quantizeSpecNegatives = 
+    [
+        ("quax021 quantize -0      1e0   -> 0", mhu);
+        ("quax022 quantize -1      1e0   -> -1", mhu);
+        ("quax023 quantize -0.1   1e+2   -> 0E+2 Inexact Rounded", mhu);
+        ("quax025 quantize -0.1   1e+1   -> 0E+1 Inexact Rounded", mhu);
+        ("quax026 quantize -0.1    1e0   -> 0 Inexact Rounded", mhu);
+        ("quax027 quantize -0.1   1e-1   -> -0.1", mhu);
+        ("quax028 quantize -0.1   1e-2   -> -0.10", mhu);
+        ("quax029 quantize -0.1   1e-3   -> -0.100", mhu);
+        ("quax030 quantize -0.9   1e+2   -> 0E+2 Inexact Rounded", mhu);
+        ("quax031 quantize -0.9   1e+1   -> 0E+1 Inexact Rounded", mhu);
+        ("quax032 quantize -0.9   1e+0   -> -1 Inexact Rounded", mhu);
+        ("quax033 quantize -0.9   1e-1   -> -0.9", mhu);
+        ("quax034 quantize -0.9   1e-2   -> -0.90", mhu);
+        ("quax035 quantize -0.9   1e-3   -> -0.900", mhu);
+        ("quax036 quantize -0.5   1e+2   -> 0E+2 Inexact Rounded", mhu);
+        ("quax037 quantize -0.5   1e+1   -> 0E+1 Inexact Rounded", mhu);
+        ("quax038 quantize -0.5   1e+0   -> -1 Inexact Rounded", mhu);
+        ("quax039 quantize -0.5   1e-1   -> -0.5", mhu);
+        ("quax040 quantize -0.5   1e-2   -> -0.50", mhu);
+        ("quax041 quantize -0.5   1e-3   -> -0.500", mhu);
+        ("quax042 quantize -0.9   1e+2   -> 0E+2 Inexact Rounded", mhu);
+        ("quax043 quantize -0.9   1e+1   -> 0E+1 Inexact Rounded", mhu);
+        ("quax044 quantize -0.9   1e+0   -> -1 Inexact Rounded", mhu);
+        ("quax045 quantize -0.9   1e-1   -> -0.9", mhu);
+        ("quax046 quantize -0.9   1e-2   -> -0.90", mhu);
+        ("quax047 quantize -0.9   1e-3   -> -0.900", mhu);    
+    ]
+
+let quantizeSpecGeneral = 
+    [
+        ("quax089 quantize 12     1e+4   -> 0E+4 Inexact Rounded", mhu);
+        ("quax090 quantize 12     1e+3   -> 0E+3 Inexact Rounded", mhu);
+        ("quax091 quantize 12     1e+2   -> 0E+2 Inexact Rounded", mhu);
+        ("quax092 quantize 12     1e+1   -> 1E+1 Inexact Rounded", mhu);
+        ("quax093 quantize 1.2345 1e-2   -> 1.23 Inexact Rounded", mhu);
+        ("quax094 quantize 1.2355 1e-2   -> 1.24 Inexact Rounded", mhu);
+        ("quax095 quantize 1.2345 1e-6   -> 1.234500", mhu);
+        ("quax096 quantize 9.9999 1e-2   -> 10.00 Inexact Rounded", mhu);
+        ("quax097 quantize 0.0001 1e-2   -> 0.00 Inexact Rounded", mhu);
+        ("quax098 quantize 0.001  1e-2   -> 0.00 Inexact Rounded", mhu);
+        ("quax099 quantize 0.009  1e-2   -> 0.01 Inexact Rounded", mhu);
+        ("quax100 quantize 92     1e+2   -> 1E+2 Inexact Rounded", mhu);
+        ("quax101 quantize -1      1e0   ->  -1", mhu);
+        ("quax102 quantize -1     1e-1   ->  -1.0", mhu);
+        ("quax103 quantize -1     1e-2   ->  -1.00", mhu);
+        ("quax104 quantize  0      1e0   ->  0", mhu);
+        ("quax105 quantize  0     1e-1   ->  0.0", mhu);
+        ("quax106 quantize  0     1e-2   ->  0.00", mhu);
+        ("quax107 quantize  0.00   1e0   ->  0", mhu);
+        ("quax108 quantize  0     1e+1   ->  0E+1", mhu);
+        ("quax109 quantize  0     1e+2   ->  0E+2", mhu);
+        ("quax110 quantize +1      1e0   ->  1", mhu);
+        ("quax111 quantize +1     1e-1   ->  1.0", mhu);
+        ("quax112 quantize +1     1e-2   ->  1.00", mhu);
+        ("quax120 quantize   1.04  1e-3 ->  1.040", mhu);
+        ("quax121 quantize   1.04  1e-2 ->  1.04", mhu);
+        ("quax122 quantize   1.04  1e-1 ->  1.0 Inexact Rounded", mhu);
+        ("quax123 quantize   1.04   1e0 ->  1 Inexact Rounded", mhu);
+        ("quax124 quantize   1.05  1e-3 ->  1.050", mhu);
+        ("quax125 quantize   1.05  1e-2 ->  1.05", mhu);
+        ("quax126 quantize   1.05  1e-1 ->  1.1 Inexact Rounded", mhu);
+        ("quax131 quantize   1.05   1e0 ->  1 Inexact Rounded", mhu);
+        ("quax132 quantize   1.06  1e-3 ->  1.060", mhu);
+        ("quax133 quantize   1.06  1e-2 ->  1.06", mhu);
+        ("quax134 quantize   1.06  1e-1 ->  1.1 Inexact Rounded", mhu);
+        ("quax135 quantize   1.06   1e0 ->  1 Inexact Rounded", mhu);
+        ("quax140 quantize   -10    1e-2  ->  -10.00", mhu);
+        ("quax141 quantize   +1     1e-2  ->  1.00", mhu);
+        ("quax142 quantize   +10    1e-2  ->  10.00", mhu);
+        ("quax143 quantize   1E+10  1e-2  ->  10000000000.00 Invalid_operation", mhu); // modded from NaN
+        ("quax144 quantize   1E-10  1e-2  ->  0.00 Inexact Rounded", mhu);
+        ("quax145 quantize   1E-3   1e-2  ->  0.00 Inexact Rounded", mhu);
+        ("quax146 quantize   1E-2   1e-2  ->  0.01", mhu);
+        ("quax147 quantize   1E-1   1e-2  ->  0.10", mhu);
+        ("quax148 quantize   0E-10  1e-2  ->  0.00", mhu);
+        ("quax150 quantize   1.0600 1e-5 ->  1.06000", mhu);
+        ("quax151 quantize   1.0600 1e-4 ->  1.0600", mhu);
+        ("quax152 quantize   1.0600 1e-3 ->  1.060 Rounded", mhu);
+        ("quax153 quantize   1.0600 1e-2 ->  1.06 Rounded", mhu);
+        ("quax154 quantize   1.0600 1e-1 ->  1.1 Inexact Rounded", mhu);
+        ("quax155 quantize   1.0600  1e0 ->  1 Inexact Rounded", mhu);
+    
+    ]
+
+let quantizeSpecBaseTestsWithNonOneCoeffs =
+    [
+        ("quax161 quantize 0      -9e0   -> 0", mhu);
+        ("quax162 quantize 1      -7e0   -> 1", mhu);
+        ("quax163 quantize 0.1   -1e+2   -> 0E+2 Inexact Rounded", mhu);
+        ("quax165 quantize 0.1    0e+1   -> 0E+1 Inexact Rounded", mhu);
+        ("quax166 quantize 0.1     2e0   -> 0 Inexact Rounded", mhu);
+        ("quax167 quantize 0.1    3e-1   -> 0.1", mhu);
+        ("quax168 quantize 0.1   44e-2   -> 0.10", mhu);
+        ("quax169 quantize 0.1  555e-3   -> 0.100", mhu);
+        ("quax170 quantize 0.9 6666e+2   -> 0E+2 Inexact Rounded", mhu);
+        ("quax171 quantize 0.9 -777e+1   -> 0E+1 Inexact Rounded", mhu);
+        ("quax172 quantize 0.9  -88e+0   -> 1 Inexact Rounded", mhu);
+        ("quax173 quantize 0.9   -9e-1   -> 0.9", mhu);
+        ("quax174 quantize 0.9    0e-2   -> 0.90", mhu);
+        ("quax175 quantize 0.9  1.1e-3   -> 0.9000", mhu);
+        //-- negatives
+        ("quax181 quantize -0    1.1e0   -> 0.0", mhu);  // neg zero
+        ("quax182 quantize -1     -1e0   -> -1", mhu);
+        ("quax183 quantize -0.1  11e+2   -> 0E+2 Inexact Rounded", mhu); // neg zero
+        ("quax185 quantize -0.1 111e+1   -> 0E+1 Inexact Rounded", mhu); // neg zero
+        ("quax186 quantize -0.1   71e0   -> 0 Inexact Rounded", mhu);// neg zero
+        ("quax187 quantize -0.1 -91e-1   -> -0.1", mhu);
+        ("quax188 quantize -0.1 -.1e-2   -> -0.100", mhu);
+        ("quax189 quantize -0.1  -1e-3   -> -0.100", mhu);
+        ("quax190 quantize -0.9   0e+2   -> 0E+2 Inexact Rounded", mhu);// neg zero
+        ("quax191 quantize -0.9  -0e+1   -> 0E+1 Inexact Rounded", mhu);
+        ("quax192 quantize -0.9 -10e+0   -> -1 Inexact Rounded", mhu);
+        ("quax193 quantize -0.9 100e-1   -> -0.9", mhu);
+        ("quax194 quantize -0.9 999e-2   -> -0.90", mhu);    
+    
+    ]
+
+[<Tests>]
+let quantizeSpecNegativeList = testList "quantize spec negative" (createTQTests quantizeSpecNegatives)
+
+[<Tests>]
+let quantizeSpecGeneralList = testList "quantize spec negative" (createTQTests quantizeSpecGeneral)
+
+[<Tests>]
+let quantizeSpecBaseTestsWithNonOneCoeffsList = testList "quantize spec negative" (createTQTests quantizeSpecBaseTestsWithNonOneCoeffs)
+
+quantizeSpecBaseTestsWithNonOneCoeffs
+
 
 //     [TestFixture]
 //     public class BigDecimalTests
@@ -689,26 +887,7 @@ let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaD
 //             result = StripSingleQuotes(atoms[5]);
 //         }
 
-//         static void GetTwoArgs(string test, out string arg, out string result)
-//         {
-//             string[] atoms = test.Split(Array.Empty<char>(), StringSplitOptions.RemoveEmptyEntries);
-//             arg = StripSingleQuotes(atoms[2]);
-//             result = StripSingleQuotes(atoms[4]);
-//         }
 
-//         static string StripSingleQuotes(string str)
-//         {
-//             int len = str[^1] == '\'' ? str.Length - 1 : str.Length;
-//             int start = 0;
-
-//             if ( str[0] == '\'' )
-//             {
-//                 start = 1;
-//                 len--;
-//             }
-
-//             return str.Substring(start, len);
-//         }
 
 //         #endregion
 
@@ -854,143 +1033,15 @@ let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaD
 
 //         #endregion
 
-//         [Test]
-//         static public void TestJavaDocRoundingTests()
-//         {
-//         #endregion
 
 //         #region Quantize tests
-
-//         // The following tests are taken from the spec test cases.
-
-//         [Test]
-//         public void QuantizeSpecSanityChecks()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-//             TestQuantize("0", "1e0", m, "0");
-//             TestQuantize("1", "1e0", m, "1");
-//             TestQuantize("0.1", "1e+2", m, "0E+2");
-//             TestQuantize("0.1", "1e+1", m, "0E+1");
-//             TestQuantize("0.1", "1e0", m, "0");
-//             TestQuantize("0.1", "1e-1", m, "0.1");
-//             TestQuantize("0.1", "1e-2", m, "0.10");
-//             TestQuantize("0.1", "1e-3", m, "0.100");
-//             TestQuantize("0.9", "1e+2", m, "0E+2");
-//             TestQuantize("0.9", "1e+1", m, "0E+1");
-//             TestQuantize("0.9", "1e+0", m, "1");
-//             TestQuantize("0.9", "1e-1", m, "0.9");
-//             TestQuantize("0.9", "1e-3", m, "0.900");
-//         }
-
-//         [Test]
-//         public void QuantizeExamplesFromSpec()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-//             TestQuantize("2.17", "0.001", m, "2.170");
-//             TestQuantize("2.17", "0.01", m, "2.17");
-//             TestQuantize("2.17", "0.1", m, "2.2");
-//             TestQuantize("2.17", "1e+0", m, "2");
-//             TestQuantize("2.17", "1e+1", m, "0E+1");
-//             TestQuantize("-0.1", "1", m, "0");
-//             TestQuantize("0", "1e+5", m, "0E+5");
-//             TestQuantize("217", "1e-1", m, "217.0");
-//             TestQuantize("217", "1e+0", m, "217");
-//             TestQuantize("217", "1e+1", m, "2.2E+2");
-//             TestQuantize("217", "1e+2", m, "2E+2");
-//             TestQuantize("+35236450.6", "1e-2", m, "35236450.60");
-//             TestQuantize("-35236450.6", "1e-2", m, "-35236450.60");
-//         }
-
-//         [Test]
-//         public void QuantizeSpecNegatives()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-//             TQ("quax021 quantize -0      1e0   -> 0", m);
-//             TQ("quax022 quantize -1      1e0   -> -1", m);
-//             TQ("quax023 quantize -0.1   1e+2   -> 0E+2 Inexact Rounded", m);
-//             TQ("quax025 quantize -0.1   1e+1   -> 0E+1 Inexact Rounded", m);
-//             TQ("quax026 quantize -0.1    1e0   -> 0 Inexact Rounded", m);
-//             TQ("quax027 quantize -0.1   1e-1   -> -0.1", m);
-//             TQ("quax028 quantize -0.1   1e-2   -> -0.10", m);
-//             TQ("quax029 quantize -0.1   1e-3   -> -0.100", m);
-//             TQ("quax030 quantize -0.9   1e+2   -> 0E+2 Inexact Rounded", m);
-//             TQ("quax031 quantize -0.9   1e+1   -> 0E+1 Inexact Rounded", m);
-//             TQ("quax032 quantize -0.9   1e+0   -> -1 Inexact Rounded", m);
-//             TQ("quax033 quantize -0.9   1e-1   -> -0.9", m);
-//             TQ("quax034 quantize -0.9   1e-2   -> -0.90", m);
-//             TQ("quax035 quantize -0.9   1e-3   -> -0.900", m);
-//             TQ("quax036 quantize -0.5   1e+2   -> 0E+2 Inexact Rounded", m);
-//             TQ("quax037 quantize -0.5   1e+1   -> 0E+1 Inexact Rounded", m);
-//             TQ("quax038 quantize -0.5   1e+0   -> -1 Inexact Rounded", m);
-//             TQ("quax039 quantize -0.5   1e-1   -> -0.5", m);
-//             TQ("quax040 quantize -0.5   1e-2   -> -0.50", m);
-//             TQ("quax041 quantize -0.5   1e-3   -> -0.500", m);
-//             TQ("quax042 quantize -0.9   1e+2   -> 0E+2 Inexact Rounded", m);
-//             TQ("quax043 quantize -0.9   1e+1   -> 0E+1 Inexact Rounded", m);
-//             TQ("quax044 quantize -0.9   1e+0   -> -1 Inexact Rounded", m);
-//             TQ("quax045 quantize -0.9   1e-1   -> -0.9", m);
-//             TQ("quax046 quantize -0.9   1e-2   -> -0.90", m);
-//             TQ("quax047 quantize -0.9   1e-3   -> -0.900", m);
-//         }
 
 //         [Test]
 //         public void QuantizeSpecGeneral()
 //         {
 //             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
 
-//             TQ("quax089 quantize 12     1e+4   -> 0E+4 Inexact Rounded", m);
-//             TQ("quax090 quantize 12     1e+3   -> 0E+3 Inexact Rounded", m);
-//             TQ("quax091 quantize 12     1e+2   -> 0E+2 Inexact Rounded", m);
-//             TQ("quax092 quantize 12     1e+1   -> 1E+1 Inexact Rounded", m);
-//             TQ("quax093 quantize 1.2345 1e-2   -> 1.23 Inexact Rounded", m);
-//             TQ("quax094 quantize 1.2355 1e-2   -> 1.24 Inexact Rounded", m);
-//             TQ("quax095 quantize 1.2345 1e-6   -> 1.234500", m);
-//             TQ("quax096 quantize 9.9999 1e-2   -> 10.00 Inexact Rounded", m);
-//             TQ("quax097 quantize 0.0001 1e-2   -> 0.00 Inexact Rounded", m);
-//             TQ("quax098 quantize 0.001  1e-2   -> 0.00 Inexact Rounded", m);
-//             TQ("quax099 quantize 0.009  1e-2   -> 0.01 Inexact Rounded", m);
-//             TQ("quax100 quantize 92     1e+2   -> 1E+2 Inexact Rounded", m);
-//             TQ("quax101 quantize -1      1e0   ->  -1", m);
-//             TQ("quax102 quantize -1     1e-1   ->  -1.0", m);
-//             TQ("quax103 quantize -1     1e-2   ->  -1.00", m);
-//             TQ("quax104 quantize  0      1e0   ->  0", m);
-//             TQ("quax105 quantize  0     1e-1   ->  0.0", m);
-//             TQ("quax106 quantize  0     1e-2   ->  0.00", m);
-//             TQ("quax107 quantize  0.00   1e0   ->  0", m);
-//             TQ("quax108 quantize  0     1e+1   ->  0E+1", m);
-//             TQ("quax109 quantize  0     1e+2   ->  0E+2", m);
-//             TQ("quax110 quantize +1      1e0   ->  1", m);
-//             TQ("quax111 quantize +1     1e-1   ->  1.0", m);
-//             TQ("quax112 quantize +1     1e-2   ->  1.00", m);
-//             TQ("quax120 quantize   1.04  1e-3 ->  1.040", m);
-//             TQ("quax121 quantize   1.04  1e-2 ->  1.04", m);
-//             TQ("quax122 quantize   1.04  1e-1 ->  1.0 Inexact Rounded", m);
-//             TQ("quax123 quantize   1.04   1e0 ->  1 Inexact Rounded", m);
-//             TQ("quax124 quantize   1.05  1e-3 ->  1.050", m);
-//             TQ("quax125 quantize   1.05  1e-2 ->  1.05", m);
-//             TQ("quax126 quantize   1.05  1e-1 ->  1.1 Inexact Rounded", m);
-//             TQ("quax131 quantize   1.05   1e0 ->  1 Inexact Rounded", m);
-//             TQ("quax132 quantize   1.06  1e-3 ->  1.060", m);
-//             TQ("quax133 quantize   1.06  1e-2 ->  1.06", m);
-//             TQ("quax134 quantize   1.06  1e-1 ->  1.1 Inexact Rounded", m);
-//             TQ("quax135 quantize   1.06   1e0 ->  1 Inexact Rounded", m);
-//             TQ("quax140 quantize   -10    1e-2  ->  -10.00", m);
-//             TQ("quax141 quantize   +1     1e-2  ->  1.00", m);
-//             TQ("quax142 quantize   +10    1e-2  ->  10.00", m);
-//             TQ("quax143 quantize   1E+10  1e-2  ->  10000000000.00 Invalid_operation", m); // modded from NaN
-//             TQ("quax144 quantize   1E-10  1e-2  ->  0.00 Inexact Rounded", m);
-//             TQ("quax145 quantize   1E-3   1e-2  ->  0.00 Inexact Rounded", m);
-//             TQ("quax146 quantize   1E-2   1e-2  ->  0.01", m);
-//             TQ("quax147 quantize   1E-1   1e-2  ->  0.10", m);
-//             TQ("quax148 quantize   0E-10  1e-2  ->  0.00", m);
-//             TQ("quax150 quantize   1.0600 1e-5 ->  1.06000", m);
-//             TQ("quax151 quantize   1.0600 1e-4 ->  1.0600", m);
-//             TQ("quax152 quantize   1.0600 1e-3 ->  1.060 Rounded", m);
-//             TQ("quax153 quantize   1.0600 1e-2 ->  1.06 Rounded", m);
-//             TQ("quax154 quantize   1.0600 1e-1 ->  1.1 Inexact Rounded", m);
-//             TQ("quax155 quantize   1.0600  1e0 ->  1 Inexact Rounded", m);
+
 //         }
 
 //         [Test]
@@ -998,34 +1049,7 @@ let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaD
 //         {
 //             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
 
-//             TQ("quax161 quantize 0      -9e0   -> 0", m);
-//             TQ("quax162 quantize 1      -7e0   -> 1", m);
-//             TQ("quax163 quantize 0.1   -1e+2   -> 0E+2 Inexact Rounded", m);
-//             TQ("quax165 quantize 0.1    0e+1   -> 0E+1 Inexact Rounded", m);
-//             TQ("quax166 quantize 0.1     2e0   -> 0 Inexact Rounded", m);
-//             TQ("quax167 quantize 0.1    3e-1   -> 0.1", m);
-//             TQ("quax168 quantize 0.1   44e-2   -> 0.10", m);
-//             TQ("quax169 quantize 0.1  555e-3   -> 0.100", m);
-//             TQ("quax170 quantize 0.9 6666e+2   -> 0E+2 Inexact Rounded", m);
-//             TQ("quax171 quantize 0.9 -777e+1   -> 0E+1 Inexact Rounded", m);
-//             TQ("quax172 quantize 0.9  -88e+0   -> 1 Inexact Rounded", m);
-//             TQ("quax173 quantize 0.9   -9e-1   -> 0.9", m);
-//             TQ("quax174 quantize 0.9    0e-2   -> 0.90", m);
-//             TQ("quax175 quantize 0.9  1.1e-3   -> 0.9000", m);
-//             //-- negatives
-//             TQ("quax181 quantize -0    1.1e0   -> 0.0", m);  // neg zero
-//             TQ("quax182 quantize -1     -1e0   -> -1", m);
-//             TQ("quax183 quantize -0.1  11e+2   -> 0E+2 Inexact Rounded", m); // neg zero
-//             TQ("quax185 quantize -0.1 111e+1   -> 0E+1 Inexact Rounded", m); // neg zero
-//             TQ("quax186 quantize -0.1   71e0   -> 0 Inexact Rounded", m);// neg zero
-//             TQ("quax187 quantize -0.1 -91e-1   -> -0.1", m);
-//             TQ("quax188 quantize -0.1 -.1e-2   -> -0.100", m);
-//             TQ("quax189 quantize -0.1  -1e-3   -> -0.100", m);
-//             TQ("quax190 quantize -0.9   0e+2   -> 0E+2 Inexact Rounded", m);// neg zero
-//             TQ("quax191 quantize -0.9  -0e+1   -> 0E+1 Inexact Rounded", m);
-//             TQ("quax192 quantize -0.9 -10e+0   -> -1 Inexact Rounded", m);
-//             TQ("quax193 quantize -0.9 100e-1   -> -0.9", m);
-//             TQ("quax194 quantize -0.9 999e-2   -> -0.90", m);
+
 //         }
 
 //         [Test]
@@ -1381,21 +1405,6 @@ let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaD
 
 
 
-//         static void TQ(string test, BigDecimal.RoundingMode mode)
-//         {
-
-//             GetThreeArgs(test, out string lhsStr, out string rhsStr, out string resultStr);
-//             TestQuantize(lhsStr, rhsStr, mode, resultStr);
-//         }
-
-//         static void TestQuantize(string lhsStr, string rhsStr, BigDecimal.RoundingMode m, string shouldStr)
-//         {
-//             BigDecimal lhs = BigDecimal.Parse(lhsStr);
-//             BigDecimal rhs = BigDecimal.Parse(rhsStr);
-//             BigDecimal result = BigDecimal.Quantize(lhs, rhs, m);
-//             string resultStr = result.ToScientificString();
-//             Expect(resultStr).To.Equal(shouldStr);
-//         }
 
 //         #endregion
 

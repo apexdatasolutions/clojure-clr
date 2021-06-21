@@ -858,8 +858,343 @@ let quantizeSpecBaseTestsWithNonOneCoeffs =
         ("quax191 quantize -0.9  -0e+1   -> 0E+1 Inexact Rounded", mhu);
         ("quax192 quantize -0.9 -10e+0   -> -1 Inexact Rounded", mhu);
         ("quax193 quantize -0.9 100e-1   -> -0.9", mhu);
-        ("quax194 quantize -0.9 999e-2   -> -0.90", mhu);    
+        ("quax194 quantize -0.9 999e-2   -> -0.90", mhu);        
+    ]
+
+let quantizeSpecTestPosExponents =
+    [
+        ("quax201 quantize   -1   1e+0 ->  -1", mhu);
+        ("quax202 quantize   -1   1e+1 ->  0E+1 Inexact Rounded", mhu); // mod: neg zero
+        ("quax203 quantize   -1   1e+2 ->  0E+2 Inexact Rounded", mhu); // mod: neg zero
+        ("quax204 quantize    0   1e+0 ->  0", mhu);
+        ("quax205 quantize    0   1e+1 ->  0E+1", mhu);
+        ("quax206 quantize    0   1e+2 ->  0E+2", mhu);
+        ("quax207 quantize   +1   1e+0 ->  1", mhu);
+        ("quax208 quantize   +1   1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax209 quantize   +1   1e+2 ->  0E+2 Inexact Rounded", mhu);
+
+        ("quax220 quantize   1.04 1e+3 ->  0E+3 Inexact Rounded", mhu);
+        ("quax221 quantize   1.04 1e+2 ->  0E+2 Inexact Rounded", mhu);
+        ("quax222 quantize   1.04 1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax223 quantize   1.04 1e+0 ->  1 Inexact Rounded", mhu);
+        ("quax224 quantize   1.05 1e+3 ->  0E+3 Inexact Rounded", mhu);
+        ("quax225 quantize   1.05 1e+2 ->  0E+2 Inexact Rounded", mhu);
+        ("quax226 quantize   1.05 1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax227 quantize   1.05 1e+0 ->  1 Inexact Rounded", mhu);
+        ("quax228 quantize   1.05 1e+3 ->  0E+3 Inexact Rounded", mhu);
+        ("quax229 quantize   1.05 1e+2 ->  0E+2 Inexact Rounded", mhu);
+        ("quax230 quantize   1.05 1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax231 quantize   1.05 1e+0 ->  1 Inexact Rounded", mhu);
+        ("quax232 quantize   1.06 1e+3 ->  0E+3 Inexact Rounded", mhu);
+        ("quax233 quantize   1.06 1e+2 ->  0E+2 Inexact Rounded", mhu);
+        ("quax234 quantize   1.06 1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax235 quantize   1.06 1e+0 ->  1 Inexact Rounded", mhu);
+
+        ("quax240 quantize   -10   1e+1  ->  -1E+1 Rounded", mhu);
+        ("quax241 quantize   +1    1e+1  ->  0E+1 Inexact Rounded", mhu);
+        ("quax242 quantize   +10   1e+1  ->  1E+1 Rounded", mhu);
+        ("quax243 quantize   1E+1  1e+1  ->  1E+1          -- underneath this is E+1", mhu);
+        ("quax244 quantize   1E+2  1e+1  ->  1.0E+2        -- underneath this is E+1", mhu);
+        ("quax245 quantize   1E+3  1e+1  ->  1.00E+3       -- underneath this is E+1", mhu);
+        ("quax246 quantize   1E+4  1e+1  ->  1.000E+4      -- underneath this is E+1", mhu);
+        ("quax247 quantize   1E+5  1e+1  ->  1.0000E+5     -- underneath this is E+1", mhu);
+        ("quax248 quantize   1E+6  1e+1  ->  1.00000E+6    -- underneath this is E+1", mhu);
+        ("quax249 quantize   1E+7  1e+1  ->  1.000000E+7   -- underneath this is E+1", mhu);
+        ("quax250 quantize   1E+8  1e+1  ->  1.0000000E+8  -- underneath this is E+1", mhu);
+        ("quax251 quantize   1E+9  1e+1  ->  1.00000000E+9 -- underneath this is E+1", mhu);
+            //             // -- next one tries to add 9 zeros --  This fails in the original due to precision=9 limit
+        ("quax252 quantize   1E+10 1e+1  ->  1.000000000E+10 Invalid_operation", mhu); // mod from NaN
+        ("quax253 quantize   1E-10 1e+1  ->  0E+1 Inexact Rounded", mhu);
+        ("quax254 quantize   1E-2  1e+1  ->  0E+1 Inexact Rounded", mhu);
+        ("quax255 quantize   0E-10 1e+1  ->  0E+1", mhu);
+        ("quax256 quantize  -0E-10 1e+1  -> 0E+1", mhu); // mod: neg zero
+        ("quax257 quantize  -0E-1  1e+1  -> 0E+1", mhu); // mod: neg zero
+        ("quax258 quantize  -0     1e+1  -> 0E+1", mhu); // mod: neg zero
+        ("quax259 quantize  -0E+1  1e+1  -> 0E+1", mhu); // mod: neg zero
+
+        ("quax260 quantize   -10   1e+2  ->  0E+2 Inexact Rounded", mhu); // mod: neg zero
+        ("quax261 quantize   +1    1e+2  ->  0E+2 Inexact Rounded", mhu);
+        ("quax262 quantize   +10   1e+2  ->  0E+2 Inexact Rounded", mhu);
+        ("quax263 quantize   1E+1  1e+2  ->  0E+2 Inexact Rounded", mhu);
+        ("quax264 quantize   1E+2  1e+2  ->  1E+2", mhu);
+        ("quax265 quantize   1E+3  1e+2  ->  1.0E+3", mhu);
+        ("quax266 quantize   1E+4  1e+2  ->  1.00E+4", mhu);
+        ("quax267 quantize   1E+5  1e+2  ->  1.000E+5", mhu);
+        ("quax268 quantize   1E+6  1e+2  ->  1.0000E+6", mhu);
+        ("quax269 quantize   1E+7  1e+2  ->  1.00000E+7", mhu);
+        ("quax270 quantize   1E+8  1e+2  ->  1.000000E+8", mhu);
+        ("quax271 quantize   1E+9  1e+2  ->  1.0000000E+9", mhu);
+        ("quax272 quantize   1E+10 1e+2  ->  1.00000000E+10", mhu);
+        ("quax273 quantize   1E-10 1e+2  ->  0E+2 Inexact Rounded", mhu);
+        ("quax274 quantize   1E-2  1e+2  ->  0E+2 Inexact Rounded", mhu);
+        ("quax275 quantize   0E-10 1e+2  ->  0E+2", mhu);
+
+        ("quax280 quantize   -10   1e+3  ->  0E+3 Inexact Rounded", mhu); // mod: neg zero
+        ("quax281 quantize   +1    1e+3  ->  0E+3 Inexact Rounded", mhu);
+        ("quax282 quantize   +10   1e+3  ->  0E+3 Inexact Rounded", mhu);
+        ("quax283 quantize   1E+1  1e+3  ->  0E+3 Inexact Rounded", mhu);
+        ("quax284 quantize   1E+2  1e+3  ->  0E+3 Inexact Rounded", mhu);
+        ("quax285 quantize   1E+3  1e+3  ->  1E+3", mhu);
+        ("quax286 quantize   1E+4  1e+3  ->  1.0E+4", mhu);
+        ("quax287 quantize   1E+5  1e+3  ->  1.00E+5", mhu);
+        ("quax288 quantize   1E+6  1e+3  ->  1.000E+6", mhu);
+        ("quax289 quantize   1E+7  1e+3  ->  1.0000E+7", mhu);
+        ("quax290 quantize   1E+8  1e+3  ->  1.00000E+8", mhu);
+        ("quax291 quantize   1E+9  1e+3  ->  1.000000E+9", mhu);
+        ("quax292 quantize   1E+10 1e+3  ->  1.0000000E+10", mhu);
+        ("quax293 quantize   1E-10 1e+3  ->  0E+3 Inexact Rounded", mhu);
+        ("quax294 quantize   1E-2  1e+3  ->  0E+3 Inexact Rounded", mhu);
+        ("quax295 quantize   0E-10 1e+3  ->  0E+3", mhu);    
+    ]
+
+let quantizeSpecRoundUpFromBelow = 
+    [
+        ("quax300 quantize   0.0078 1e-5 ->  0.00780", mhu);
+        ("quax301 quantize   0.0078 1e-4 ->  0.0078", mhu);
+        ("quax302 quantize   0.0078 1e-3 ->  0.008 Inexact Rounded", mhu);
+        ("quax303 quantize   0.0078 1e-2 ->  0.01 Inexact Rounded", mhu);
+        ("quax304 quantize   0.0078 1e-1 ->  0.0 Inexact Rounded", mhu);
+        ("quax305 quantize   0.0078  1e0 ->  0 Inexact Rounded", mhu);
+        ("quax306 quantize   0.0078 1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax307 quantize   0.0078 1e+2 ->  0E+2 Inexact Rounded", mhu);
     
+        ("quax310 quantize  -0.0078 1e-5 -> -0.00780", mhu);
+        ("quax311 quantize  -0.0078 1e-4 -> -0.0078", mhu);
+        ("quax312 quantize  -0.0078 1e-3 -> -0.008 Inexact Rounded", mhu);
+        ("quax313 quantize  -0.0078 1e-2 -> -0.01 Inexact Rounded", mhu);
+        ("quax314 quantize  -0.0078 1e-1 -> 0.0 Inexact Rounded", mhu);  // mod: neg zero
+        ("quax315 quantize  -0.0078  1e0 -> 0 Inexact Rounded", mhu);  // mod: neg zero
+        ("quax316 quantize  -0.0078 1e+1 -> 0E+1 Inexact Rounded", mhu);  // mod: neg zero
+        ("quax317 quantize  -0.0078 1e+2 -> 0E+2 Inexact Rounded", mhu);  // mod: neg zero
+    
+        ("quax320 quantize   0.078 1e-5 ->  0.07800", mhu);
+        ("quax321 quantize   0.078 1e-4 ->  0.0780", mhu);
+        ("quax322 quantize   0.078 1e-3 ->  0.078", mhu);
+        ("quax323 quantize   0.078 1e-2 ->  0.08 Inexact Rounded", mhu);
+        ("quax324 quantize   0.078 1e-1 ->  0.1 Inexact Rounded", mhu);
+        ("quax325 quantize   0.078  1e0 ->  0 Inexact Rounded", mhu);
+        ("quax326 quantize   0.078 1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax327 quantize   0.078 1e+2 ->  0E+2 Inexact Rounded", mhu);
+    
+        ("quax330 quantize  -0.078 1e-5 -> -0.07800", mhu);
+        ("quax331 quantize  -0.078 1e-4 -> -0.0780", mhu);
+        ("quax332 quantize  -0.078 1e-3 -> -0.078", mhu);
+        ("quax333 quantize  -0.078 1e-2 -> -0.08 Inexact Rounded", mhu);
+        ("quax334 quantize  -0.078 1e-1 -> -0.1 Inexact Rounded", mhu);
+        ("quax335 quantize  -0.078  1e0 -> 0 Inexact Rounded", mhu);  // mod: neg zero
+        ("quax336 quantize  -0.078 1e+1 -> 0E+1 Inexact Rounded", mhu);  // mod: neg zero
+        ("quax337 quantize  -0.078 1e+2 -> 0E+2 Inexact Rounded", mhu);  // mod: neg zero
+    
+        ("quax340 quantize   0.78 1e-5 ->  0.78000", mhu);
+        ("quax341 quantize   0.78 1e-4 ->  0.7800", mhu);
+        ("quax342 quantize   0.78 1e-3 ->  0.780", mhu);
+        ("quax343 quantize   0.78 1e-2 ->  0.78", mhu);
+        ("quax344 quantize   0.78 1e-1 ->  0.8 Inexact Rounded", mhu);
+        ("quax345 quantize   0.78  1e0 ->  1 Inexact Rounded", mhu);
+        ("quax346 quantize   0.78 1e+1 ->  0E+1 Inexact Rounded", mhu);
+        ("quax347 quantize   0.78 1e+2 ->  0E+2 Inexact Rounded", mhu);
+    
+        ("quax350 quantize  -0.78 1e-5 -> -0.78000", mhu);
+        ("quax351 quantize  -0.78 1e-4 -> -0.7800", mhu);
+        ("quax352 quantize  -0.78 1e-3 -> -0.780", mhu);
+        ("quax353 quantize  -0.78 1e-2 -> -0.78", mhu);
+        ("quax354 quantize  -0.78 1e-1 -> -0.8 Inexact Rounded", mhu);
+        ("quax355 quantize  -0.78  1e0 -> -1 Inexact Rounded", mhu);
+        ("quax356 quantize  -0.78 1e+1 -> 0E+1 Inexact Rounded", mhu);  // mod: neg zero
+        ("quax357 quantize  -0.78 1e+2 -> 0E+2 Inexact Rounded", mhu);  // mod: neg zero
+    
+        ("quax360 quantize   7.8 1e-5 ->  7.80000", mhu);
+        ("quax361 quantize   7.8 1e-4 ->  7.8000", mhu);
+        ("quax362 quantize   7.8 1e-3 ->  7.800", mhu);
+        ("quax363 quantize   7.8 1e-2 ->  7.80", mhu);
+        ("quax364 quantize   7.8 1e-1 ->  7.8", mhu);
+        ("quax365 quantize   7.8  1e0 ->  8 Inexact Rounded", mhu);
+        ("quax366 quantize   7.8 1e+1 ->  1E+1 Inexact Rounded", mhu);
+        ("quax367 quantize   7.8 1e+2 ->  0E+2 Inexact Rounded", mhu);
+        ("quax368 quantize   7.8 1e+3 ->  0E+3 Inexact Rounded", mhu);
+    
+        ("quax370 quantize  -7.8 1e-5 -> -7.80000", mhu);
+        ("quax371 quantize  -7.8 1e-4 -> -7.8000", mhu);
+        ("quax372 quantize  -7.8 1e-3 -> -7.800", mhu);
+        ("quax373 quantize  -7.8 1e-2 -> -7.80", mhu);
+        ("quax374 quantize  -7.8 1e-1 -> -7.8", mhu);
+        ("quax375 quantize  -7.8  1e0 -> -8 Inexact Rounded", mhu);
+        ("quax376 quantize  -7.8 1e+1 -> -1E+1 Inexact Rounded", mhu);
+        ("quax377 quantize  -7.8 1e+2 -> 0E+2 Inexact Rounded", mhu);  // mod: neg zero
+        ("quax378 quantize  -7.8 1e+3 -> 0E+3 Inexact Rounded", mhu);  // mod: neg zero    
+    ]
+
+let quantizeSpecSomeIndividuals = 
+    [
+    
+        ("quax380 quantize   352364.506 1e-2 -> 352364.51 Inexact Rounded", mhu);
+        ("quax381 quantize   3523645.06 1e-2 -> 3523645.06", mhu);
+        ("quax382 quantize   35236450.6 1e-2 -> 35236450.60 Invalid_operation", mhu);   // Mod: NaN
+        ("quax383 quantize   352364506  1e-2 -> 352364506.00 Invalid_operation", mhu);   // Mod: NaN
+        ("quax384 quantize  -352364.506 1e-2 -> -352364.51 Inexact Rounded", mhu);
+        ("quax385 quantize  -3523645.06 1e-2 -> -3523645.06", mhu);
+        ("quax386 quantize  -35236450.6 1e-2 -> -35236450.60 Invalid_operation", mhu); // Mod: NaN
+        ("quax387 quantize  -352364506  1e-2 -> -352364506.00 Invalid_operation", mhu); // Mod: NaN
+    ]
+
+let quantizeSpecExamplesFromEmail = 
+    [   
+        ("quax391 quantize  12.34567  1e-3 -> 12.346   Inexact Rounded", mhu);
+        ("quax392 quantize  123.4567  1e-3 -> 123.457  Inexact Rounded", mhu);
+        ("quax393 quantize  1234.567  1e-3 -> 1234.567", mhu);
+        ("quax394 quantize  12345.67  1e-3 -> 12345.670 Invalid_operation", mhu); // Mod: NaN
+        ("quax395 quantize  123456.7  1e-3 -> 123456.700 Invalid_operation", mhu); // Mod: NaN
+        ("quax396 quantize  1234567.  1e-3 -> 1234567.000 Invalid_operation", mhu); // Mod: NaN     
+    ]
+
+let quantizeSpecSome9999Examples = 
+    [
+     // Some operations here were invalid in the original due to overal precision limits that we do not capture.
+        ("quax400 quantize   9.999        1e-5  ->  9.99900", mhu);
+        ("quax401 quantize   9.999        1e-4  ->  9.9990", mhu);
+        ("quax402 quantize   9.999        1e-3  ->  9.999", mhu);
+        ("quax403 quantize   9.999        1e-2  -> 10.00     Inexact Rounded", mhu);
+        ("quax404 quantize   9.999        1e-1  -> 10.0      Inexact Rounded", mhu);
+        ("quax405 quantize   9.999         1e0  -> 10        Inexact Rounded", mhu);
+        ("quax406 quantize   9.999         1e1  -> 1E+1      Inexact Rounded", mhu);
+        ("quax407 quantize   9.999         1e2  -> 0E+2      Inexact Rounded", mhu);
+    
+        ("quax410 quantize   0.999        1e-5  ->  0.99900", mhu);
+        ("quax411 quantize   0.999        1e-4  ->  0.9990", mhu);
+        ("quax412 quantize   0.999        1e-3  ->  0.999", mhu);
+        ("quax413 quantize   0.999        1e-2  ->  1.00     Inexact Rounded", mhu);
+        ("quax414 quantize   0.999        1e-1  ->  1.0      Inexact Rounded", mhu);
+        ("quax415 quantize   0.999         1e0  ->  1        Inexact Rounded", mhu);
+        ("quax416 quantize   0.999         1e1  -> 0E+1      Inexact Rounded", mhu);
+    
+        ("quax420 quantize   0.0999       1e-5  ->  0.09990", mhu);
+        ("quax421 quantize   0.0999       1e-4  ->  0.0999", mhu);
+        ("quax422 quantize   0.0999       1e-3  ->  0.100    Inexact Rounded", mhu);
+        ("quax423 quantize   0.0999       1e-2  ->  0.10     Inexact Rounded", mhu);
+        ("quax424 quantize   0.0999       1e-1  ->  0.1      Inexact Rounded", mhu);
+        ("quax425 quantize   0.0999        1e0  ->  0        Inexact Rounded", mhu);
+        ("quax426 quantize   0.0999        1e1  -> 0E+1      Inexact Rounded", mhu);
+    
+        ("quax430 quantize   0.00999      1e-5  ->  0.00999", mhu);
+        ("quax431 quantize   0.00999      1e-4  ->  0.0100   Inexact Rounded", mhu);
+        ("quax432 quantize   0.00999      1e-3  ->  0.010    Inexact Rounded", mhu);
+        ("quax433 quantize   0.00999      1e-2  ->  0.01     Inexact Rounded", mhu);
+        ("quax434 quantize   0.00999      1e-1  ->  0.0      Inexact Rounded", mhu);
+        ("quax435 quantize   0.00999       1e0  ->  0        Inexact Rounded", mhu);
+        ("quax436 quantize   0.00999       1e1  -> 0E+1      Inexact Rounded", mhu);
+    
+        ("quax440 quantize   0.000999     1e-5  ->  0.00100  Inexact Rounded", mhu);
+        ("quax441 quantize   0.000999     1e-4  ->  0.0010   Inexact Rounded", mhu);
+        ("quax442 quantize   0.000999     1e-3  ->  0.001    Inexact Rounded", mhu);
+        ("quax443 quantize   0.000999     1e-2  ->  0.00     Inexact Rounded", mhu);
+        ("quax444 quantize   0.000999     1e-1  ->  0.0      Inexact Rounded", mhu);
+        ("quax445 quantize   0.000999      1e0  ->  0        Inexact Rounded", mhu);
+        ("quax446 quantize   0.000999      1e1  -> 0E+1      Inexact Rounded", mhu);
+    
+        //precision: 8
+        ("quax449 quantize   9.999E-15    1e-23 ->  9.99900000E-15 Invalid_operation", mhu); // mod: NaN
+        ("quax450 quantize   9.999E-15    1e-22 ->  9.9990000E-15", mhu);
+        ("quax451 quantize   9.999E-15    1e-21 ->  9.999000E-15", mhu);
+        ("quax452 quantize   9.999E-15    1e-20 ->  9.99900E-15", mhu);
+        ("quax453 quantize   9.999E-15    1e-19 ->  9.9990E-15", mhu);
+        ("quax454 quantize   9.999E-15    1e-18 ->  9.999E-15", mhu);
+        ("quax455 quantize   9.999E-15    1e-17 ->  1.000E-14 Inexact Rounded", mhu);
+        ("quax456 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", mhu);
+        ("quax457 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", mhu);
+        ("quax458 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", mhu);
+        ("quax459 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", mhu);
+        ("quax460 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", mhu);
+        ("quax461 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", mhu);
+        ("quax462 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", mhu);
+        ("quax463 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", mhu);
+        ("quax464 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", mhu);
+        ("quax465 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", mhu);
+        ("quax466 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", mhu);
+        ("quax467 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", mhu);
+        ("quax468 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", mhu);
+        ("quax469 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", mhu);
+        ("quax470 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", mhu);
+        ("quax471 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", mhu);
+        ("quax472 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", mhu);
+        ("quax473 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", mhu);
+    
+        //precision: 7
+        ("quax900 quantize   9.999E-15    1e-22 ->  9.9990000E-15       Invalid_operation", mhu);  // mod: NaN
+        ("quax901 quantize   9.999E-15    1e-21 ->  9.999000E-15", mhu);
+        ("quax902 quantize   9.999E-15    1e-20 ->  9.99900E-15", mhu);
+        ("quax903 quantize   9.999E-15    1e-19 ->  9.9990E-15", mhu);
+        ("quax904 quantize   9.999E-15    1e-18 ->  9.999E-15", mhu);
+        ("quax905 quantize   9.999E-15    1e-17 ->  1.000E-14 Inexact Rounded", mhu);
+        ("quax906 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", mhu);
+        ("quax907 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", mhu);
+        ("quax908 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", mhu);
+        ("quax909 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", mhu);
+        ("quax910 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", mhu);
+        ("quax911 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", mhu);
+        ("quax912 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", mhu);
+        ("quax913 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", mhu);
+        ("quax914 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", mhu);
+        ("quax915 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", mhu);
+        ("quax916 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", mhu);
+        ("quax917 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", mhu);
+        ("quax918 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", mhu);
+        ("quax919 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", mhu);
+        ("quax920 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", mhu);
+        ("quax921 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", mhu);
+        ("quax922 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", mhu);
+        ("quax923 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", mhu);
+    
+            //             //precision: 6
+        ("quax930 quantize   9.999E-15    1e-22 ->  9.9990000E-15       Invalid_operation", mhu);
+        ("quax931 quantize   9.999E-15    1e-21 ->  9.999000E-15       Invalid_operation", mhu);
+        ("quax932 quantize   9.999E-15    1e-20 ->  9.99900E-15", mhu);
+        ("quax933 quantize   9.999E-15    1e-19 ->  9.9990E-15", mhu);
+        ("quax934 quantize   9.999E-15    1e-18 ->  9.999E-15", mhu);
+        ("quax935 quantize   9.999E-15    1e-17 ->  1.000E-14 Inexact Rounded", mhu);
+        ("quax936 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", mhu);
+        ("quax937 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", mhu);
+        ("quax938 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", mhu);
+        ("quax939 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", mhu);
+        ("quax940 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", mhu);
+        ("quax941 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", mhu);
+        ("quax942 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", mhu);
+        ("quax943 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", mhu);
+        ("quax944 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", mhu);
+        ("quax945 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", mhu);
+        ("quax946 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", mhu);
+        ("quax947 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", mhu);
+        ("quax948 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", mhu);
+        ("quax949 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", mhu);
+        ("quax950 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", mhu);
+        ("quax951 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", mhu);
+        ("quax952 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", mhu);
+        ("quax953 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", mhu);
+    
+        //precision: 3
+        ("quax960 quantize   9.999E-15    1e-22 ->  9.9990000E-15       Invalid_operation", mhu); // mod: NaN
+        ("quax961 quantize   9.999E-15    1e-21 ->  9.999000E-15       Invalid_operation", mhu); // mod: NaN
+        ("quax962 quantize   9.999E-15    1e-20 ->  9.99900E-15       Invalid_operation", mhu); // mod: NaN
+        ("quax963 quantize   9.999E-15    1e-19 ->  9.9990E-15       Invalid_operation", mhu); // mod: NaN
+        ("quax964 quantize   9.999E-15    1e-18 ->  9.999E-15       Invalid_operation", mhu); // mod: NaN
+        ("quax965 quantize   9.999E-15    1e-17 ->  1.000E-14       Invalid_operation", mhu); // mod: NaN
+        ("quax966 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", mhu);
+        ("quax967 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", mhu);
+        ("quax968 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", mhu);
+        ("quax969 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", mhu);
+        ("quax970 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", mhu);
+        ("quax971 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", mhu);
+        ("quax972 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", mhu);
+        ("quax973 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", mhu);
+        ("quax974 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", mhu);
+        ("quax975 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", mhu);
+        ("quax976 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", mhu);
+        ("quax977 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", mhu);
+        ("quax978 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", mhu);
+        ("quax979 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", mhu);
+        ("quax980 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", mhu);
+        ("quax981 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", mhu);
+        ("quax982 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", mhu);
+        ("quax983 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", mhu);
     ]
 
 [<Tests>]
@@ -869,9 +1204,24 @@ let quantizeSpecNegativeList = testList "quantize spec negative" (createTQTests 
 let quantizeSpecGeneralList = testList "quantize spec negative" (createTQTests quantizeSpecGeneral)
 
 [<Tests>]
-let quantizeSpecBaseTestsWithNonOneCoeffsList = testList "quantize spec negative" (createTQTests quantizeSpecBaseTestsWithNonOneCoeffs)
+let quantizeSpecBaseTestsWithNonOneCoeffsList = testList "quantize spec base tests with non-one coeffs" (createTQTests quantizeSpecBaseTestsWithNonOneCoeffs)
 
-quantizeSpecBaseTestsWithNonOneCoeffs
+[<Tests>]
+let quantizeSpecTestPosExponentsList = testList  "quantize spec test pos exponent" (createTQTests quantizeSpecTestPosExponents)
+
+[<Tests>]
+let quantizeSpecRoundUpFromBelowList = testList  "quantize spec round up from below" (createTQTests quantizeSpecRoundUpFromBelow)
+
+[<Tests>]
+let quantizeSpecSomeIndividualsList = testList "quantize spec some individuals" (createTQTests quantizeSpecSomeIndividuals)
+
+[<Tests>]
+let quantizeSpecExamplesFromEmailList = testList "quantize spec examples from email" (createTQTests quantizeSpecExamplesFromEmail)
+
+
+[<Tests>]
+let quantizeSpecSome9999ExamplesList = testList "quantize spec esome 9999 examples" (createTQTests quantizeSpecSome9999Examples)
+
 
 
 //     [TestFixture]
@@ -1036,371 +1386,18 @@ quantizeSpecBaseTestsWithNonOneCoeffs
 
 //         #region Quantize tests
 
-//         [Test]
-//         public void QuantizeSpecGeneral()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-
-//         }
 
 //         [Test]
-//         public void QuantizeSpecBaseTestsWithNonOneCoeffs()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
 
-
-//         }
-
-//         [Test]
-//         public void QuantizeSpecTestPosExponents()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-//             TQ("quax201 quantize   -1   1e+0 ->  -1", m);
-//             TQ("quax202 quantize   -1   1e+1 ->  0E+1 Inexact Rounded", m); // mod: neg zero
-//             TQ("quax203 quantize   -1   1e+2 ->  0E+2 Inexact Rounded", m); // mod: neg zero
-//             TQ("quax204 quantize    0   1e+0 ->  0", m);
-//             TQ("quax205 quantize    0   1e+1 ->  0E+1", m);
-//             TQ("quax206 quantize    0   1e+2 ->  0E+2", m);
-//             TQ("quax207 quantize   +1   1e+0 ->  1", m);
-//             TQ("quax208 quantize   +1   1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax209 quantize   +1   1e+2 ->  0E+2 Inexact Rounded", m);
-
-//             TQ("quax220 quantize   1.04 1e+3 ->  0E+3 Inexact Rounded", m);
-//             TQ("quax221 quantize   1.04 1e+2 ->  0E+2 Inexact Rounded", m);
-//             TQ("quax222 quantize   1.04 1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax223 quantize   1.04 1e+0 ->  1 Inexact Rounded", m);
-//             TQ("quax224 quantize   1.05 1e+3 ->  0E+3 Inexact Rounded", m);
-//             TQ("quax225 quantize   1.05 1e+2 ->  0E+2 Inexact Rounded", m);
-//             TQ("quax226 quantize   1.05 1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax227 quantize   1.05 1e+0 ->  1 Inexact Rounded", m);
-//             TQ("quax228 quantize   1.05 1e+3 ->  0E+3 Inexact Rounded", m);
-//             TQ("quax229 quantize   1.05 1e+2 ->  0E+2 Inexact Rounded", m);
-//             TQ("quax230 quantize   1.05 1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax231 quantize   1.05 1e+0 ->  1 Inexact Rounded", m);
-//             TQ("quax232 quantize   1.06 1e+3 ->  0E+3 Inexact Rounded", m);
-//             TQ("quax233 quantize   1.06 1e+2 ->  0E+2 Inexact Rounded", m);
-//             TQ("quax234 quantize   1.06 1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax235 quantize   1.06 1e+0 ->  1 Inexact Rounded", m);
-
-//             TQ("quax240 quantize   -10   1e+1  ->  -1E+1 Rounded", m);
-//             TQ("quax241 quantize   +1    1e+1  ->  0E+1 Inexact Rounded", m);
-//             TQ("quax242 quantize   +10   1e+1  ->  1E+1 Rounded", m);
-//             TQ("quax243 quantize   1E+1  1e+1  ->  1E+1          -- underneath this is E+1", m);
-//             TQ("quax244 quantize   1E+2  1e+1  ->  1.0E+2        -- underneath this is E+1", m);
-//             TQ("quax245 quantize   1E+3  1e+1  ->  1.00E+3       -- underneath this is E+1", m);
-//             TQ("quax246 quantize   1E+4  1e+1  ->  1.000E+4      -- underneath this is E+1", m);
-//             TQ("quax247 quantize   1E+5  1e+1  ->  1.0000E+5     -- underneath this is E+1", m);
-//             TQ("quax248 quantize   1E+6  1e+1  ->  1.00000E+6    -- underneath this is E+1", m);
-//             TQ("quax249 quantize   1E+7  1e+1  ->  1.000000E+7   -- underneath this is E+1", m);
-//             TQ("quax250 quantize   1E+8  1e+1  ->  1.0000000E+8  -- underneath this is E+1", m);
-//             TQ("quax251 quantize   1E+9  1e+1  ->  1.00000000E+9 -- underneath this is E+1", m);
-//             // -- next one tries to add 9 zeros --  This fails in the original due to precision=9 limit
-//             TQ("quax252 quantize   1E+10 1e+1  ->  1.000000000E+10 Invalid_operation", m); // mod from NaN
-//             TQ("quax253 quantize   1E-10 1e+1  ->  0E+1 Inexact Rounded", m);
-//             TQ("quax254 quantize   1E-2  1e+1  ->  0E+1 Inexact Rounded", m);
-//             TQ("quax255 quantize   0E-10 1e+1  ->  0E+1", m);
-//             TQ("quax256 quantize  -0E-10 1e+1  -> 0E+1", m); // mod: neg zero
-//             TQ("quax257 quantize  -0E-1  1e+1  -> 0E+1", m); // mod: neg zero
-//             TQ("quax258 quantize  -0     1e+1  -> 0E+1", m); // mod: neg zero
-//             TQ("quax259 quantize  -0E+1  1e+1  -> 0E+1", m); // mod: neg zero
-
-//             TQ("quax260 quantize   -10   1e+2  ->  0E+2 Inexact Rounded", m); // mod: neg zero
-//             TQ("quax261 quantize   +1    1e+2  ->  0E+2 Inexact Rounded", m);
-//             TQ("quax262 quantize   +10   1e+2  ->  0E+2 Inexact Rounded", m);
-//             TQ("quax263 quantize   1E+1  1e+2  ->  0E+2 Inexact Rounded", m);
-//             TQ("quax264 quantize   1E+2  1e+2  ->  1E+2", m);
-//             TQ("quax265 quantize   1E+3  1e+2  ->  1.0E+3", m);
-//             TQ("quax266 quantize   1E+4  1e+2  ->  1.00E+4", m);
-//             TQ("quax267 quantize   1E+5  1e+2  ->  1.000E+5", m);
-//             TQ("quax268 quantize   1E+6  1e+2  ->  1.0000E+6", m);
-//             TQ("quax269 quantize   1E+7  1e+2  ->  1.00000E+7", m);
-//             TQ("quax270 quantize   1E+8  1e+2  ->  1.000000E+8", m);
-//             TQ("quax271 quantize   1E+9  1e+2  ->  1.0000000E+9", m);
-//             TQ("quax272 quantize   1E+10 1e+2  ->  1.00000000E+10", m);
-//             TQ("quax273 quantize   1E-10 1e+2  ->  0E+2 Inexact Rounded", m);
-//             TQ("quax274 quantize   1E-2  1e+2  ->  0E+2 Inexact Rounded", m);
-//             TQ("quax275 quantize   0E-10 1e+2  ->  0E+2", m);
-
-//             TQ("quax280 quantize   -10   1e+3  ->  0E+3 Inexact Rounded", m); // mod: neg zero
-//             TQ("quax281 quantize   +1    1e+3  ->  0E+3 Inexact Rounded", m);
-//             TQ("quax282 quantize   +10   1e+3  ->  0E+3 Inexact Rounded", m);
-//             TQ("quax283 quantize   1E+1  1e+3  ->  0E+3 Inexact Rounded", m);
-//             TQ("quax284 quantize   1E+2  1e+3  ->  0E+3 Inexact Rounded", m);
-//             TQ("quax285 quantize   1E+3  1e+3  ->  1E+3", m);
-//             TQ("quax286 quantize   1E+4  1e+3  ->  1.0E+4", m);
-//             TQ("quax287 quantize   1E+5  1e+3  ->  1.00E+5", m);
-//             TQ("quax288 quantize   1E+6  1e+3  ->  1.000E+6", m);
-//             TQ("quax289 quantize   1E+7  1e+3  ->  1.0000E+7", m);
-//             TQ("quax290 quantize   1E+8  1e+3  ->  1.00000E+8", m);
-//             TQ("quax291 quantize   1E+9  1e+3  ->  1.000000E+9", m);
-//             TQ("quax292 quantize   1E+10 1e+3  ->  1.0000000E+10", m);
-//             TQ("quax293 quantize   1E-10 1e+3  ->  0E+3 Inexact Rounded", m);
-//             TQ("quax294 quantize   1E-2  1e+3  ->  0E+3 Inexact Rounded", m);
-//             TQ("quax295 quantize   0E-10 1e+3  ->  0E+3", m);
-//         }
-
-//         [Test]
-//         public void QuantizeSpecRoundUpFromBelow()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-//             TQ("quax300 quantize   0.0078 1e-5 ->  0.00780", m);
-//             TQ("quax301 quantize   0.0078 1e-4 ->  0.0078", m);
-//             TQ("quax302 quantize   0.0078 1e-3 ->  0.008 Inexact Rounded", m);
-//             TQ("quax303 quantize   0.0078 1e-2 ->  0.01 Inexact Rounded", m);
-//             TQ("quax304 quantize   0.0078 1e-1 ->  0.0 Inexact Rounded", m);
-//             TQ("quax305 quantize   0.0078  1e0 ->  0 Inexact Rounded", m);
-//             TQ("quax306 quantize   0.0078 1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax307 quantize   0.0078 1e+2 ->  0E+2 Inexact Rounded", m);
-
-//             TQ("quax310 quantize  -0.0078 1e-5 -> -0.00780", m);
-//             TQ("quax311 quantize  -0.0078 1e-4 -> -0.0078", m);
-//             TQ("quax312 quantize  -0.0078 1e-3 -> -0.008 Inexact Rounded", m);
-//             TQ("quax313 quantize  -0.0078 1e-2 -> -0.01 Inexact Rounded", m);
-//             TQ("quax314 quantize  -0.0078 1e-1 -> 0.0 Inexact Rounded", m);  // mod: neg zero
-//             TQ("quax315 quantize  -0.0078  1e0 -> 0 Inexact Rounded", m);  // mod: neg zero
-//             TQ("quax316 quantize  -0.0078 1e+1 -> 0E+1 Inexact Rounded", m);  // mod: neg zero
-//             TQ("quax317 quantize  -0.0078 1e+2 -> 0E+2 Inexact Rounded", m);  // mod: neg zero
-
-//             TQ("quax320 quantize   0.078 1e-5 ->  0.07800", m);
-//             TQ("quax321 quantize   0.078 1e-4 ->  0.0780", m);
-//             TQ("quax322 quantize   0.078 1e-3 ->  0.078", m);
-//             TQ("quax323 quantize   0.078 1e-2 ->  0.08 Inexact Rounded", m);
-//             TQ("quax324 quantize   0.078 1e-1 ->  0.1 Inexact Rounded", m);
-//             TQ("quax325 quantize   0.078  1e0 ->  0 Inexact Rounded", m);
-//             TQ("quax326 quantize   0.078 1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax327 quantize   0.078 1e+2 ->  0E+2 Inexact Rounded", m);
-
-//             TQ("quax330 quantize  -0.078 1e-5 -> -0.07800", m);
-//             TQ("quax331 quantize  -0.078 1e-4 -> -0.0780", m);
-//             TQ("quax332 quantize  -0.078 1e-3 -> -0.078", m);
-//             TQ("quax333 quantize  -0.078 1e-2 -> -0.08 Inexact Rounded", m);
-//             TQ("quax334 quantize  -0.078 1e-1 -> -0.1 Inexact Rounded", m);
-//             TQ("quax335 quantize  -0.078  1e0 -> 0 Inexact Rounded", m);  // mod: neg zero
-//             TQ("quax336 quantize  -0.078 1e+1 -> 0E+1 Inexact Rounded", m);  // mod: neg zero
-//             TQ("quax337 quantize  -0.078 1e+2 -> 0E+2 Inexact Rounded", m);  // mod: neg zero
-
-//             TQ("quax340 quantize   0.78 1e-5 ->  0.78000", m);
-//             TQ("quax341 quantize   0.78 1e-4 ->  0.7800", m);
-//             TQ("quax342 quantize   0.78 1e-3 ->  0.780", m);
-//             TQ("quax343 quantize   0.78 1e-2 ->  0.78", m);
-//             TQ("quax344 quantize   0.78 1e-1 ->  0.8 Inexact Rounded", m);
-//             TQ("quax345 quantize   0.78  1e0 ->  1 Inexact Rounded", m);
-//             TQ("quax346 quantize   0.78 1e+1 ->  0E+1 Inexact Rounded", m);
-//             TQ("quax347 quantize   0.78 1e+2 ->  0E+2 Inexact Rounded", m);
-
-//             TQ("quax350 quantize  -0.78 1e-5 -> -0.78000", m);
-//             TQ("quax351 quantize  -0.78 1e-4 -> -0.7800", m);
-//             TQ("quax352 quantize  -0.78 1e-3 -> -0.780", m);
-//             TQ("quax353 quantize  -0.78 1e-2 -> -0.78", m);
-//             TQ("quax354 quantize  -0.78 1e-1 -> -0.8 Inexact Rounded", m);
-//             TQ("quax355 quantize  -0.78  1e0 -> -1 Inexact Rounded", m);
-//             TQ("quax356 quantize  -0.78 1e+1 -> 0E+1 Inexact Rounded", m);  // mod: neg zero
-//             TQ("quax357 quantize  -0.78 1e+2 -> 0E+2 Inexact Rounded", m);  // mod: neg zero
-
-//             TQ("quax360 quantize   7.8 1e-5 ->  7.80000", m);
-//             TQ("quax361 quantize   7.8 1e-4 ->  7.8000", m);
-//             TQ("quax362 quantize   7.8 1e-3 ->  7.800", m);
-//             TQ("quax363 quantize   7.8 1e-2 ->  7.80", m);
-//             TQ("quax364 quantize   7.8 1e-1 ->  7.8", m);
-//             TQ("quax365 quantize   7.8  1e0 ->  8 Inexact Rounded", m);
-//             TQ("quax366 quantize   7.8 1e+1 ->  1E+1 Inexact Rounded", m);
-//             TQ("quax367 quantize   7.8 1e+2 ->  0E+2 Inexact Rounded", m);
-//             TQ("quax368 quantize   7.8 1e+3 ->  0E+3 Inexact Rounded", m);
-
-//             TQ("quax370 quantize  -7.8 1e-5 -> -7.80000", m);
-//             TQ("quax371 quantize  -7.8 1e-4 -> -7.8000", m);
-//             TQ("quax372 quantize  -7.8 1e-3 -> -7.800", m);
-//             TQ("quax373 quantize  -7.8 1e-2 -> -7.80", m);
-//             TQ("quax374 quantize  -7.8 1e-1 -> -7.8", m);
-//             TQ("quax375 quantize  -7.8  1e0 -> -8 Inexact Rounded", m);
-//             TQ("quax376 quantize  -7.8 1e+1 -> -1E+1 Inexact Rounded", m);
-//             TQ("quax377 quantize  -7.8 1e+2 -> 0E+2 Inexact Rounded", m);  // mod: neg zero
-//             TQ("quax378 quantize  -7.8 1e+3 -> 0E+3 Inexact Rounded", m);  // mod: neg zero
-//         }
-
-//         [Test]
-//         public void QuantizeSpecSomeIndividuals()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-//             TQ("quax380 quantize   352364.506 1e-2 -> 352364.51 Inexact Rounded", m);
-//             TQ("quax381 quantize   3523645.06 1e-2 -> 3523645.06", m);
-//             TQ("quax382 quantize   35236450.6 1e-2 -> 35236450.60 Invalid_operation", m);   // Mod: NaN
-//             TQ("quax383 quantize   352364506  1e-2 -> 352364506.00 Invalid_operation", m);   // Mod: NaN
-//             TQ("quax384 quantize  -352364.506 1e-2 -> -352364.51 Inexact Rounded", m);
-//             TQ("quax385 quantize  -3523645.06 1e-2 -> -3523645.06", m);
-//             TQ("quax386 quantize  -35236450.6 1e-2 -> -35236450.60 Invalid_operation", m); // Mod: NaN
-//             TQ("quax387 quantize  -352364506  1e-2 -> -352364506.00 Invalid_operation", m); // Mod: NaN
-//         }
-
-//         [Test]
-//         public void QuantizeSpecExamplesFromEmail()
-//         {
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-//             TQ("quax391 quantize  12.34567  1e-3 -> 12.346   Inexact Rounded", m);
-//             TQ("quax392 quantize  123.4567  1e-3 -> 123.457  Inexact Rounded", m);
-//             TQ("quax393 quantize  1234.567  1e-3 -> 1234.567", m);
-//             TQ("quax394 quantize  12345.67  1e-3 -> 12345.670 Invalid_operation", m); // Mod: NaN
-//             TQ("quax395 quantize  123456.7  1e-3 -> 123456.700 Invalid_operation", m); // Mod: NaN
-//             TQ("quax396 quantize  1234567.  1e-3 -> 1234567.000 Invalid_operation", m); // Mod: NaN
-//         }
 
 //         [Test]
 //         public void QuantizeSpecSome9999Examples()
 //         {
-//             // Some operations here were invalid in the original due to overal precision limits that we do not capture.
+//             
 //             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
 
 
-//             TQ("quax400 quantize   9.999        1e-5  ->  9.99900", m);
-//             TQ("quax401 quantize   9.999        1e-4  ->  9.9990", m);
-//             TQ("quax402 quantize   9.999        1e-3  ->  9.999", m);
-//             TQ("quax403 quantize   9.999        1e-2  -> 10.00     Inexact Rounded", m);
-//             TQ("quax404 quantize   9.999        1e-1  -> 10.0      Inexact Rounded", m);
-//             TQ("quax405 quantize   9.999         1e0  -> 10        Inexact Rounded", m);
-//             TQ("quax406 quantize   9.999         1e1  -> 1E+1      Inexact Rounded", m);
-//             TQ("quax407 quantize   9.999         1e2  -> 0E+2      Inexact Rounded", m);
 
-//             TQ("quax410 quantize   0.999        1e-5  ->  0.99900", m);
-//             TQ("quax411 quantize   0.999        1e-4  ->  0.9990", m);
-//             TQ("quax412 quantize   0.999        1e-3  ->  0.999", m);
-//             TQ("quax413 quantize   0.999        1e-2  ->  1.00     Inexact Rounded", m);
-//             TQ("quax414 quantize   0.999        1e-1  ->  1.0      Inexact Rounded", m);
-//             TQ("quax415 quantize   0.999         1e0  ->  1        Inexact Rounded", m);
-//             TQ("quax416 quantize   0.999         1e1  -> 0E+1      Inexact Rounded", m);
-
-//             TQ("quax420 quantize   0.0999       1e-5  ->  0.09990", m);
-//             TQ("quax421 quantize   0.0999       1e-4  ->  0.0999", m);
-//             TQ("quax422 quantize   0.0999       1e-3  ->  0.100    Inexact Rounded", m);
-//             TQ("quax423 quantize   0.0999       1e-2  ->  0.10     Inexact Rounded", m);
-//             TQ("quax424 quantize   0.0999       1e-1  ->  0.1      Inexact Rounded", m);
-//             TQ("quax425 quantize   0.0999        1e0  ->  0        Inexact Rounded", m);
-//             TQ("quax426 quantize   0.0999        1e1  -> 0E+1      Inexact Rounded", m);
-
-//             TQ("quax430 quantize   0.00999      1e-5  ->  0.00999", m);
-//             TQ("quax431 quantize   0.00999      1e-4  ->  0.0100   Inexact Rounded", m);
-//             TQ("quax432 quantize   0.00999      1e-3  ->  0.010    Inexact Rounded", m);
-//             TQ("quax433 quantize   0.00999      1e-2  ->  0.01     Inexact Rounded", m);
-//             TQ("quax434 quantize   0.00999      1e-1  ->  0.0      Inexact Rounded", m);
-//             TQ("quax435 quantize   0.00999       1e0  ->  0        Inexact Rounded", m);
-//             TQ("quax436 quantize   0.00999       1e1  -> 0E+1      Inexact Rounded", m);
-
-//             TQ("quax440 quantize   0.000999     1e-5  ->  0.00100  Inexact Rounded", m);
-//             TQ("quax441 quantize   0.000999     1e-4  ->  0.0010   Inexact Rounded", m);
-//             TQ("quax442 quantize   0.000999     1e-3  ->  0.001    Inexact Rounded", m);
-//             TQ("quax443 quantize   0.000999     1e-2  ->  0.00     Inexact Rounded", m);
-//             TQ("quax444 quantize   0.000999     1e-1  ->  0.0      Inexact Rounded", m);
-//             TQ("quax445 quantize   0.000999      1e0  ->  0        Inexact Rounded", m);
-//             TQ("quax446 quantize   0.000999      1e1  -> 0E+1      Inexact Rounded", m);
-
-//             //precision: 8
-//             TQ("quax449 quantize   9.999E-15    1e-23 ->  9.99900000E-15 Invalid_operation", m); // mod: NaN
-//             TQ("quax450 quantize   9.999E-15    1e-22 ->  9.9990000E-15", m);
-//             TQ("quax451 quantize   9.999E-15    1e-21 ->  9.999000E-15", m);
-//             TQ("quax452 quantize   9.999E-15    1e-20 ->  9.99900E-15", m);
-//             TQ("quax453 quantize   9.999E-15    1e-19 ->  9.9990E-15", m);
-//             TQ("quax454 quantize   9.999E-15    1e-18 ->  9.999E-15", m);
-//             TQ("quax455 quantize   9.999E-15    1e-17 ->  1.000E-14 Inexact Rounded", m);
-//             TQ("quax456 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", m);
-//             TQ("quax457 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", m);
-//             TQ("quax458 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", m);
-//             TQ("quax459 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", m);
-//             TQ("quax460 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", m);
-//             TQ("quax461 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", m);
-//             TQ("quax462 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", m);
-//             TQ("quax463 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", m);
-//             TQ("quax464 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", m);
-//             TQ("quax465 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", m);
-//             TQ("quax466 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", m);
-//             TQ("quax467 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", m);
-//             TQ("quax468 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", m);
-//             TQ("quax469 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", m);
-//             TQ("quax470 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", m);
-//             TQ("quax471 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", m);
-//             TQ("quax472 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", m);
-//             TQ("quax473 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", m);
-
-//             //precision: 7
-//             TQ("quax900 quantize   9.999E-15    1e-22 ->  9.9990000E-15       Invalid_operation", m);  // mod: NaN
-//             TQ("quax901 quantize   9.999E-15    1e-21 ->  9.999000E-15", m);
-//             TQ("quax902 quantize   9.999E-15    1e-20 ->  9.99900E-15", m);
-//             TQ("quax903 quantize   9.999E-15    1e-19 ->  9.9990E-15", m);
-//             TQ("quax904 quantize   9.999E-15    1e-18 ->  9.999E-15", m);
-//             TQ("quax905 quantize   9.999E-15    1e-17 ->  1.000E-14 Inexact Rounded", m);
-//             TQ("quax906 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", m);
-//             TQ("quax907 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", m);
-//             TQ("quax908 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", m);
-//             TQ("quax909 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", m);
-//             TQ("quax910 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", m);
-//             TQ("quax911 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", m);
-//             TQ("quax912 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", m);
-//             TQ("quax913 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", m);
-//             TQ("quax914 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", m);
-//             TQ("quax915 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", m);
-//             TQ("quax916 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", m);
-//             TQ("quax917 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", m);
-//             TQ("quax918 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", m);
-//             TQ("quax919 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", m);
-//             TQ("quax920 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", m);
-//             TQ("quax921 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", m);
-//             TQ("quax922 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", m);
-//             TQ("quax923 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", m);
-
-//             //precision: 6
-//             TQ("quax930 quantize   9.999E-15    1e-22 ->  9.9990000E-15       Invalid_operation", m);
-//             TQ("quax931 quantize   9.999E-15    1e-21 ->  9.999000E-15       Invalid_operation", m);
-//             TQ("quax932 quantize   9.999E-15    1e-20 ->  9.99900E-15", m);
-//             TQ("quax933 quantize   9.999E-15    1e-19 ->  9.9990E-15", m);
-//             TQ("quax934 quantize   9.999E-15    1e-18 ->  9.999E-15", m);
-//             TQ("quax935 quantize   9.999E-15    1e-17 ->  1.000E-14 Inexact Rounded", m);
-//             TQ("quax936 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", m);
-//             TQ("quax937 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", m);
-//             TQ("quax938 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", m);
-//             TQ("quax939 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", m);
-//             TQ("quax940 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", m);
-//             TQ("quax941 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", m);
-//             TQ("quax942 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", m);
-//             TQ("quax943 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", m);
-//             TQ("quax944 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", m);
-//             TQ("quax945 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", m);
-//             TQ("quax946 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", m);
-//             TQ("quax947 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", m);
-//             TQ("quax948 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", m);
-//             TQ("quax949 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", m);
-//             TQ("quax950 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", m);
-//             TQ("quax951 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", m);
-//             TQ("quax952 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", m);
-//             TQ("quax953 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", m);
-
-//             //precision: 3
-//             TQ("quax960 quantize   9.999E-15    1e-22 ->  9.9990000E-15       Invalid_operation", m); // mod: NaN
-//             TQ("quax961 quantize   9.999E-15    1e-21 ->  9.999000E-15       Invalid_operation", m); // mod: NaN
-//             TQ("quax962 quantize   9.999E-15    1e-20 ->  9.99900E-15       Invalid_operation", m); // mod: NaN
-//             TQ("quax963 quantize   9.999E-15    1e-19 ->  9.9990E-15       Invalid_operation", m); // mod: NaN
-//             TQ("quax964 quantize   9.999E-15    1e-18 ->  9.999E-15       Invalid_operation", m); // mod: NaN
-//             TQ("quax965 quantize   9.999E-15    1e-17 ->  1.000E-14       Invalid_operation", m); // mod: NaN
-//             TQ("quax966 quantize   9.999E-15    1e-16 ->  1.00E-14  Inexact Rounded", m);
-//             TQ("quax967 quantize   9.999E-15    1e-15 ->  1.0E-14   Inexact Rounded", m);
-//             TQ("quax968 quantize   9.999E-15    1e-14 ->  1E-14     Inexact Rounded", m);
-//             TQ("quax969 quantize   9.999E-15    1e-13 ->  0E-13     Inexact Rounded", m);
-//             TQ("quax970 quantize   9.999E-15    1e-12 ->  0E-12     Inexact Rounded", m);
-//             TQ("quax971 quantize   9.999E-15    1e-11 ->  0E-11     Inexact Rounded", m);
-//             TQ("quax972 quantize   9.999E-15    1e-10 ->  0E-10     Inexact Rounded", m);
-//             TQ("quax973 quantize   9.999E-15     1e-9 ->  0E-9      Inexact Rounded", m);
-//             TQ("quax974 quantize   9.999E-15     1e-8 ->  0E-8      Inexact Rounded", m);
-//             TQ("quax975 quantize   9.999E-15     1e-7 ->  0E-7      Inexact Rounded", m);
-//             TQ("quax976 quantize   9.999E-15     1e-6 ->  0.000000  Inexact Rounded", m);
-//             TQ("quax977 quantize   9.999E-15     1e-5 ->  0.00000   Inexact Rounded", m);
-//             TQ("quax978 quantize   9.999E-15     1e-4 ->  0.0000    Inexact Rounded", m);
-//             TQ("quax979 quantize   9.999E-15     1e-3 ->  0.000     Inexact Rounded", m);
-//             TQ("quax980 quantize   9.999E-15     1e-2 ->  0.00      Inexact Rounded", m);
-//             TQ("quax981 quantize   9.999E-15     1e-1 ->  0.0       Inexact Rounded", m);
-//             TQ("quax982 quantize   9.999E-15      1e0 ->  0         Inexact Rounded", m);
-//             TQ("quax983 quantize   9.999E-15      1e1 ->  0E+1      Inexact Rounded", m);
 //         }
 
 

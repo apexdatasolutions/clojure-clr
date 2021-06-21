@@ -650,15 +650,15 @@ let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaD
 let stripSingleQuotes (str:string) =
     let start, len = 
         match str.[0] = '\'', str.[str.Length-1] = '\''with
-        | true, true -> 1, str.Length-1
-        | true, false -> 1, str.Length
+        | true, true -> 1, str.Length-2
+        | true, false -> 1, str.Length-1
         | false, true -> 0, str.Length-1
         | false, false -> 0, str.Length
 
     str.Substring(start,len)
 
 
-let getTwpArgs (test:string) =
+let getTwoArgs (test:string) =
     let atoms : string array = test.Split(System.Array.Empty<char>(), System.StringSplitOptions.RemoveEmptyEntries)
     stripSingleQuotes(atoms.[2]),  stripSingleQuotes(atoms.[4])
 
@@ -1223,6 +1223,97 @@ let quantizeSpecExamplesFromEmailList = testList "quantize spec examples from em
 let quantizeSpecSome9999ExamplesList = testList "quantize spec esome 9999 examples" (createTQTests quantizeSpecSome9999Examples)
 
 
+let absTest argStr c shouldStr =
+    let arg = BigDecimal.Parse(argStr)
+    let result = BigDecimal.Abs(arg,c)
+    let resultStr = result.ToScientificString()
+    Expect.equal resultStr shouldStr "Absolute value does not match"
+
+let absTestFromString test c = 
+    let argStr, resultStr = getTwoArgs test
+    absTest argStr c resultStr
+
+let createSpecAbsTests data =
+    data
+    |> List.map (fun (test, c) ->
+           testCase (sprintf "quantize'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                absTestFromString test c
+           )
+
+let c9 = Context.Create(9u, RoundingMode.HalfUp);
+let c7 = Context.Create(7u, RoundingMode.HalfUp);
+let c6 = Context.Create(6u, RoundingMode.HalfUp);
+let c3 = Context.Create(3u, RoundingMode.HalfUp);
+
+
+let specAbsTests =
+    [
+        ("absx001 abs '1'      -> '1'", c9);
+        ("absx002 abs '-1'     -> '1'", c9);
+        ("absx003 abs '1.00'   -> '1.00'", c9);
+        ("absx004 abs '-1.00'  -> '1.00'", c9);
+        ("absx005 abs '0'      -> '0'", c9);
+        ("absx006 abs '0.00'   -> '0.00'", c9);
+        ("absx007 abs '00.0'   -> '0.0'", c9);
+        ("absx008 abs '00.00'  -> '0.00'", c9);
+        ("absx009 abs '00'     -> '0'", c9);
+    
+        ("absx010 abs '-2'     -> '2'", c9);
+        ("absx011 abs '2'      -> '2'", c9);
+        ("absx012 abs '-2.00'  -> '2.00'", c9);
+        ("absx013 abs '2.00'   -> '2.00'", c9);
+        ("absx014 abs '-0'     -> '0'", c9);
+        ("absx015 abs '-0.00'  -> '0.00'", c9);
+        ("absx016 abs '-00.0'  -> '0.0'", c9);
+        ("absx017 abs '-00.00' -> '0.00'", c9);
+        ("absx018 abs '-00'    -> '0'", c9);
+    
+        ("absx020 abs '-2000000' -> '2000000'", c9);
+        ("absx021 abs '2000000'  -> '2000000'", c9);
+    
+        //  precision: 7
+        ("absx022 abs '-2000000' -> '2000000'", c7);
+        ("absx023 abs '2000000'  -> '2000000'", c7);
+    
+        //  precision: 6
+        ("absx024 abs '-2000000' -> '2.00000E+6' Rounded", c6);
+        ("absx025 abs '2000000'  -> '2.00000E+6' Rounded", c6);
+    
+    
+        //  precision: 3
+        ("absx026 abs '-2000000' -> '2.00E+6' Rounded", c3);
+        ("absx027 abs '2000000'  -> '2.00E+6' Rounded", c3);
+    
+        ("absx030 abs '+0.1'            -> '0.1'", c3);
+        ("absx031 abs '-0.1'            -> '0.1'", c3);
+        ("absx032 abs '+0.01'           -> '0.01'", c3);
+        ("absx033 abs '-0.01'           -> '0.01'", c3);
+        ("absx034 abs '+0.001'          -> '0.001'", c3);
+        ("absx035 abs '-0.001'          -> '0.001'", c3);
+        ("absx036 abs '+0.000001'       -> '0.000001'", c3);
+        ("absx037 abs '-0.000001'       -> '0.000001'", c3);
+        ("absx038 abs '+0.000000000001' -> '1E-12'", c3);
+        ("absx039 abs '-0.000000000001' -> '1E-12'", c3);
+    
+        //-- examples from decArith
+        //precision: 9
+        ("absx040 abs '2.1'     ->  '2.1'", c9);
+        ("absx041 abs '-100'    ->  '100'", c9);
+        ("absx042 abs '101.5'   ->  '101.5'", c9);
+        ("absx043 abs '-101.5'  ->  '101.5'", c9);
+    
+        //-- more fixed, potential LHS swaps/overlays if done by subtract 0
+        //             //precision: 9
+        ("absx060 abs '-56267E-10'  -> '0.0000056267'", c9);
+        ("absx061 abs '-56267E-5'   -> '0.56267'", c9);
+        ("absx062 abs '-56267E-2'   -> '562.67'", c9);
+        ("absx063 abs '-56267E-1'   -> '5626.7'", c9);
+        ("absx065 abs '-56267E-0'   -> '56267'", c9);
+    ]
+
+
+[<Tests>]
+let specAbsTestList = testList "quantize spec esome 9999 examples" (createSpecAbsTests specAbsTests)
 
 //     [TestFixture]
 //     public class BigDecimalTests
@@ -1384,114 +1475,16 @@ let quantizeSpecSome9999ExamplesList = testList "quantize spec esome 9999 exampl
 //         #endregion
 
 
-//         #region Quantize tests
-
-
-//         [Test]
-
-
-//         [Test]
-//         public void QuantizeSpecSome9999Examples()
-//         {
-//             
-//             BigDecimal.RoundingMode m = BigDecimal.RoundingMode.HalfUp;
-
-
-
-//         }
-
-
-
-
-//         #endregion
-
 //         #region Abs tests
 
 //         [Test]
 //         public void SpecAbsTests()
 //         {
-//             BigDecimal.Context c9 = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c7 = new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c6 = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp);
-//             BigDecimal.Context c3 = new BigDecimal.Context(3, BigDecimal.RoundingMode.HalfUp);
-
-//             TAbs("absx001 abs '1'      -> '1'", c9);
-//             TAbs("absx002 abs '-1'     -> '1'", c9);
-//             TAbs("absx003 abs '1.00'   -> '1.00'", c9);
-//             TAbs("absx004 abs '-1.00'  -> '1.00'", c9);
-//             TAbs("absx005 abs '0'      -> '0'", c9);
-//             TAbs("absx006 abs '0.00'   -> '0.00'", c9);
-//             TAbs("absx007 abs '00.0'   -> '0.0'", c9);
-//             TAbs("absx008 abs '00.00'  -> '0.00'", c9);
-//             TAbs("absx009 abs '00'     -> '0'", c9);
-
-//             TAbs("absx010 abs '-2'     -> '2'", c9);
-//             TAbs("absx011 abs '2'      -> '2'", c9);
-//             TAbs("absx012 abs '-2.00'  -> '2.00'", c9);
-//             TAbs("absx013 abs '2.00'   -> '2.00'", c9);
-//             TAbs("absx014 abs '-0'     -> '0'", c9);
-//             TAbs("absx015 abs '-0.00'  -> '0.00'", c9);
-//             TAbs("absx016 abs '-00.0'  -> '0.0'", c9);
-//             TAbs("absx017 abs '-00.00' -> '0.00'", c9);
-//             TAbs("absx018 abs '-00'    -> '0'", c9);
-
-//             TAbs("absx020 abs '-2000000' -> '2000000'", c9);
-//             TAbs("absx021 abs '2000000'  -> '2000000'", c9);
-
-//             //  precision: 7
-//             TAbs("absx022 abs '-2000000' -> '2000000'", c7);
-//             TAbs("absx023 abs '2000000'  -> '2000000'", c7);
-
-//             //  precision: 6
-//             TAbs("absx024 abs '-2000000' -> '2.00000E+6' Rounded", c6);
-//             TAbs("absx025 abs '2000000'  -> '2.00000E+6' Rounded", c6);
 
 
-//             //  precision: 3
-//             TAbs("absx026 abs '-2000000' -> '2.00E+6' Rounded", c3);
-//             TAbs("absx027 abs '2000000'  -> '2.00E+6' Rounded", c3);
-
-//             TAbs("absx030 abs '+0.1'            -> '0.1'", c3);
-//             TAbs("absx031 abs '-0.1'            -> '0.1'", c3);
-//             TAbs("absx032 abs '+0.01'           -> '0.01'", c3);
-//             TAbs("absx033 abs '-0.01'           -> '0.01'", c3);
-//             TAbs("absx034 abs '+0.001'          -> '0.001'", c3);
-//             TAbs("absx035 abs '-0.001'          -> '0.001'", c3);
-//             TAbs("absx036 abs '+0.000001'       -> '0.000001'", c3);
-//             TAbs("absx037 abs '-0.000001'       -> '0.000001'", c3);
-//             TAbs("absx038 abs '+0.000000000001' -> '1E-12'", c3);
-//             TAbs("absx039 abs '-0.000000000001' -> '1E-12'", c3);
-
-//             //-- examples from decArith
-//             //precision: 9
-//             TAbs("absx040 abs '2.1'     ->  '2.1'", c9);
-//             TAbs("absx041 abs '-100'    ->  '100'", c9);
-//             TAbs("absx042 abs '101.5'   ->  '101.5'", c9);
-//             TAbs("absx043 abs '-101.5'  ->  '101.5'", c9);
-
-//             //-- more fixed, potential LHS swaps/overlays if done by subtract 0
-//             //precision: 9
-//             TAbs("absx060 abs '-56267E-10'  -> '0.0000056267'", c9);
-//             TAbs("absx061 abs '-56267E-5'   -> '0.56267'", c9);
-//             TAbs("absx062 abs '-56267E-2'   -> '562.67'", c9);
-//             TAbs("absx063 abs '-56267E-1'   -> '5626.7'", c9);
-//             TAbs("absx065 abs '-56267E-0'   -> '56267'", c9);
 
 //         }
 
-//         static void TAbs(string test, BigDecimal.Context c)
-//         {
-//             GetTwoArgs(test, out string argStr, out string resultStr);
-//             TestAbs(argStr, c, resultStr);
-//         }
-
-//         static void TestAbs(string argStr, BigDecimal.Context c, string shouldStr)
-//         {
-//             BigDecimal arg = BigDecimal.Parse(argStr);
-//             BigDecimal result = BigDecimal.Abs(arg,c);
-//             string resultStr = result.ToScientificString();
-//             Expect(resultStr).To.Equal(shouldStr);
-//         }
 
 
 //         #endregion

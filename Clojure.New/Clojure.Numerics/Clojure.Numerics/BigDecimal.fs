@@ -88,24 +88,24 @@ module private ArithmeticHelpers =
 
 /// Indicates the rounding method to use
 type RoundingMode =
-/// Round away from 0
+    /// Round away from 0
     | Up
-/// Truncate (round toward 0)
+    /// Truncate (round toward 0)
     | Down
-/// Round toward positive infinity
+    /// Round toward positive infinity
     | Ceiling
-/// Round toward negative infinity
+    /// Round toward negative infinity
     | Floor
-/// Round to nearest neighbor, round up if equidistant
+    /// Round to nearest neighbor, round up if equidistant
     | HalfUp
-/// Round to nearest neighbor, round down if equidistant
+    /// Round to nearest neighbor, round down if equidistant
     | HalfDown
-/// Round to nearest neighbor, round to even neighbor if equidistant
+    /// Round to nearest neighbor, round to even neighbor if equidistant
     | HalfEven
-/// <summary>
-/// Do not do any rounding
-/// </summary>
-/// <remarks>This value is not part of the GDAS, but is in java.math.BigDecimal</remarks>
+    /// <summary>
+    /// Do not do any rounding
+    /// </summary>
+    /// <remarks>This value is not part of the GDAS, but is in java.math.BigDecimal</remarks>
     | Unnecessary
 
 /// Context for rounding
@@ -182,7 +182,7 @@ type BigDecimal private (coeff, exp, precision) =
     member _.Coefficient = coeff
     member _.Exponent = exp
     member x.Precision = x.GetPrecision()
-    member private x.RawPrecision = precision
+    member x.RawPrecision = precision
 
     // Rounding/quantize/rescale
 
@@ -504,18 +504,7 @@ type BigDecimal private (coeff, exp, precision) =
         | Ok bd -> value <- BigDecimal.round bd c; true
         | Error _ -> false
 
-    // Arithmetic operations
 
-    member x.Negate() = if x.Coefficient.IsZero then x else BigDecimal(BigInteger.Negate(x.Coefficient),x.Exponent,x.RawPrecision)
-    member x.Negate(c) = BigDecimal.round (x.Negate()) c
-    static member Negate(x : BigDecimal) = x.Negate()
-    static member Negate(x:BigDecimal, c) = x.Negate(c)
-
-    
-    member x.Abs() = if x.Coefficient.Sign < 0 then x.Negate() else x
-    member x.Abs(c) = if x.Coefficient.Sign < 0 then x.Negate(c) else BigDecimal.round x c
-    static member Abs(x:BigDecimal) = x.Abs()
-    static member Abs(x:BigDecimal, c) = x.Abs(c)
 
     /// Align the bigger BigDecimal by increasing its coefficient and decreasing its exponent
     static member private computeAlign (big:BigDecimal) (small:BigDecimal) =
@@ -527,6 +516,48 @@ type BigDecimal private (coeff, exp, precision) =
         if y.Exponent > x.Exponent then x, BigDecimal.computeAlign y x
         elif x.Exponent > y.Exponent then BigDecimal.computeAlign x y, y
         else x, y
+
+
+    //////////////////////////////////
+    // Baasic interfaces
+    //////////////////////////////////
+
+    interface IComparable<BigDecimal> with
+        member x.CompareTo (y:BigDecimal) = 
+            let x1, y1 = BigDecimal.align x y
+            x1.Coefficient.CompareTo(y1.Coefficient)
+    
+    interface IComparable with
+        member x.CompareTo y = 
+            match y with
+            | null -> 1
+            | :? BigDecimal as bd -> (x :> IComparable<BigDecimal>).CompareTo(bd)
+            | _ -> invalidArg "y" "Expected a BigDecimal to compare against"
+
+    interface IEquatable<BigDecimal> with   
+        member x.Equals (y:BigDecimal) =
+                if x.Exponent <> y.Exponent then false else x.Coefficient.Equals(y.Coefficient)
+            
+
+    //////////////////////////////////
+    // Arithmetic operations
+    //////////////////////////////////
+
+    // Negation
+
+    member x.Negate() = if x.Coefficient.IsZero then x else BigDecimal(BigInteger.Negate(x.Coefficient),x.Exponent,x.RawPrecision)
+    member x.Negate(c) = BigDecimal.round (x.Negate()) c
+    static member Negate(x : BigDecimal) = x.Negate()
+    static member Negate(x:BigDecimal, c) = x.Negate(c)
+
+    // Absolute value
+
+    member x.Abs() = if x.Coefficient.Sign < 0 then x.Negate() else x
+    member x.Abs(c) = if x.Coefficient.Sign < 0 then x.Negate(c) else BigDecimal.round x c
+    static member Abs(x:BigDecimal) = x.Abs()
+    static member Abs(x:BigDecimal, c) = x.Abs(c)
+
+    //  Addition and subtraction
 
     /// Compute the sum with y
     member x.Add (y:BigDecimal) = 
@@ -572,7 +603,9 @@ type BigDecimal private (coeff, exp, precision) =
 
     /// Compute (-x)
     static member (~-) (x:BigDecimal) = x.Negate()
+    
 
+    // Multipilcation
 
     /// Compute the product with y
     member x.Multiply (y:BigDecimal) = BigDecimal(x.Coefficient * y.Coefficient, x.Exponent+y.Exponent,0u)
@@ -590,8 +623,315 @@ type BigDecimal private (coeff, exp, precision) =
     static member (*) (x:BigDecimal, y:BigDecimal) = x.Multiply(y)
 
 
+    // Division
+
+    /// Remove insignificant trailing zeros until the preferred exponent is reached or no more zeros can be removed 
+    static member private stripZerosToMatchExponent (bd:BigDecimal) (preferredExp:int64) =
+
+        // Took this one from the OpenJDK implementation, with some minor edits 
+        // And then made it tail-recursive and non-mutatating for F#
+
+        if BigInteger.Compare(BigInteger.Abs(bd.Coefficient),ArithmeticHelpers.biTen) >= 0 && (int64 bd.Exponent) < preferredExp && bd.Coefficient.IsEven
+        then
+            let quo, rem = BigInteger.DivRem(bd.Coefficient,ArithmeticHelpers.biTen)
+            if rem.IsZero
+            then
+                let newExp = ArithmeticHelpers.checkExponentE ((int64 bd.Exponent) + 1L) quo.IsZero
+                let newPrec = if bd.RawPrecision > 0u then bd.RawPrecision-1u else bd.RawPrecision
+                BigDecimal.stripZerosToMatchExponent (BigDecimal(quo,newExp,newPrec)) preferredExp
+            else bd
+        else bd
+
+    /// Computes this / y.
+    member lhs.Divide(rhs:BigDecimal,c:Context) =
+
+        (*
+            The specification talks about the division algorithm in terms of repeated subtraction.
+            I'll try to re-analyze this in terms of divisions on integers.</para>
+            Assume we want to divide one BigDecimal by another:
+               [x,a] / [y,b] = [(x/y), a-b]  
+
+            where [x,a] signifies x is the (big)integer coefficient, a is the exponent so [x,a] has value x * 10^a.
+
+            Here, (x/y) indicates a result rounded to the desired precision p. For the moment, assume x, y non-negative.
+            We want to compute (x/y) using integer-only arithmetic, yielding a quotient+remainder q+r
+            where q has up to p precision and r is used to compute the rounding.  So actually, the result will be [q, a-b+c],
+            where c is some adjustment factor to make q be in the range [0,10^0).
+            We will need to adjust either x or y to make sure we can compute x/y and make q be in this range.
+            Let px be the precision of x (number of digits), let py be the precision of y. Then 
+
+                x = x' * 10^px
+                y = y' * 10^py
+
+            where x' and y' are in the range [.1,1).  However, we'd really like to have:
+
+                (a) x' in [.1,1)
+                (b) y' in [x',10*x')
+   
+            So that  x'/y' is in the range (.1,1].  
+            We can use y' as defined above if y' meets (b), else multiply y' by 10 (and decrease py by 1). 
+            Having done this, we now have
+
+                x/y = (x'/y') * 10^(px-py)
+
+            This gives us  10^(px-py-1) < x/y < 10^(px-py).
+            We'd like q to have p digits of precision.  So,
+
+                if px-py = p, ok.
+                if px-py < p, multiply x by 10^(p - (px-py)).
+                if px-py < p, multiply y by 10^(px-py-p).
+   
+            Using these adjusted values of x and y, divide to get q and r, round using those, then adjust the exponent.
+        *)
+
+        if c.precision = 0u
+        then  lhs.Divide(rhs)
+        else
+
+            let preferredExp = (int64 lhs.Exponent) - (int64 rhs.Exponent)
+
+            if rhs.Coefficient.IsZero then    // x/0
+                if lhs.Coefficient.IsZero 
+                then raise <| ArithmeticException("Division undefined (0/0)")   // NaN
+                else raise <| ArithmeticException("Division by zero")           // INF
+   
+            if lhs.Coefficient.IsZero 
+            then 
+                let expToUse = Math.Max(Math.Min( preferredExp, (int64 Int32.MaxValue)), (int64 Int32.MinValue)) |> int32
+                BigDecimal(BigInteger.Zero,expToUse,0u)   // 0/y
+            else
+                let xprec = (int32 lhs.Precision)
+                let yprec = (int32 rhs.Precision)
+
+                // Determine if we need to make an adjustment to get x', y' into relation (b).
+
+                let x = lhs.Coefficient
+                let y = rhs.Coefficient
+
+                let xtest = BigInteger.Abs( if xprec < yprec then x * ArithmeticHelpers.biPowerOfTen(uint (yprec-xprec)) else x)
+                let ytest = BigInteger.Abs( if xprec > yprec then y * ArithmeticHelpers.biPowerOfTen(uint (xprec-yprec)) else y)
+
+                let yAdjusted, adjust = if ( ytest < xtest ) then y * ArithmeticHelpers.biTen, 1 else y, 0
+
+                // Now make sure x and y themselves are in the proper range.
+
+                let delta = (int32 c.precision) - (xprec-yprec)
+
+                let xprime, yprime = 
+                    if ( delta > 0 ) 
+                    then x * ArithmeticHelpers.biPowerOfTen(delta |> uint), yAdjusted 
+                    else x, yAdjusted * ArithmeticHelpers.biPowerOfTen(-delta |> uint) 
+
+                let roundedInt = BigDecimal.roundingDivide2 xprime yprime c.roundingMode
+                let exp = ArithmeticHelpers.checkExponentE (preferredExp - (int64 delta) + (int64 adjust)) roundedInt.IsZero
+
+                let result = BigDecimal.round (BigDecimal(roundedInt,exp,0u)) c
+
+                // Thanks to the OpenJDK implementation for pointing this out.
+                // TODO: Have ROundingDivide2 return a flag indicating if the remainder is 0.  Then we can lose the multiply.
+
+                if (result.Multiply(rhs) :> IComparable<BigDecimal>).CompareTo(lhs) = 0
+                    then BigDecimal.stripZerosToMatchExponent result preferredExp  // Apply preferred scale rules for exact quotients
+                    else result
+
+                // This was commented out in the C# code  
+                // if (c.RoundingMode == RoundingMode.Ceiling ||
+                //     c.RoundingMode == RoundingMode.Floor)
+                // {
+                //     // OpenJDK code says:
+                //     // The floor (round toward negative infinity) and ceil
+                //     // (round toward positive infinity) rounding modes are not
+                //     // invariant under a sign flip.  If xprime/yprime has a
+                //     // different sign than lhs/rhs, the rounding mode must be
+                //     // changed.
+                //     if ((xprime._coeff.Signum != lhs._coeff.Signum) ^
+                //         (yprime._coeff.Signum != rhs._coeff.Signum))
+                //     {
+                //         c = new Context(c.Precision,
+                //                              (c.RoundingMode == RoundingMode.Ceiling) ?
+                //                              RoundingMode.Floor : RoundingMode.Ceiling);
+                //     }
+                // }
+
+   
+   
+
+    // Divide by y
+    member dividend.Divide(divisor:BigDecimal) =
+
+        // Throws an exception if the rounding mode is RoundingMode.UNNECESSARY and we have a repeating fraction.
+
+        // I completely ripped off the OpenJDK implementation.  
+        // I could not compete.
+            
+        if divisor.Coefficient.IsZero then    // x/0
+            if dividend.Coefficient.IsZero 
+            then raise <| ArithmeticException("Division undefined (0/0)")   // NaN
+            else raise <| ArithmeticException("Division by zero")           // INF
+    
+        let preferredExp =  
+            Math.Max((int64 Int32.MinValue),
+                Math.Min(int64 Int32.MaxValue, 
+                    int64 dividend.Exponent) - (int64 divisor.Exponent))|> int32
+    
+        if dividend.Coefficient.IsZero then BigDecimal(BigInteger.Zero,preferredExp,0u)   // 0/y
+        else   
+            (*  OpenJDK says:
+            ** If the quotient this/divisor has a terminating decimal
+            ** expansion, the expansion can have no more than
+            ** (a.precision() + ceil(10*b.precision)/3) digits.
+            ** Therefore, create a MathContext object with this
+            ** precision and do a divide with the UNNECESSARY rounding
+            ** mode.
+            *)
+            let extraPrecision = Math.Ceiling(10.0*(double divisor.Precision)/3.0) |> int64
+            let cPrecision = Math.Min((int64 dividend.Precision) + extraPrecision,(int64 Int32.MaxValue)) |> uint
+            let c = Context.Create(cPrecision,RoundingMode.Unnecessary)
+            let quotient =
+                try
+                    dividend.Divide(divisor,c)
+                with
+                | :? ArithmeticException -> raise <| ArithmeticException("Non-terminating decimal expansion; no exact representable decimal result.")
+            let qExp = quotient.Exponent
+                // divide(BigDecimal, mc) tries to adjust the quotient to
+                // the desired one by removing trailing zeros; since the
+                // exact divide method does not have an explicit digit
+                // limit, we can add zeros too.
+            if preferredExp < qExp 
+            then BigDecimal.Rescale(quotient,preferredExp,RoundingMode.Unnecessary)
+            else quotient
 
 
+    /// Computes the (BigDecimal) integer part of the quotient x/y.
+    member x.DivideInteger(y:BigDecimal): BigDecimal =
+        // I am indebted to the OpenJDK implementation for the algorithm.
+        // However, the spec I'm working from specifies an exponent of zero always.
+        // The OpenJDK implementation does otherwise.
+        // So I modified it to yield a zero exponent.
+
+        // If we were not going with a zero exponent, this would be the calculation
+        //let preferredExp = Math.Max(Math.Min((int64 x.Exponent) - (int64 y.Exponent), (int64 Int32.MaxValue)), (int64 Int32.MaxValue)) |> int
+        
+        let preferredExp = 0
+
+        if (x.Abs() :> IComparable<BigDecimal>).CompareTo(y.Abs()) < 0 
+        then BigDecimal(BigInteger.Zero,preferredExp,0u)
+        elif x.Coefficient.IsZero && not y.Coefficient.IsZero
+        then BigDecimal.Rescale(x,preferredExp,RoundingMode.Unnecessary)
+        else
+            // Perform a divide with enough digits to round to a correct
+            // integer value; then remove any fractional digits
+
+
+            let maxDigits = Math.Min((int64 x.Precision) + (int64 (Math.Ceiling(10.0 * (float y.Precision) / 3.0))) + Math.Abs((int64 x.Exponent) - (int64 y.Exponent))+2L, 
+                                    (int64 Int32.MaxValue)) |> int
+            let quotient = x.Divide(y, Context.Create(maxDigits |> uint,RoundingMode.Down))
+            let quotient = if y.Exponent < 0 
+                           then BigDecimal.stripZerosToMatchExponent  (BigDecimal.Rescale(quotient,0,RoundingMode.Down)) (int64 preferredExp) 
+                           else quotient
+            let quotient = if quotient.Exponent > preferredExp
+                           then BigDecimal.Rescale(quotient, preferredExp,RoundingMode.Unnecessary)   // pad with zeros if nesary
+                           else quotient
+            quotient
+
+
+    /// Computes the BigDecimal which is the integer part of the quotient x/y, result reounded per the context
+    member x.DivideInteger(y:BigDecimal, c:Context): BigDecimal =
+        // I am indebted to the OpenJDK implementation for the algorithm.
+        // However, the spec I'm working from specifies an exponent of zero always.
+        // The OpenJDK implementation does otherwise.
+        // So I modified it to yield a zero exponent.
+
+        if c.precision = 0u || (x.Abs() :> IComparable<BigDecimal>).CompareTo(y.Abs()) < 0  // exact result || zero result
+        then x.DivideInteger(y)
+        else
+            // Calculate preferred Scale
+            // If we were not going with a zero exponent, this would be the calculation
+            //let preferredExp = Math.Max(Math.Min((int64 x.Exponent) - (int64 y.Exponent), (int64 Int32.MaxValue)), (int64 Int32.MaxValue)) |> int
+            let preferredExp = 0
+
+            (*  OpenJKD says:
+            * Perform a normal divide to mc.precision digits.  If the
+            * remainder has absolute value less than the divisor, the
+            * integer portion of the quotient fits into mc.precision
+            * digits.  Next, remove any fractional digits from the
+            * quotient and adjust the scale to the preferred value.
+            *)
+
+            let result = x.Divide(y,Context.Create(c.precision,RoundingMode.Down))
+            let resultExp = result.Exponent
+            let result = 
+                match resultExp with
+                | _ when resultExp > 0 -> 
+                    (*
+                    * Result is an integer. See if quotient represents the
+                    * full integer portion of the exact quotient; if it does,
+                    * the computed remainder will be less than the divisor.
+                    *)
+                    let product = result.Multiply(y)
+                    // If the quotient is the full integer value,
+                    // |dividend-product| < |divisor|.
+                    if (x.Subtract(product).Abs() :> IComparable<BigDecimal>).CompareTo(y.Abs()) >= 0
+                    then raise <| ArithmeticException("Diision impossible")
+                    else result
+
+                | _ when resultExp < 0 -> 
+
+                    (*
+                    * Integer portion of quotient will fit into precision
+                    * digits; recompute quotient to scale 0 to avoid double
+                    * rounding and then try to adjust, if necessary.
+                    *)
+                    BigDecimal.Rescale(result,0,RoundingMode.Down)
+
+                | _ -> result
+
+            if preferredExp < resultExp && c.precision > result.Precision
+            then BigDecimal.Rescale(result,0,RoundingMode.Unnecessary)
+            else BigDecimal.stripZerosToMatchExponent result (int64 preferredExp)
+
+            // NB: if we were not clamping the exponent to 0, the expression above wouuld be
+            //let precisionDiff = (int c.precision) - (int (result.GetPrecision()))
+            //if preferredExp < resultExp && precisionDiff > 0
+            //then BigDecimal.Rescale(result, resultExp + Math.Max(precisionDiff, preferredExp - resultExp), RoundingMode.Unnecessary) 
+            //else BigDecimal.Rescale(result, 0, RoundingMode.Unnecessary);
+            // though that Math.Max looks like it alwasy taked precisionDiff because it is positive and the other expression is negative.
+            // But that's what my old code comment had.
+
+    // returns the quotient and remainder of x divided by y
+    member x.DivRem( y:BigDecimal, remainder: outref<BigDecimal>) : BigDecimal =
+        // x = q * y + r
+        let q = x.DivideInteger(y)
+        remainder <- x - q*y
+        q
+
+    // returns the quotient and remainder of x divided by y, rounded by context
+    member x.DivRem( y:BigDecimal, c:Context, remainder: outref<BigDecimal>) : BigDecimal =
+        // x = q * y + r
+        if c.roundingMode = RoundingMode.Unnecessary
+        then x.DivRem(y,&remainder)
+        else 
+            let q = x.DivideInteger(y,c)
+            remainder <- x - q*y
+            q
+
+    // Compute x % y
+    member x.Mod(y:BigDecimal) : BigDecimal = let _,r = x.DivRem(y) in r 
+ 
+     // Compute x % y, rounded by context
+     member x.Mod(y:BigDecimal, c:Context) : BigDecimal = let _,r = x.DivRem(y,c) in r
+ 
+   
+    static member Divide(x:BigDecimal, y:BigDecimal) : BigDecimal = x.Divide(y)
+    static member Divide(x:BigDecimal, y:BigDecimal, c:Context) : BigDecimal = x.Divide(y,c)
+    static member Mod(x:BigDecimal, y:BigDecimal) : BigDecimal = x.Mod(y)
+    static member Mod(x:BigDecimal, y:BigDecimal, c:Context) : BigDecimal = x.Mod(y,c)
+    static member DivRem(x:BigDecimal, y:BigDecimal, remainder: outref<BigDecimal>) : BigDecimal = x.DivRem(y,&remainder)
+    static member DivRem(x:BigDecimal, y:BigDecimal, c:Context, remainder: outref<BigDecimal>) : BigDecimal = x.DivRem(y,c,&remainder)    
+    
+    static member (/) (x:BigDecimal, y:BigDecimal) = x.Divide(y)
+    static member (%) (x:BigDecimal, y:BigDecimal) = x.Mod(y)
+    
 
 //           [Serializable]
 //           public class BigDecimal : IComparable, IComparable<BigDecimal>, IEquatable<BigDecimal>, IConvertible
@@ -1061,42 +1401,7 @@ type BigDecimal private (coeff, exp, precision) =
 
 //               #endregion
 
-//               #region IComparable Members
 
-//               public int CompareTo(object obj)
-//               {
-//                   if (obj == null)
-//                       return 1;
-
-//                   if (obj is BigDecimal d)
-//                       return CompareTo(d);
-//                   throw new ArgumentException("Expected a BigDecimal to compare against");
-//               }
-
-//               #endregion
-
-//               #region IComparable<BigDecimal> Members
-
-//               public int CompareTo(BigDecimal other)
-//               {
-//                   BigDecimal d1 = this;
-//                   BigDecimal d2 = other;
-//                   Align(ref d1, ref d2);
-//                   return d1._coeff.CompareTo(d2._coeff);
-//               }
-
-//               #endregion
-
-//               #region IEquatable<BigDecimal> Members
-
-//               public bool Equals(BigDecimal other)
-//               {
-//                   if ( other is null)
-//                       return false;
-//                   if (_exp != other._exp)
-//                       return false;
-//                   return _coeff.Equals(other._coeff);
-//               }
 
 //               #endregion
 
@@ -1268,100 +1573,11 @@ type BigDecimal private (coeff, exp, precision) =
 
 
 
-//               /// <summary>
-//               /// Compute <paramref name="x"/> / <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The quotient</returns>
-//               public static BigDecimal operator /(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Divide(y);
-//               }
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> % <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The modulus</returns>
-//               public static BigDecimal operator %(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Mod(y);
-//               }
 
 //               #endregion
 
 
 
-//               /// <summary>
-//               /// Compute <paramref name="x"/> / <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The quotient</returns>
-//               public static BigDecimal Divide(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Divide(y);
-//               }
-
-//               /// <summary>
-//               /// Compute <paramref name="x"/> / <paramref name="y"/>, with result rounded according to the context.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The quotient</returns>
-//               public static BigDecimal Divide(BigDecimal x, BigDecimal y, Context c)
-//               {
-//                   return x.Divide(y,c);
-//               }
-
-//               /// <summary>
-//               /// Returns <paramref name="x"/> % <paramref name="y"/>.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The modulus</returns>
-//               public static BigDecimal Mod(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.Mod(y);
-//               }
-
-
-//               /// <summary>
-//               /// Returns <paramref name="x"/> % <paramref name="y"/>, with result rounded according to the context.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <returns>The modulus</returns>
-//               public static BigDecimal Mod(BigDecimal x, BigDecimal y, Context c)
-//               {
-//                   return x.Mod(y,c);
-//               }
-
-//               /// <summary>
-//               /// Compute the quotient and remainder of dividing one <see cref="BigInteger"/> by another.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <param name="remainder">Set to the remainder after division</param>
-//               /// <returns>The quotient</returns>
-//               public static BigDecimal DivRem(BigDecimal x, BigDecimal y, out BigDecimal remainder)
-//               {
-//                   return x.DivRem(y, out remainder);
-//               }
-               
-//               /// <summary>
-//               /// Compute the quotient and remainder of dividing one <see cref="BigInteger"/> by another, with result rounded according to the context.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <param name="y"></param>
-//               /// <param name="remainder">Set to the remainder after division</param>
-//               /// <returns>The quotient</returns>
-//               public static BigDecimal DivRem(BigDecimal x, BigDecimal y, Context c, out BigDecimal remainder)
-//               {
-//                   return x.DivRem(y, c, out remainder);
-//               }
 
 
 
@@ -1429,385 +1645,6 @@ type BigDecimal private (coeff, exp, precision) =
 
 
 
-
-
-//               /// <summary>
-//               /// Returns this / y.
-//               /// </summary>
-//               /// <param name="y">The divisor</param>
-//               /// <returns>The quotient</returns>
-//               /// <exception cref="ArithmeticException">If rounding mode is RoundingMode.UNNECESSARY and we have a repeating fraction"</exception>
-//               /// <remarks>I completely ripped off the OpenJDK implementation.  
-//               /// Their analysis of the basic algorithm I could not compete with.</remarks>
-//               public BigDecimal Divide(BigDecimal divisor)
-//               {
-//                   BigDecimal dividend = this;
-
-//                   if ( divisor._coeff.IsZero ) // x/0
-//                   { 
-//                       if ( dividend._coeff.IsZero ) // 0/0
-//                           throw new ArithmeticException("Division undefined (0/0)"); // NaN
-//                       throw new ArithmeticException("Division by zero"); // INF
-//                   }
-
-//                   // Calculate preferred exponent
-//                   int preferredExp = 
-//                       (int)Math.Max(Math.Min((long)dividend._exp - divisor._exp,
-//                                               Int32.MaxValue),
-//                                     Int32.MinValue);
-
-//                   if ( dividend._coeff.IsZero )  // 0/y
-//                       return new BigDecimal(BigInteger.Zero,preferredExp);
-
-
-
-//                   /*  OpenJDK says:
-//                    * If the quotient this/divisor has a terminating decimal
-//                    * expansion, the expansion can have no more than
-//                    * (a.precision() + ceil(10*b.precision)/3) digits.
-//                    * Therefore, create a MathContext object with this
-//                    * precision and do a divide with the UNNECESSARY rounding
-//                    * mode.
-//                    */
-//                   Context c = new( (uint)Math.Min(dividend.GetPrecision() +
-//                                                          (long)Math.Ceiling(10.0*divisor.GetPrecision()/3.0),
-//                                                                   Int32.MaxValue),
-//                                                     RoundingMode.Unnecessary);
-//                   BigDecimal quotient;
-//                   try
-//                   {
-//                       quotient = dividend.Divide(divisor, c);
-//                   }
-//                   catch (ArithmeticException )
-//                   {
-//                       throw new ArithmeticException("Non-terminating decimal expansion; no exact representable decimal result.");
-//                   }
-
-//                   int quotientExp = quotient._exp;
-
-//                   // divide(BigDecimal, mc) tries to adjust the quotient to
-//                   // the desired one by removing trailing zeros; since the
-//                   // exact divide method does not have an explicit digit
-//                   // limit, we can add zeros too.
-
-//                   if (preferredExp < quotientExp)
-//                       return Rescale(quotient, preferredExp, RoundingMode.Unnecessary);
-
-//                   return quotient;
-//               }
-
-
-//               /// <summary>
-//               /// Returns this / y.
-//               /// </summary>
-//               /// <param name="y">The divisor</param>
-//               /// <param name="mc">The context</param>
-//               /// <returns>The quotient</returns>
-//               /// <remarks>
-//               /// <para>The specification talks about the division algorithm in terms of repeated subtraction.
-//               /// I'll try to re-analyze this in terms of divisions on integers.</para>
-//               /// <para>Assume we want to divide one BigDecimal by another:</para>
-//               /// <code> [x,a] / [y,b] = [(x/y), a-b]</code>
-//               /// <para>where [x,a] signifies x is integer, a is exponent so [x,a] has value x * 10^a.
-//               /// Here, (x/y) indicates a result rounded to the desired precision p. For the moment, assume x, y non-negative.</para>
-//               /// <para>We want to compute (x/y) using integer-only arithmetic, yielding a quotient+remainder q+r
-//               /// where q has up to p precision and r is used to compute the rounding.  So actually, the result will be [q, a-b+c],
-//               /// where c is some adjustment factor to make q be in the range [0,10^0).</para>
-//               /// <para>We will need to adjust either x or y to make sure we can compute x/y and make q be in this range.</para>
-//               /// <para>Let px be the precision of x (number of digits), let py be the precision of y. Then </para>
-//               /// <code>
-//               /// x = x' * 10^px
-//               /// y = y' * 10^py
-//               /// </code>
-//               /// <para>where x' and y' are in the range [.1,1).  However, we'd really like to have:</para>
-//               /// <code>
-//               /// (a) x' in [.1,1)
-//               /// (b) y' in [x',10*x')
-//               /// </code>
-//               /// <para>So that  x'/y' is in the range (.1,1].  
-//               /// We can use y' as defined above if y' meets (b), else multiply y' by 10 (and decrease py by 1). 
-//               /// Having done this, we now have</para>
-//               /// <code>
-//               ///  x/y = (x'/y') * 10^(px-py)
-//               /// </code>
-//               /// <para>
-//               /// This gives us  10^(px-py-1) &lt; x/y &lt 10^(px-py).
-//               /// We'd like q to have p digits of precision.  So,
-//               /// <code>
-//               /// if px-py = p, ok.
-//               /// if px-py &lt; p, multiply x by 10^(p - (px-py)).
-//               /// if px-py &gt; p, multiply y by 10^(px-py-p).
-//               /// </code>
-//               /// <para>Using these adjusted values of x and y, divide to get q and r, round using those, then adjust the exponent.</para>
-//               /// </remarks>
-//               public BigDecimal Divide(BigDecimal rhs, Context c)
-//               {
-//                   if (c.Precision == 0)
-//                       return Divide(rhs);
-
-//                   BigDecimal lhs = this;
-
-//                   long preferredExp = (long)lhs._exp - rhs._exp;
-
-//                   // Deal with x or y being zero.
-
-//                   if (rhs._coeff.IsZero)
-//                   {      // x/0
-//                       if (lhs._coeff.IsZero)    // 0/0
-//                           throw new ArithmeticException("Division undefined");  // NaN
-//                       throw new ArithmeticException("Division by zero");  // Inf
-//                   }
-//                   if (lhs._coeff.IsZero)        // 0/y
-//                       return new BigDecimal(BigInteger.Zero,
-//                                             (int)Math.Max(Math.Min(preferredExp,
-//                                                                    Int32.MaxValue),
-//                                                           Int32.MinValue));
-//                   int xprec = (int)lhs.GetPrecision();
-//                   int yprec = (int)rhs.GetPrecision();
-
-//                   // Determine if we need to make an adjustment to get x', y' into relation (b).
-//                   BigInteger x = lhs._coeff;
-//                   BigInteger y = rhs._coeff;
-
-//                   BigInteger xtest = x.Abs();
-//                   BigInteger ytest = y.Abs();
-//                   if (xprec < yprec)
-//                       xtest = x.Multiply(BIPowerOfTen(yprec - xprec));
-//                   else if (xprec > yprec)
-//                       ytest = y.Multiply(BIPowerOfTen(xprec - yprec));
-
-
-//                   int adjust = 0;
-//                   if (ytest < xtest)
-//                   {
-//                       y = y.Multiply(BigInteger.Ten);
-//                       adjust = 1;
-//                   }
-
-//                   // Now make sure x and y themselves are in the proper range.
-
-//                   int delta = (int)c.Precision - (xprec - yprec);
-//                   if ( delta > 0 )
-//                       x = x.Multiply(BIPowerOfTen(delta));
-//                   else if ( delta < 0 )
-//                       y = y.Multiply(BIPowerOfTen(-delta));
-
-//                   BigInteger roundedInt = RoundingDivide2(x, y, c.RoundingMode);
-
-//                   int exp = CheckExponent(preferredExp - delta + adjust, roundedInt.IsZero);
-
-//                   BigDecimal result = new(roundedInt, exp);
-
-//                   result.RoundInPlace(c);
-
-
-//                   // Thanks to the OpenJDK implementation for pointing this out.
-//                   // TODO: Have ROundingDivide2 return a flag indicating if the remainder is 0.  Then we can lose the multiply.
-//                   if (result.Multiply(rhs).CompareTo(this) == 0)
-//                   {
-//                       // Apply preferred scale rules for exact quotients
-//                       return result.StripZerosToMatchExponent(preferredExp);
-//                   }
-//                   else
-//                   {
-//                       return result;
-//                   }      
-
-           
-//                  // if (c.RoundingMode == RoundingMode.Ceiling ||
-//                  //     c.RoundingMode == RoundingMode.Floor)
-//                  // {
-//                  //     // OpenJDK code says:
-//                  //     // The floor (round toward negative infinity) and ceil
-//                  //     // (round toward positive infinity) rounding modes are not
-//                  //     // invariant under a sign flip.  If xprime/yprime has a
-//                  //     // different sign than lhs/rhs, the rounding mode must be
-//                  //     // changed.
-//                  //     if ((xprime._coeff.Signum != lhs._coeff.Signum) ^
-//                  //         (yprime._coeff.Signum != rhs._coeff.Signum))
-//                  //     {
-//                  //         c = new Context(c.Precision,
-//                  //                              (c.RoundingMode == RoundingMode.Ceiling) ?
-//                  //                              RoundingMode.Floor : RoundingMode.Ceiling);
-//                  //     }
-//                  // }
-//               }
-
-
-
-//               /// <summary>
-//               /// Returns this % y
-//               /// </summary>
-//               /// <param name="y">The divisor</param>
-//               /// <returns>The modulus</returns>
-//               public BigDecimal Mod(BigDecimal y)
-//               {
-//                   DivRem(y, out BigDecimal r);
-//                   return r;
-//               }
-
-
-//               /// <summary>
-//               /// Returns this % y
-//               /// </summary>
-//               /// <param name="y">The divisor</param>
-//               /// <returns>The modulus</returns>
-//               public BigDecimal Mod(BigDecimal y, Context c)
-//               {
-//                   DivRem(y, c, out BigDecimal r);
-//                   return r;
-//               }
-
-//               /// <summary>
-//               /// Returns the quotient and remainder of this divided by another.
-//               /// </summary>
-//               /// <param name="y">The divisor</param>
-//               /// <param name="remainder">The remainder</param>
-//               /// <returns>The quotient</returns>
-//               public BigDecimal DivRem(BigDecimal y, out BigDecimal remainder)
-//               {
-//                   // x = q * y + r
-//                   BigDecimal q = this.DivideInteger(y);
-//                   remainder = this - q * y;
-//                   return q;
-//               }
-
-
-//               /// <summary>
-//               /// Returns the quotient and remainder of this divided by another.
-//               /// </summary>
-//               /// <param name="y">The divisor</param>
-//               /// <param name="remainder">The remainder</param>
-//               /// <returns>The quotient</returns>
-//               public BigDecimal DivRem(BigDecimal y, Context c, out BigDecimal remainder)
-//               {
-//                   // x = q * y + r
-//                   if (c.RoundingMode == RoundingMode.Unnecessary)
-//                       return DivRem(y, out remainder);
-
-//                   BigDecimal q = this.DivideInteger(y,c);
-//                   remainder = this - q * y;
-//                   return q;
-//               }
-
-
-//               /// <summary>
-//               /// 
-//               /// </summary>
-//               /// <param name="y"></param>
-//               /// <param name="c"></param>
-//               /// <returns></returns>
-//               /// <remarks>I am indebted to the OpenJDK implementation for the algorithm.
-//               /// <para>However, the spec I'm working from specifies an exponent of zero always!
-//               /// The OpenJDK implementation does otherwise.  So I've modified it to yield a zero exponent.</para>
-//               /// </remarks>
-//               public BigDecimal DivideInteger(BigDecimal y, Context c)
-//               {
-//                   if (c.Precision == 0 ||                        // exact result
-//                       (this.Abs().CompareTo(y.Abs()) < 0)) // zero result
-//                       return DivideInteger(y);
-
-//                   // Calculate preferred scale
-//                   //int preferredExp = (int)Math.Max(Math.Min((long)this._exp - y._exp,
-//                   //                                            Int32.MaxValue),Int32.MinValue);
-//                   int preferredExp = 0;
-
-//                   /*  OpenJKD says:
-//                    * Perform a normal divide to mc.precision digits.  If the
-//                    * remainder has absolute value less than the divisor, the
-//                    * integer portion of the quotient fits into mc.precision
-//                    * digits.  Next, remove any fractional digits from the
-//                    * quotient and adjust the scale to the preferred value.
-//                    */
-//                   BigDecimal result = this.Divide(y, new Context(c.Precision,RoundingMode.Down));
-//                   int resultExp = result._exp;
-
-//                   if (resultExp > 0)
-//                   {
-//                       /*
-//                        * Result is an integer. See if quotient represents the
-//                        * full integer portion of the exact quotient; if it does,
-//                        * the computed remainder will be less than the divisor.
-//                        */
-//                       BigDecimal product = result.Multiply(y);
-//                       // If the quotient is the full integer value,
-//                       // |dividend-product| < |divisor|.
-//                       if (this.Subtract(product).Abs().CompareTo(y.Abs()) >= 0)
-//                       {
-//                           throw new ArithmeticException("Division impossible");
-//                       }
-//                   }
-//                   else if (resultExp < 0)
-//                   {
-//                       /*
-//                        * Integer portion of quotient will fit into precision
-//                        * digits; recompute quotient to scale 0 to avoid double
-//                        * rounding and then try to adjust, if necessary.
-//                        */
-//                       result = Rescale(result,0, RoundingMode.Down);
-//                   }
-//                   // else resultExp == 0;
-
-//                   //int precisionDiff;
-//                   if ((preferredExp < resultExp) &&
-//                       (/*precisionDiff = */(int)(c.Precision - result.GetPrecision())) > 0)
-//                   {
-//                       //return Rescale(result, resultExp + Math.Max(precisionDiff, preferredExp - resultExp), RoundingMode.Unnecessary);
-//                       return Rescale(result, 0, RoundingMode.Unnecessary);
-
-//                   }
-//                   else
-//                       return result.StripZerosToMatchExponent(preferredExp);
-//               }
-
-
-//               /// <summary>
-//               /// Return the integer part of this / y.
-//               /// </summary>
-//               /// <param name="y"></param>
-//               /// <returns></returns>
-//               /// <remarks>I am indebted to the OpenJDK implementation for the algorithm.
-//               /// <para>However, the spec I'm working from specifies an exponent of zero always!
-//               /// The OpenJDK implementation does otherwise.  So I've modified it to yield a zero exponent.</para>
-//               /// </remarks>
-//               public BigDecimal DivideInteger(BigDecimal y)
-//               {
-
-//                   // Calculate preferred exponent
-//                   //int preferredExp = (int)Math.Max(Math.Min((long)this._exp - y._exp,
-//                   //                                            Int32.MaxValue), Int32.MinValue);
-//                   int preferredExp = 0;
-
-//                   if (Abs().CompareTo(y.Abs()) < 0)
-//                   {
-//                       return new BigDecimal(BigInteger.Zero, preferredExp);
-//                   }
-
-//                   if (this._coeff.IsZero && !y._coeff.IsZero)
-//                       return Rescale(this, preferredExp, RoundingMode.Unnecessary);
-
-//                   // Perform a divide with enough digits to round to a correct
-//                   // integer value; then remove any fractional digits
-
-//                   int maxDigits = (int)Math.Min(this.GetPrecision() +
-//                                                 (long)Math.Ceiling(10.0 * y.GetPrecision() / 3.0) +
-//                                                 Math.Abs((long)this._exp - y._exp) + 2,
-//                                                 Int32.MaxValue);
-
-//                   BigDecimal quotient = this.Divide(y, new Context((uint)maxDigits, RoundingMode.Down));
-//                   if (y._exp < 0)
-//                   {
-//                       quotient = Rescale(quotient, 0, RoundingMode.Down).StripZerosToMatchExponent(preferredExp);
-//                   }
-
-//                   if (quotient._exp > preferredExp)
-//                   {
-//                       // pad with zeros if necessary
-//                       quotient = Rescale(quotient, preferredExp, RoundingMode.Unnecessary);
-//                   }
-
-//                   return quotient;
-//               }        
 
 
 
@@ -2083,33 +1920,7 @@ type BigDecimal private (coeff, exp, precision) =
                
 //               static readonly int _maxCachedPowerOfTen = _biPowersOfTen.Length;
 
-//               /// <summary>
-//               /// Remove insignificant trailing zeros from this BigDecimal until the 
-//               /// preferred exponent is reached or no more zeros can be removed.
-//               /// </summary>
-//               /// <param name="preferredExp"></param>
-//               /// <returns></returns>
-//               /// <remarks>
-//               /// <para>Took this one from OpenJDK implementation, with some minor edits.</para>
-//               /// <para>Modifies its argument.  Use only on a new BigDecimal.</para>
-//               /// </remarks>
-//               private BigDecimal StripZerosToMatchExponent(long preferredExp)
-//               {
-//                   while (_coeff.Abs().CompareTo(BigInteger.Ten) >= 0 && _exp < preferredExp)
-//                   {
-//                       if (_coeff.IsOdd)
-//                           break;                  // odd number.  cannot end in 0
-//                       BigInteger quo = _coeff.DivRem(BigInteger.Ten, out BigInteger rem);
-//                       if (!rem.IsZero)
-//                           break;   // non-0 remainder
-//                       _coeff = quo;
-//                       _exp = CheckExponent((long)_exp + 1);// could overflow
-//                       if (_precision > 0)  // adjust precision if known
-//                           _precision--;
-//                   }
 
-//                   return this;
-//               }
 
 
 //               /// <summary>

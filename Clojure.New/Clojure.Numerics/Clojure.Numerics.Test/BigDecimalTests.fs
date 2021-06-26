@@ -31,7 +31,12 @@ module Tests
 open Expecto
 open Clojure.Numerics
 open System.Numerics
+open System
 
+
+///////////////////////////
+// Parsing tests
+///////////////////////////
 
 [<Tests>]
 let basicParsingList =
@@ -257,6 +262,12 @@ let javaDocParsingList = testList "Java doc parsing examples"  (createIntTests j
 let specParsingList = testList "Spec parsing examples"  (createIntTests specParsingTests)
 
 
+
+///////////////////////////
+// ToString tests
+///////////////////////////
+
+
 let scientificStringTest biStr exp outStr =
     let bi = BigInteger.Parse(biStr)
     let bd = BigDecimal.Create(bi,exp)
@@ -307,7 +318,6 @@ let toStringPointPlacementTests =
         ("-123456789", -2, "-1234567.89");  ]
 
 
-
 [<Tests>]
 let basicToStringList = testList "Basic ToString examples"  (createToStringTests basicToStringTests)
 
@@ -316,6 +326,12 @@ let specToStringList = testList "Spec ToString examples"  (createToStringTests s
 
 [<Tests>]
 let toStringPointPlacementList = testList "point placement ToString examples"  (createToStringTests toStringPointPlacementTests)
+
+
+///////////////////////////
+// Precision tests
+///////////////////////////
+
 
 let precisionTest str exponent precision =
     let bd = BigDecimal.Create(BigInteger.Parse(str),exponent)
@@ -358,6 +374,13 @@ let contantsTests = testList "tests of contants" [
         Expect.equal BigDecimal.Ten.Exponent 0 "Ten should have exponent 0"
         Expect.equal BigDecimal.Ten.Precision 2u "Ten should have precision 2"
     ]
+
+
+
+///////////////////////////
+// Create from double tests
+///////////////////////////
+
 
 let doubleTest (v:double) (expectStr:string) (c:Context) =
     let d = BigDecimal.CreateC(v,c)
@@ -523,6 +546,12 @@ let doubleTests =
 let doubleList = testList "creation from double examples"  (createDoubleTests doubleTests)
 
 
+
+///////////////////////////
+// Rounding tests
+///////////////////////////
+
+
 let basicRoundingTest bdStr precision mode biStr exponent =
     let mc = Context.Create(precision,mode)
     let bd = BigDecimal.Parse(bdStr)
@@ -644,6 +673,11 @@ let basicRoundingList = testList "basic rounding" (createRoundingTests basicRoun
 let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaDocRoundingTests)
 
 
+///////////////////////////
+// helpers
+///////////////////////////
+
+
 // support functions for parsing the standardized tests
 
 
@@ -667,7 +701,11 @@ let getThreeArgs (test:string) =
     stripSingleQuotes(atoms.[2]),  stripSingleQuotes(atoms.[3]), stripSingleQuotes(atoms.[5])
 
 
-// quantization tests
+
+///////////////////////////
+// Quantization tests
+///////////////////////////
+
 
 let testQuantize lhsStr rhsStr mode expectStr =
     let lhs = BigDecimal.Parse(lhsStr)
@@ -1223,6 +1261,12 @@ let quantizeSpecExamplesFromEmailList = testList "quantize spec examples from em
 let quantizeSpecSome9999ExamplesList = testList "quantize spec esome 9999 examples" (createTQTests quantizeSpecSome9999Examples)
 
 
+
+///////////////////////////
+// Abs tests
+///////////////////////////
+
+
 let absTest argStr c shouldStr =
     let arg = BigDecimal.Parse(argStr)
     let result = BigDecimal.Abs(arg,c)
@@ -1315,6 +1359,10 @@ let specAbsTests =
 [<Tests>]
 let specAbsTestList = testList "quantize spec esome 9999 examples" (createSpecAbsTests specAbsTests)
 
+
+///////////////////////////
+// Addition tests
+///////////////////////////
 
 
 let addTest arg1Str arg2Str c resultStr =
@@ -1825,6 +1873,13 @@ let addTests =
 
 [<Tests>]
 let addTestList = testList "addition examples" (createAddTests addTests)
+
+
+
+///////////////////////////
+// Subtraction tests
+///////////////////////////
+
 
 let subTest arg1Str arg2Str c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
@@ -2718,6 +2773,11 @@ let subTests =
 let subTestList = testList "subtraction examples" (Array.toList (createSubTests subTests))
 
 
+///////////////////////////
+// Multiplication tests
+///////////////////////////
+
+
 let multiplyTest arg1Str arg2Str c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
@@ -3054,8 +3114,8 @@ let multiplyTests =
         //rounding:    half_up
         //maxExponent: 92
         //minexponent: -92
-        //TMul("mulx504  multiply  0E-60 1000E-60  -> 0E-98 Clamped", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
-        //TMul("mulx505  multiply  100E+60 0E+60   -> 0E+92 Clamped", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
+        //TMul("mulx504  multiply  0E-60 1000E-60  -> 0E-98 Clamped", Context.Create(7, RoundingMode.HalfUp));
+        //TMul("mulx505  multiply  100E+60 0E+60   -> 0E+92 Clamped", Context.Create(7, RoundingMode.HalfUp));
     
         //-- mixed with zeros
         //maxexponent: 999999999
@@ -3112,6 +3172,1157 @@ let multiplyTests =
 [<Tests>]
 let multiplyTestList = testList "multiply examples" (createMultiplyTests multiplyTests)
 
+
+
+///////////////////////////
+// Division tests
+///////////////////////////
+
+
+let divideTest arg1Str arg2Str c resultStr = 
+    let arg1 = BigDecimal.Parse(arg1Str)
+    let arg2 = BigDecimal.Parse(arg2Str)
+    let div = arg1.Divide(arg2,c)
+    let divStr = div.ToScientificString()
+    Expect.equal divStr resultStr "quotient"
+
+
+let divideTestFromStrEx test c =
+    let arg1Str, arg2Str, resultStr = getThreeArgs test
+    Expect.throwsT<ArithmeticException> (fun () -> divideTest arg1Str arg2Str c resultStr) "throws ArithmeticException"
+ 
+let divideTestFromStr test c =
+    let arg1Str, arg2Str, resultsStr = getThreeArgs test
+    divideTest arg1Str arg2Str c resultsStr 
+
+
+let createDivideTests data = 
+    data
+    |> List.map (fun (test, c) ->
+           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                divideTestFromStr test c
+           )
+
+
+let createDivideTestsEx data = 
+    data
+    |> List.map (fun (test, c) ->
+           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                divideTestFromStrEx test c
+           )
+
+
+let c16hu = Context.Create(16u, RoundingMode.HalfUp);
+let c7hd = Context.Create(7u, RoundingMode.HalfDown);
+let c7he = Context.Create(7u, RoundingMode.HalfEven);
+
+let specDivideTests = 
+    [
+    //version: 2.59
+    
+    //extended:    1
+    //precision:   9
+    //rounding:    half_up
+    //maxExponent: 384
+    //minexponent: -383
+    
+    //-- sanity checks
+        ("divx001 divide  1     1    ->  1", c9hu);
+        ("divx002 divide  2     1    ->  2", c9hu);
+        ("divx003 divide  1     2    ->  0.5", c9hu);
+        ("divx004 divide  2     2    ->  1", c9hu);
+        ("divx005 divide  0     1    ->  0", c9hu);
+        ("divx006 divide  0     2    ->  0", c9hu);
+        ("divx007 divide  1     3    ->  0.333333333 Inexact Rounded", c9hu);
+        ("divx008 divide  2     3    ->  0.666666667 Inexact Rounded", c9hu);
+        ("divx009 divide  3     3    ->  1", c9hu);
+    
+        ("divx010 divide  2.4   1    ->  2.4", c9hu);
+        ("divx011 divide  2.4   -1   ->  -2.4", c9hu);
+        ("divx012 divide  -2.4  1    ->  -2.4", c9hu);
+        ("divx013 divide  -2.4  -1   ->  2.4", c9hu);
+        ("divx014 divide  2.40  1    ->  2.40", c9hu);
+        ("divx015 divide  2.400 1    ->  2.400", c9hu);
+        ("divx016 divide  2.4   2    ->  1.2", c9hu);
+        ("divx017 divide  2.400 2    ->  1.200", c9hu);
+        ("divx018 divide  2.    2    ->  1", c9hu);
+        ("divx019 divide  20    20   ->  1", c9hu);
+    
+        ("divx020 divide  187   187    ->  1", c9hu);
+        ("divx021 divide  5     2      ->  2.5", c9hu);
+        ("divx022 divide  50    20     ->  2.5", c9hu);
+        ("divx023 divide  500   200    ->  2.5", c9hu);
+        ("divx024 divide  50.0  20.0   ->  2.5", c9hu);
+        ("divx025 divide  5.00  2.00   ->  2.5", c9hu);
+        ("divx026 divide  5     2.0    ->  2.5", c9hu);
+        ("divx027 divide  5     2.000  ->  2.5", c9hu);
+        ("divx028 divide  5     0.20   ->  25", c9hu);
+        ("divx029 divide  5     0.200  ->  25", c9hu);
+        ("divx030 divide  10    1      ->  10", c9hu);
+        ("divx031 divide  100   1      ->  100", c9hu);
+        ("divx032 divide  1000  1      ->  1000", c9hu);
+        ("divx033 divide  1000  100    ->  10", c9hu);
+    
+        ("divx035 divide  1     2      ->  0.5", c9hu);
+        ("divx036 divide  1     4      ->  0.25", c9hu);
+        ("divx037 divide  1     8      ->  0.125", c9hu);
+        ("divx038 divide  1     16     ->  0.0625", c9hu);
+        ("divx039 divide  1     32     ->  0.03125", c9hu);
+        ("divx040 divide  1     64     ->  0.015625", c9hu);
+        ("divx041 divide  1    -2      ->  -0.5", c9hu);
+        ("divx042 divide  1    -4      ->  -0.25", c9hu);
+        ("divx043 divide  1    -8      ->  -0.125", c9hu);
+        ("divx044 divide  1    -16     ->  -0.0625", c9hu);
+        ("divx045 divide  1    -32     ->  -0.03125", c9hu);
+        ("divx046 divide  1    -64     ->  -0.015625", c9hu);
+        ("divx047 divide -1     2      ->  -0.5", c9hu);
+        ("divx048 divide -1     4      ->  -0.25", c9hu);
+        ("divx049 divide -1     8      ->  -0.125", c9hu);
+        ("divx050 divide -1     16     ->  -0.0625", c9hu);
+        ("divx051 divide -1     32     ->  -0.03125", c9hu);
+        ("divx052 divide -1     64     ->  -0.015625", c9hu);
+        ("divx053 divide -1    -2      ->  0.5", c9hu);
+        ("divx054 divide -1    -4      ->  0.25", c9hu);
+        ("divx055 divide -1    -8      ->  0.125", c9hu);
+        ("divx056 divide -1    -16     ->  0.0625", c9hu);
+        ("divx057 divide -1    -32     ->  0.03125", c9hu);
+        ("divx058 divide -1    -64     ->  0.015625", c9hu);
+    
+        ("divx070 divide  999999999        1    ->  999999999", c9hu);
+        ("divx071 divide  999999999.4      1    ->  999999999 Inexact Rounded", c9hu);
+        ("divx072 divide  999999999.5      1    ->  1.00000000E+9 Inexact Rounded", c9hu);
+        ("divx073 divide  999999999.9      1    ->  1.00000000E+9 Inexact Rounded", c9hu);
+        ("divx074 divide  999999999.999    1    ->  1.00000000E+9 Inexact Rounded", c9hu);
+
+        //precision: 6
+        ("divx080 divide  999999999     1  ->  1.00000E+9 Inexact Rounded", c6hu);
+        ("divx081 divide  99999999      1  ->  1.00000E+8 Inexact Rounded", c6hu);
+        ("divx082 divide  9999999       1  ->  1.00000E+7 Inexact Rounded", c6hu);
+        ("divx083 divide  999999        1  ->  999999", c6hu);
+        ("divx084 divide  99999         1  ->  99999", c6hu);
+        ("divx085 divide  9999          1  ->  9999", c6hu);
+        ("divx086 divide  999           1  ->  999", c6hu);
+        ("divx087 divide  99            1  ->  99", c6hu);
+        ("divx088 divide  9             1  ->  9", c6hu);
+
+        //precision: 9
+        ("divx090 divide  0.            1    ->  0", c9hu);
+        ("divx091 divide  .0            1    ->  0.0", c9hu);
+        ("divx092 divide  0.00          1    ->  0.00", c9hu);
+        ("divx093 divide  0.00E+9       1    ->  0E+7", c9hu);
+        ("divx094 divide  0.0000E-50    1    ->  0E-54", c9hu);
+    
+        ("divx095 divide  1            1E-8  ->  1E+8", c9hu);
+        ("divx096 divide  1            1E-9  ->  1E+9", c9hu);
+        ("divx097 divide  1            1E-10 ->  1E+10", c9hu);
+        ("divx098 divide  1            1E-11 ->  1E+11", c9hu);
+        ("divx099 divide  1            1E-12 ->  1E+12", c9hu);
+    
+        ("divx100 divide  1  1   -> 1", c9hu);
+        ("divx101 divide  1  2   -> 0.5", c9hu);
+        ("divx102 divide  1  3   -> 0.333333333 Inexact Rounded", c9hu);
+        ("divx103 divide  1  4   -> 0.25", c9hu);
+        ("divx104 divide  1  5   -> 0.2", c9hu);
+        ("divx105 divide  1  6   -> 0.166666667 Inexact Rounded", c9hu);
+        ("divx106 divide  1  7   -> 0.142857143 Inexact Rounded", c9hu);
+        ("divx107 divide  1  8   -> 0.125", c9hu);
+        ("divx108 divide  1  9   -> 0.111111111 Inexact Rounded", c9hu);
+        ("divx109 divide  1  10  -> 0.1", c9hu);
+        ("divx110 divide  1  1   -> 1", c9hu);
+        ("divx111 divide  2  1   -> 2", c9hu);
+        ("divx112 divide  3  1   -> 3", c9hu);
+        ("divx113 divide  4  1   -> 4", c9hu);
+        ("divx114 divide  5  1   -> 5", c9hu);
+        ("divx115 divide  6  1   -> 6", c9hu);
+        ("divx116 divide  7  1   -> 7", c9hu);
+        ("divx117 divide  8  1   -> 8", c9hu);
+        ("divx118 divide  9  1   -> 9", c9hu);
+        ("divx119 divide  10 1   -> 10", c9hu);
+    
+        ("divx120 divide  3E+1 0.001  -> 3E+4", c9hu);
+        ("divx121 divide  2.200 2     -> 1.100", c9hu);
+    
+        ("divx130 divide  12345  4.999  ->  2469.49390 Inexact Rounded", c9hu);
+        ("divx131 divide  12345  4.99   ->  2473.94790 Inexact Rounded", c9hu);
+        ("divx132 divide  12345  4.9    ->  2519.38776 Inexact Rounded", c9hu);
+        ("divx133 divide  12345  5      ->  2469", c9hu);
+        ("divx134 divide  12345  5.1    ->  2420.58824 Inexact Rounded", c9hu);
+        ("divx135 divide  12345  5.01   ->  2464.07186 Inexact Rounded", c9hu);
+        ("divx136 divide  12345  5.001  ->  2468.50630 Inexact Rounded", c9hu);
+    
+        //precision:   9
+        //maxexponent: 999999999
+        //minexponent: -999999999
+    
+        //-- test possibly imprecise results
+        ("divx220 divide 391   597 ->  0.654941374 Inexact Rounded", c9hu);
+        ("divx221 divide 391  -597 -> -0.654941374 Inexact Rounded", c9hu);
+        ("divx222 divide -391  597 -> -0.654941374 Inexact Rounded", c9hu);
+        ("divx223 divide -391 -597 ->  0.654941374 Inexact Rounded", c9hu);
+    
+        //-- test some cases that are close to exponent overflow
+        //maxexponent: 999999999
+        //minexponent: -999999999
+        ("divx270 divide 1 1e999999999    -> 1E-999999999", c9hu);
+        ("divx271 divide 1 0.9e999999999  -> 1.11111111E-999999999 Inexact Rounded", c9hu);
+        ("divx272 divide 1 0.99e999999999 -> 1.01010101E-999999999 Inexact Rounded", c9hu);
+        ("divx273 divide 1 0.999999999e999999999 -> 1.00000000E-999999999 Inexact Rounded", c9hu);
+        ("divx274 divide 9e999999999    1 -> 9E+999999999", c9hu);
+        ("divx275 divide 9.9e999999999  1 -> 9.9E+999999999", c9hu);
+        ("divx276 divide 9.99e999999999 1 -> 9.99E+999999999", c9hu);
+        ("divx277 divide 9.99999999e999999999 1 -> 9.99999999E+999999999", c9hu);
+    
+        ("divx280 divide 0.1 9e-999999999   -> 1.11111111E+999999997 Inexact Rounded", c9hu);
+        ("divx281 divide 0.1 99e-999999999  -> 1.01010101E+999999996 Inexact Rounded", c9hu);
+        ("divx282 divide 0.1 999e-999999999 -> 1.00100100E+999999995 Inexact Rounded", c9hu);
+    
+        ("divx283 divide 0.1 9e-999999998     -> 1.11111111E+999999996 Inexact Rounded", c9hu);
+        ("divx284 divide 0.1 99e-999999998    -> 1.01010101E+999999995 Inexact Rounded", c9hu);
+        ("divx285 divide 0.1 999e-999999998   -> 1.00100100E+999999994 Inexact Rounded", c9hu);
+        ("divx286 divide 0.1 999e-999999997   -> 1.00100100E+999999993 Inexact Rounded", c9hu);
+        ("divx287 divide 0.1 9999e-999999997  -> 1.00010001E+999999992 Inexact Rounded", c9hu);
+        ("divx288 divide 0.1 99999e-999999997 -> 1.00001000E+999999991 Inexact Rounded", c9hu);
+    
+        //-- Divide into 0 tests
+    
+        ("divx301 divide    0    7     -> 0", c9hu);
+        ("divx302 divide    0    7E-5  -> 0E+5", c9hu);
+        ("divx303 divide    0    7E-1  -> 0E+1", c9hu);
+        ("divx304 divide    0    7E+1  -> 0.0", c9hu);
+        ("divx305 divide    0    7E+5  -> 0.00000", c9hu);
+        ("divx306 divide    0    7E+6  -> 0.000000", c9hu);
+        ("divx307 divide    0    7E+7  -> 0E-7", c9hu);
+        ("divx308 divide    0   70E-5  -> 0E+5", c9hu);
+        ("divx309 divide    0   70E-1  -> 0E+1", c9hu);
+        ("divx310 divide    0   70E+0  -> 0", c9hu);
+        ("divx311 divide    0   70E+1  -> 0.0", c9hu);
+        ("divx312 divide    0   70E+5  -> 0.00000", c9hu);
+        ("divx313 divide    0   70E+6  -> 0.000000", c9hu);
+        ("divx314 divide    0   70E+7  -> 0E-7", c9hu);
+        ("divx315 divide    0  700E-5  -> 0E+5", c9hu);
+        ("divx316 divide    0  700E-1  -> 0E+1", c9hu);
+        ("divx317 divide    0  700E+0  -> 0", c9hu);
+        ("divx318 divide    0  700E+1  -> 0.0", c9hu);
+        ("divx319 divide    0  700E+5  -> 0.00000", c9hu);
+        ("divx320 divide    0  700E+6  -> 0.000000", c9hu);
+        ("divx321 divide    0  700E+7  -> 0E-7", c9hu);
+        ("divx322 divide    0  700E+77 -> 0E-77", c9hu);
+    
+        ("divx331 divide 0E-3    7E-5  -> 0E+2", c9hu);
+        ("divx332 divide 0E-3    7E-1  -> 0.00", c9hu);
+        ("divx333 divide 0E-3    7E+1  -> 0.0000", c9hu);
+        ("divx334 divide 0E-3    7E+5  -> 0E-8", c9hu);
+        ("divx335 divide 0E-1    7E-5  -> 0E+4", c9hu);
+        ("divx336 divide 0E-1    7E-1  -> 0", c9hu);
+        ("divx337 divide 0E-1    7E+1  -> 0.00", c9hu);
+        ("divx338 divide 0E-1    7E+5  -> 0.000000", c9hu);
+        ("divx339 divide 0E+1    7E-5  -> 0E+6", c9hu);
+        ("divx340 divide 0E+1    7E-1  -> 0E+2", c9hu);
+        ("divx341 divide 0E+1    7E+1  -> 0", c9hu);
+        ("divx342 divide 0E+1    7E+5  -> 0.0000", c9hu);
+        ("divx343 divide 0E+3    7E-5  -> 0E+8", c9hu);
+        ("divx344 divide 0E+3    7E-1  -> 0E+4", c9hu);
+        ("divx345 divide 0E+3    7E+1  -> 0E+2", c9hu);
+        ("divx346 divide 0E+3    7E+5  -> 0.00", c9hu);
+    
+    
+        //maxexponent: 92
+        //minexponent: -92
+        //precision:    7
+    
+        ("divx351 divide 0E-92   7E-1  -> 0E-91", c7hu);
+        ("divx352 divide 0E-92   7E+1  -> 0E-93", c7hu);
+        ("divx353 divide 0E-92   7E+5  -> 0E-97", c7hu);
+        ("divx354 divide 0E-92   7E+6  -> 0E-98", c7hu);
+        //TDiv("divx355 divide 0E-92   7E+7  -> 0E-98 Clamped", c7hu);
+        ("divx356 divide 0E-92 777E-1  -> 0E-91", c7hu);
+        ("divx357 divide 0E-92 777E+1  -> 0E-93", c7hu);
+        ("divx358 divide 0E-92 777E+3  -> 0E-95", c7hu);
+        ("divx359 divide 0E-92 777E+4  -> 0E-96", c7hu);
+        ("divx360 divide 0E-92 777E+5  -> 0E-97", c7hu);
+        ("divx361 divide 0E-92 777E+6  -> 0E-98", c7hu);
+        //TDiv("divx362 divide 0E-92 777E+7  -> 0E-98 Clamped", c7hu);
+        //TDiv("divx363 divide 0E-92   7E+92 -> 0E-98 Clamped", c7hu);
+    
+        ("divx371 divide 0E-92 700E-1  -> 0E-91", c7hu);
+        ("divx372 divide 0E-92 700E+1  -> 0E-93", c7hu);
+        ("divx373 divide 0E-92 700E+3  -> 0E-95", c7hu);
+        ("divx374 divide 0E-92 700E+4  -> 0E-96", c7hu);
+        ("divx375 divide 0E-92 700E+5  -> 0E-97", c7hu);
+        ("divx376 divide 0E-92 700E+6  -> 0E-98", c7hu);
+        //TDiv("divx377 divide 0E-92 700E+7  -> 0E-98 Clamped", c7hu);
+    
+        ("divx381 divide 0E+92   7E+1  -> 0E+91", c7hu);
+        ("divx382 divide 0E+92   7E+0  -> 0E+92", c7hu);
+        //TDiv("divx383 divide 0E+92   7E-1  -> 0E+92 Clamped", c7hu);
+        ("divx384 divide 0E+90 777E+1  -> 0E+89", c7hu);
+        ("divx385 divide 0E+90 777E-1  -> 0E+91", c7hu);
+        ("divx386 divide 0E+90 777E-2  -> 0E+92", c7hu);
+        //TDiv("divx387 divide 0E+90 777E-3  -> 0E+92 Clamped", c7hu);
+        //TDiv("divx388 divide 0E+90 777E-4  -> 0E+92 Clamped", c7hu);
+    
+        ("divx391 divide 0E+90 700E+1  -> 0E+89", c7hu);
+        ("divx392 divide 0E+90 700E-1  -> 0E+91", c7hu);
+        ("divx393 divide 0E+90 700E-2  -> 0E+92", c7hu);
+        //TDiv("divx394 divide 0E+90 700E-3  -> 0E+92 Clamped", c7hu);
+        //TDiv("divx395 divide 0E+90 700E-4  -> 0E+92 Clamped", c7hu);
+    
+        //-- input rounding checks
+        //maxexponent: 999
+        //minexponent: -999
+        //precision: 9
+        ("divx401 divide 12345678000 1 -> 1.23456780E+10 Rounded", c9hu);
+        ("divx402 divide 1 12345678000 -> 8.10000066E-11 Inexact Rounded", c9hu);
+        ("divx403 divide 1234567800  1 -> 1.23456780E+9  Rounded", c9hu);
+        ("divx404 divide 1 1234567800  -> 8.10000066E-10 Inexact Rounded", c9hu);
+        ("divx405 divide 1234567890  1 -> 1.23456789E+9  Rounded", c9hu);
+        ("divx406 divide 1 1234567890  -> 8.10000007E-10 Inexact Rounded", c9hu);
+        ("divx407 divide 1234567891  1 -> 1.23456789E+9  Inexact Rounded", c9hu);
+        ("divx408 divide 1 1234567891  -> 8.10000007E-10 Inexact Rounded", c9hu);
+        ("divx409 divide 12345678901 1 -> 1.23456789E+10 Inexact Rounded", c9hu);
+        ("divx410 divide 1 12345678901 -> 8.10000007E-11 Inexact Rounded", c9hu);
+        ("divx411 divide 1234567896  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
+        ("divx412 divide 1 1234567896  -> 8.10000003E-10 Inexact Rounded", c9hu);
+        ("divx413 divide 1 1234567897  -> 8.10000003E-10 Inexact Rounded", c9hu);
+        ("divx414 divide 1 1234567898  -> 8.10000002E-10 Inexact Rounded", c9hu);
+        ("divx415 divide 1 1234567899  -> 8.10000001E-10 Inexact Rounded", c9hu);
+        ("divx416 divide 1 1234567900  -> 8.10000001E-10 Inexact Rounded", c9hu);
+        ("divx417 divide 1 1234567901  -> 8.10000000E-10 Inexact Rounded", c9hu);
+        ("divx418 divide 1 1234567902  -> 8.09999999E-10 Inexact Rounded", c9hu);
+
+        //-- some longies
+        ("divx421 divide 1234567896.000000000000  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
+        ("divx422 divide 1 1234567896.000000000000  -> 8.10000003E-10 Inexact Rounded", c9hu);
+        ("divx423 divide 1234567896.000000000001  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
+        ("divx424 divide 1 1234567896.000000000001  -> 8.10000003E-10 Inexact Rounded", c9hu);
+        ("divx425 divide 1234567896.000000000000000000000000000000000000000009  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
+        ("divx426 divide 1 1234567896.000000000000000000000000000000000000000009  -> 8.10000003E-10 Inexact Rounded", c9hu);
+        ("divx427 divide 1234567897.900010000000000000000000000000000000000009  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
+        ("divx428 divide 1 1234567897.900010000000000000000000000000000000000009  -> 8.10000002E-10 Inexact Rounded", c9hu);
+    
+        //precision: 15
+        //-- still checking...
+    
+        ("divx441 divide 12345678000 1 -> 12345678000", c15hu);
+        ("divx442 divide 1 12345678000 -> 8.10000066420005E-11 Inexact Rounded", c15hu);
+        ("divx443 divide 1234567800  1 -> 1234567800", c15hu);
+        ("divx444 divide 1 1234567800  -> 8.10000066420005E-10 Inexact Rounded", c15hu);
+        ("divx445 divide 1234567890  1 -> 1234567890", c15hu);
+        ("divx446 divide 1 1234567890  -> 8.10000007371000E-10 Inexact Rounded", c15hu);
+        ("divx447 divide 1234567891  1 -> 1234567891", c15hu);
+        ("divx448 divide 1 1234567891  -> 8.10000006714900E-10 Inexact Rounded", c15hu);
+        ("divx449 divide 12345678901 1 -> 12345678901", c15hu);
+        ("divx450 divide 1 12345678901 -> 8.10000007305390E-11 Inexact Rounded", c15hu);
+        ("divx451 divide 1234567896  1 -> 1234567896", c15hu);
+        ("divx452 divide 1 1234567896  -> 8.10000003434400E-10 Inexact Rounded", c15hu);
+    
+         //-- high-lows
+        ("divx453 divide 1e+1   1    ->   1E+1", c15hu);
+        ("divx454 divide 1e+1   1.0  ->   1E+1", c15hu);
+        ("divx455 divide 1e+1   1.00 ->   1E+1", c15hu);
+        ("divx456 divide 1e+2   2    ->   5E+1", c15hu);
+        ("divx457 divide 1e+2   2.0  ->   5E+1", c15hu);
+        ("divx458 divide 1e+2   2.00 ->   5E+1", c15hu);
+    
+        //-- some from IEEE discussions
+        ("divx460 divide 3e0      2e0     -> 1.5", c15hu);
+        ("divx461 divide 30e-1    2e0     -> 1.5", c15hu);
+        ("divx462 divide 300e-2   2e0     -> 1.50", c15hu);
+        ("divx464 divide 3000e-3  2e0     -> 1.500", c15hu);
+        ("divx465 divide 3e0      20e-1   -> 1.5", c15hu);
+        ("divx466 divide 30e-1    20e-1   -> 1.5", c15hu);
+        ("divx467 divide 300e-2   20e-1   -> 1.5", c15hu);
+        ("divx468 divide 3000e-3  20e-1   -> 1.50", c15hu);
+        ("divx469 divide 3e0      200e-2  -> 1.5", c15hu);
+        ("divx470 divide 30e-1    200e-2  -> 1.5", c15hu);
+        ("divx471 divide 300e-2   200e-2  -> 1.5", c15hu);
+        ("divx472 divide 3000e-3  200e-2  -> 1.5", c15hu);
+        ("divx473 divide 3e0      2000e-3 -> 1.5", c15hu);
+        ("divx474 divide 30e-1    2000e-3 -> 1.5", c15hu);
+        ("divx475 divide 300e-2   2000e-3 -> 1.5", c15hu);
+        ("divx476 divide 3000e-3  2000e-3 -> 1.5", c15hu);
+    
+        //-- some reciprocals
+        ("divx480 divide 1        1.0E+33 -> 1E-33", c15hu);
+        ("divx481 divide 1        10E+33  -> 1E-34", c15hu);
+        ("divx482 divide 1        1.0E-33 -> 1E+33", c15hu);
+        ("divx483 divide 1        10E-33  -> 1E+32", c15hu);
+    
+        //-- RMS discussion table
+        //maxexponent:  96
+        //minexponent: -95
+        //precision:     7
+    
+        ("divx484 divide 0e5     1e3 ->   0E+2", c7hu);
+        ("divx485 divide 0e5     2e3 ->   0E+2", c7hu);
+        ("divx486 divide 0e5    10e2 ->   0E+3", c7hu);
+        ("divx487 divide 0e5    20e2 ->   0E+3", c7hu);
+        ("divx488 divide 0e5   100e1 ->   0E+4", c7hu);
+        ("divx489 divide 0e5   200e1 ->   0E+4", c7hu);
+    
+        ("divx491 divide 1e5     1e3 ->   1E+2", c7hu);
+        ("divx492 divide 1e5     2e3 ->   5E+1", c7hu);
+        ("divx493 divide 1e5    10e2 ->   1E+2", c7hu);
+        ("divx494 divide 1e5    20e2 ->   5E+1", c7hu);
+        ("divx495 divide 1e5   100e1 ->   1E+2", c7hu);
+        ("divx496 divide 1e5   200e1 ->   5E+1", c7hu);
+    
+    
+        //-- tryzeros cases
+        //precision:   7
+        //rounding:    half_up
+        //maxExponent: 92
+        //minexponent: -92
+        //TDiv("divx497  divide  0E+86 1000E-13  -> 0E+92 Clamped", c7hu);
+        //TDiv("divx498  divide  0E-98 1000E+13  -> 0E-98 Clamped", c7hu);
+    
+        //precision:   9
+        //rounding:    half_up
+        //maxExponent: 999
+         //minexponent: -999
+    
+        //-- focus on trailing zeros issues
+   
+        //precision:   9
+        ("divx500 divide  1      9.9    ->  0.101010101  Inexact Rounded", c9hu);
+        //precision:   8
+        ("divx501 divide  1      9.9    ->  0.10101010   Inexact Rounded", c8hu);
+        //precision:   7
+        ("divx502 divide  1      9.9    ->  0.1010101    Inexact Rounded", c7hu);
+        //precision:   6
+        ("divx503 divide  1      9.9    ->  0.101010     Inexact Rounded", c6hu);
+        //precision:   9
+    
+        ("divx511 divide 1         2    -> 0.5", c9hu);
+        ("divx512 divide 1.0       2    -> 0.5", c9hu);
+        ("divx513 divide 1.00      2    -> 0.50", c9hu);
+        ("divx514 divide 1.000     2    -> 0.500", c9hu);
+        ("divx515 divide 1.0000    2    -> 0.5000", c9hu);
+        ("divx516 divide 1.00000   2    -> 0.50000", c9hu);
+        ("divx517 divide 1.000000  2    -> 0.500000", c9hu);
+        ("divx518 divide 1.0000000 2    -> 0.5000000", c9hu);
+        ("divx519 divide 1.00      2.00 -> 0.5", c9hu);
+    
+        ("divx521 divide 2    1         -> 2", c9hu);
+        ("divx522 divide 2    1.0       -> 2", c9hu);
+        ("divx523 divide 2    1.00      -> 2", c9hu);
+        ("divx524 divide 2    1.000     -> 2", c9hu);
+        ("divx525 divide 2    1.0000    -> 2", c9hu);
+        ("divx526 divide 2    1.00000   -> 2", c9hu);
+        ("divx527 divide 2    1.000000  -> 2", c9hu);
+        ("divx528 divide 2    1.0000000 -> 2", c9hu);
+        ("divx529 divide 2.00 1.00      -> 2", c9hu);
+    
+        ("divx530 divide  2.40   2      ->  1.20", c9hu);
+        ("divx531 divide  2.40   4      ->  0.60", c9hu);
+        ("divx532 divide  2.40  10      ->  0.24", c9hu);
+        ("divx533 divide  2.40   2.0    ->  1.2", c9hu);
+        ("divx534 divide  2.40   4.0    ->  0.6", c9hu);
+        ("divx535 divide  2.40  10.0    ->  0.24", c9hu);
+        ("divx536 divide  2.40   2.00   ->  1.2", c9hu);
+        ("divx537 divide  2.40   4.00   ->  0.6", c9hu);
+        ("divx538 divide  2.40  10.00   ->  0.24", c9hu);
+        ("divx539 divide  0.9    0.1    ->  9", c9hu);
+        ("divx540 divide  0.9    0.01   ->  9E+1", c9hu);
+        ("divx541 divide  0.9    0.001  ->  9E+2", c9hu);
+        ("divx542 divide  5      2      ->  2.5", c9hu);
+        ("divx543 divide  5      2.0    ->  2.5", c9hu);
+        ("divx544 divide  5      2.00   ->  2.5", c9hu);
+        ("divx545 divide  5      20     ->  0.25", c9hu);
+        ("divx546 divide  5      20.0   ->  0.25", c9hu);
+        ("divx547 divide  2.400  2      ->  1.200", c9hu);
+        ("divx548 divide  2.400  2.0    ->  1.20", c9hu);
+        ("divx549 divide  2.400  2.400  ->  1", c9hu);
+    
+        ("divx550 divide  240    1      ->  240", c9hu);
+        ("divx551 divide  240    10     ->  24", c9hu);
+        ("divx552 divide  240    100    ->  2.4", c9hu);
+        ("divx553 divide  240    1000   ->  0.24", c9hu);
+        ("divx554 divide  2400   1      ->  2400", c9hu);
+        ("divx555 divide  2400   10     ->  240", c9hu);
+        ("divx556 divide  2400   100    ->  24", c9hu);
+        ("divx557 divide  2400   1000   ->  2.4", c9hu);
+    
+        //-- +ve exponent
+        //precision: 5
+        ("divx570 divide  2.4E+6     2  ->  1.2E+6", c5hu);
+        ("divx571 divide  2.40E+6    2  ->  1.20E+6", c5hu);
+        ("divx572 divide  2.400E+6   2  ->  1.200E+6", c5hu);
+        ("divx573 divide  2.4000E+6  2  ->  1.2000E+6", c5hu);
+        ("divx574 divide  24E+5      2  ->  1.2E+6", c5hu);
+        ("divx575 divide  240E+4     2  ->  1.20E+6", c5hu);
+        ("divx576 divide  2400E+3    2  ->  1.200E+6", c5hu);
+        ("divx577 divide  24000E+2   2  ->  1.2000E+6", c5hu);
+        //precision: 6
+        ("divx580 divide  2.4E+6     2  ->  1.2E+6", c6hu);
+        ("divx581 divide  2.40E+6    2  ->  1.20E+6", c6hu);
+        ("divx582 divide  2.400E+6   2  ->  1.200E+6", c6hu);
+        ("divx583 divide  2.4000E+6  2  ->  1.2000E+6", c6hu);
+        ("divx584 divide  24E+5      2  ->  1.2E+6", c6hu);
+        ("divx585 divide  240E+4     2  ->  1.20E+6", c6hu);
+        ("divx586 divide  2400E+3    2  ->  1.200E+6", c6hu);
+        ("divx587 divide  24000E+2   2  ->  1.2000E+6", c6hu);
+        //precision: 7
+        ("divx590 divide  2.4E+6     2  ->  1.2E+6", c7hu);
+        ("divx591 divide  2.40E+6    2  ->  1.20E+6", c7hu);
+        ("divx592 divide  2.400E+6   2  ->  1.200E+6", c7hu);
+        ("divx593 divide  2.4000E+6  2  ->  1.2000E+6", c7hu);
+        ("divx594 divide  24E+5      2  ->  1.2E+6", c7hu);
+        ("divx595 divide  240E+4     2  ->  1.20E+6", c7hu);
+        ("divx596 divide  2400E+3    2  ->  1.200E+6", c7hu);
+        ("divx597 divide  24000E+2   2  ->  1.2000E+6", c7hu);
+        //precision:   9
+        ("divx600 divide  2.4E+9     2  ->  1.2E+9", c9hu);
+        ("divx601 divide  2.40E+9    2  ->  1.20E+9", c9hu);
+        ("divx602 divide  2.400E+9   2  ->  1.200E+9", c9hu);
+        ("divx603 divide  2.4000E+9  2  ->  1.2000E+9", c9hu);
+        ("divx604 divide  24E+8      2  ->  1.2E+9", c9hu);
+        ("divx605 divide  240E+7     2  ->  1.20E+9", c9hu);
+        ("divx606 divide  2400E+6    2  ->  1.200E+9", c9hu);
+        ("divx607 divide  24000E+5   2  ->  1.2000E+9", c9hu);
+    
+    
+        //-- long operand triangle
+        //precision: 33
+        ("divx610 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131097703792 Inexact Rounded", Context.Create(33u, RoundingMode.HalfUp));
+        //precision: 32
+        ("divx611 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813109770379  Inexact Rounded", Context.Create(32u, RoundingMode.HalfUp));
+        //precision: 31
+        ("divx612 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81310977038   Inexact Rounded", Context.Create(31u, RoundingMode.HalfUp));
+        //precision: 30
+        ("divx613 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131097704    Inexact Rounded", Context.Create(30u, RoundingMode.HalfUp));
+        //precision: 29
+        ("divx614 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813109770     Inexact Rounded", Context.Create(29u, RoundingMode.HalfUp));
+        //precision: 28
+        ("divx615 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81310977      Inexact Rounded", Context.Create(28u, RoundingMode.HalfUp));
+        //precision: 27
+        ("divx616 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131098       Inexact Rounded", Context.Create(27u, RoundingMode.HalfUp));
+        //precision: 26
+        ("divx617 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813110        Inexact Rounded", Context.Create(26u, RoundingMode.HalfUp));
+        //precision: 25
+        ("divx618 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81311         Inexact Rounded", Context.Create(25u, RoundingMode.HalfUp));
+        //precision: 24
+        ("divx619 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131          Inexact Rounded", Context.Create(24u, RoundingMode.HalfUp));
+        //precision: 23
+        ("divx620 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813           Inexact Rounded", Context.Create(23u, RoundingMode.HalfUp));
+        //precision: 22
+        ("divx621 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81            Inexact Rounded", Context.Create(22u, RoundingMode.HalfUp));
+        //precision: 21
+        ("divx622 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8             Inexact Rounded", Context.Create(21u, RoundingMode.HalfUp));
+        //precision: 20
+        ("divx623 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817798               Inexact Rounded", Context.Create(20u, RoundingMode.HalfUp));
+        //precision: 19
+        ("divx624 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888379681780E+19         Inexact Rounded", Context.Create(19u, RoundingMode.HalfUp));
+        //precision: 18
+        ("divx625 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114088837968178E+19         Inexact Rounded", Context.Create(18u, RoundingMode.HalfUp));
+        //precision: 17
+        ("divx626 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011408883796818E+19         Inexact Rounded", Context.Create(17u, RoundingMode.HalfUp));
+        //precision: 16
+        ("divx627 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888379682E+19         Inexact Rounded", Context.Create(16u, RoundingMode.HalfUp));
+        //precision: 15
+        ("divx628 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114088837968E+19         Inexact Rounded", Context.Create(15u, RoundingMode.HalfUp));
+        //precision: 14
+        ("divx629 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011408883797E+19         Inexact Rounded", Context.Create(14u, RoundingMode.HalfUp));
+        //precision: 13
+        ("divx630 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888380E+19         Inexact Rounded", Context.Create(13u, RoundingMode.HalfUp));
+        //precision: 12
+        ("divx631 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114088838E+19         Inexact Rounded", Context.Create(12u, RoundingMode.HalfUp));
+        //precision: 11
+        ("divx632 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011408884E+19         Inexact Rounded", Context.Create(11u, RoundingMode.HalfUp));
+        //precision: 10
+        ("divx633 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888E+19         Inexact Rounded", Context.Create(10u, RoundingMode.HalfUp));
+        //precision:  9
+        ("divx634 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114089E+19         Inexact Rounded", Context.Create(9u, RoundingMode.HalfUp));
+        //precision:  8
+        ("divx635 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011409E+19         Inexact Rounded", Context.Create(8u, RoundingMode.HalfUp));
+        //precision:  7
+        ("divx636 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101141E+19         Inexact Rounded", Context.Create(7u, RoundingMode.HalfUp));
+        //precision:  6
+        ("divx637 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114E+19         Inexact Rounded", Context.Create(6u, RoundingMode.HalfUp));
+        //precision:  5
+        ("divx638 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011E+19         Inexact Rounded", Context.Create(5u, RoundingMode.HalfUp));
+        //precision:  4
+        ("divx639 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101E+19         Inexact Rounded", Context.Create(4u, RoundingMode.HalfUp));
+        //precision:  3
+        ("divx640 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10E+19         Inexact Rounded", Context.Create(3u, RoundingMode.HalfUp));
+        //precision:  2
+        ("divx641 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1E+19         Inexact Rounded", Context.Create(2u, RoundingMode.HalfUp));
+        //precision:  1
+        ("divx642 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4E+19         Inexact Rounded", Context.Create(1u, RoundingMode.HalfUp));
+    
+    
+        //-- more zeros, etc.
+        //precision:   16
+        //rounding:    half_up
+        //maxExponent: 384
+        //minExponent: -383
+    
+        ("divx731 divide 5.00 1E-3    -> 5.00E+3", c16hu);
+    
+        ("divx741 divide  0    -1     -> 0", c16hu); // mod: neg zero
+        ("divx742 divide -0    -1     ->  0", c16hu);
+        ("divx743 divide  0     1     ->  0", c16hu);
+        ("divx744 divide -0     1     -> 0", c16hu); // mod: neg zero
+    
+        ("divx751 divide  0.0  -1     -> 0.0", c16hu); // mod: neg zero
+        ("divx752 divide -0.0  -1     ->  0.0", c16hu);
+        ("divx753 divide  0.0   1     ->  0.0", c16hu);
+        ("divx754 divide -0.0   1     -> 0.0", c16hu); // mod: neg zero
+    
+        ("divx761 divide  0    -1.0   -> 0E+1", c16hu); // mod: neg zero
+        ("divx762 divide -0    -1.0   ->  0E+1", c16hu);
+        ("divx763 divide  0     1.0   ->  0E+1", c16hu);
+        ("divx764 divide -0     1.0   -> 0E+1", c16hu); // mod: neg zero
+    
+        ("divx771 divide  0.0  -1.0   -> 0", c16hu); // mod: neg zero
+        ("divx772 divide -0.0  -1.0   ->  0", c16hu);
+        ("divx773 divide  0.0   1.0   ->  0", c16hu);
+        ("divx774 divide -0.0   1.0   -> 0", c16hu); // mod: neg zero
+    
+        //precision:   34
+        //rounding:    half_up
+        //maxExponent: 6144
+        //minExponent: -6143
+    
+        //-- Examples from SQL proposal (Krishna Kulkarni)
+        //precision: 7
+        ("divx1021  divide 1E0          1E0 -> 1", c7hu);
+        ("divx1022  divide 1E0          2E0 -> 0.5", c7hu);
+        ("divx1023  divide 1E0          3E0 -> 0.3333333 Inexact Rounded", c7hu);
+        ("divx1024  divide 100E-2   1000E-3 -> 1", c7hu);
+        ("divx1025  divide 24E-1        2E0 -> 1.2", c7hu);
+        ("divx1026  divide 2400E-3      2E0 -> 1.200", c7hu);
+        ("divx1027  divide 5E0          2E0 -> 2.5", c7hu);
+        ("divx1028  divide 5E0        20E-1 -> 2.5", c7hu);
+        ("divx1029  divide 5E0      2000E-3 -> 2.5", c7hu);
+        ("divx1030  divide 5E0         2E-1 -> 25", c7hu);
+        ("divx1031  divide 5E0        20E-2 -> 25", c7hu);
+        ("divx1032  divide 480E-2       3E0 -> 1.60", c7hu);
+        ("divx1033  divide 47E-1        2E0 -> 2.35", c7hu);
+    
+        //-- ECMAScript bad examples
+    
+        //rounding:    half_down
+        //precision: 7
+        ("divx1050  divide 5 9  -> 0.5555556 Inexact Rounded", c7hd);
+        //rounding:    half_even
+        ("divx1051  divide 5 11 -> 0.4545455 Inexact Rounded", c7he);    
+    ]
+
+let badDivideTests = 
+    [
+        ("divx732 divide 00.00 0.000  -> NaN Division_undefined", c16hu);
+        ("divx733 divide 00.00 0E-3   -> NaN Division_undefined", c16hu);
+        ("divx734 divide  0    -0     -> NaN Division_undefined", c16hu);
+        ("divx735 divide -0     0     -> NaN Division_undefined", c16hu);
+        ("divx736 divide -0    -0     -> NaN Division_undefined", c16hu);
+        ("divx745 divide -1     0     -> -Infinity Division_by_zero", c16hu);
+        ("divx746 divide -1    -0     ->  Infinity Division_by_zero", c16hu);
+        ("divx747 divide  1     0     ->  Infinity Division_by_zero", c16hu);
+        ("divx748 divide  1    -0     -> -Infinity Division_by_zero", c16hu);
+        ("divx755 divide -1.0   0     -> -Infinity Division_by_zero", c16hu);
+        ("divx756 divide -1.0  -0     ->  Infinity Division_by_zero", c16hu);
+        ("divx757 divide  1.0   0     ->  Infinity Division_by_zero", c16hu);
+        ("divx758 divide  1.0  -0     -> -Infinity Division_by_zero", c16hu);
+        ("divx765 divide -1     0.0   -> -Infinity Division_by_zero", c16hu);
+        ("divx766 divide -1    -0.0   ->  Infinity Division_by_zero", c16hu);
+        ("divx767 divide  1     0.0   ->  Infinity Division_by_zero", c16hu);
+        ("divx768 divide  1    -0.0   -> -Infinity Division_by_zero", c16hu);
+        ("divx775 divide -1.0   0.0   -> -Infinity Division_by_zero", c16hu);
+        ("divx776 divide -1.0  -0.0   ->  Infinity Division_by_zero", c16hu);
+        ("divx777 divide  1.0   0.0   ->  Infinity Division_by_zero", c16hu);
+        ("divx778 divide  1.0  -0.0   -> -Infinity Division_by_zero ", c16hu);
+    
+        //-- Various flavours of divide by 0
+        ("divx901 divide    0       0   ->  NaN Division_undefined", c16hu);
+        ("divx902 divide    0.0E5   0   ->  NaN Division_undefined", c16hu);
+        ("divx903 divide    0.000   0   ->  NaN Division_undefined", c16hu);
+        ("divx904 divide    0.0001  0   ->  Infinity Division_by_zero", c16hu);
+        ("divx905 divide    0.01    0   ->  Infinity Division_by_zero", c16hu);
+        ("divx906 divide    0.1     0   ->  Infinity Division_by_zero", c16hu);
+        ("divx907 divide    1       0   ->  Infinity Division_by_zero", c16hu);
+        ("divx908 divide    1       0.0 ->  Infinity Division_by_zero", c16hu);
+        ("divx909 divide   10       0.0 ->  Infinity Division_by_zero", c16hu);
+        ("divx910 divide   1E+100   0.0 ->  Infinity Division_by_zero", c16hu);
+        ("divx911 divide   1E+1000  0   ->  Infinity Division_by_zero", c16hu);
+    
+        ("divx921 divide   -0.0001  0   -> -Infinity Division_by_zero", c16hu);
+        ("divx922 divide   -0.01    0   -> -Infinity Division_by_zero", c16hu);
+        ("divx923 divide   -0.1     0   -> -Infinity Division_by_zero", c16hu);
+        ("divx924 divide   -1       0   -> -Infinity Division_by_zero", c16hu);
+        ("divx925 divide   -1       0.0 -> -Infinity Division_by_zero", c16hu);
+        ("divx926 divide  -10       0.0 -> -Infinity Division_by_zero", c16hu);
+        ("divx927 divide  -1E+100   0.0 -> -Infinity Division_by_zero", c16hu);
+        ("divx928 divide  -1E+1000  0   -> -Infinity Division_by_zero", c16hu);
+    
+        ("divx931 divide    0.0001 -0   -> -Infinity Division_by_zero", c16hu);
+        ("divx932 divide    0.01   -0   -> -Infinity Division_by_zero", c16hu);
+        ("divx933 divide    0.1    -0   -> -Infinity Division_by_zero", c16hu);
+        ("divx934 divide    1      -0   -> -Infinity Division_by_zero", c16hu);
+        ("divx935 divide    1      -0.0 -> -Infinity Division_by_zero", c16hu);
+        ("divx936 divide   10      -0.0 -> -Infinity Division_by_zero", c16hu);
+        ("divx937 divide   1E+100  -0.0 -> -Infinity Division_by_zero", c16hu);
+        ("divx938 divide   1E+1000 -0   -> -Infinity Division_by_zero", c16hu);
+    
+        ("divx941 divide   -0.0001 -0   ->  Infinity Division_by_zero", c16hu);
+        ("divx942 divide   -0.01   -0   ->  Infinity Division_by_zero", c16hu);
+        ("divx943 divide   -0.1    -0   ->  Infinity Division_by_zero", c16hu);
+        ("divx944 divide   -1      -0   ->  Infinity Division_by_zero", c16hu);
+        ("divx945 divide   -1      -0.0 ->  Infinity Division_by_zero", c16hu);
+        ("divx946 divide  -10      -0.0 ->  Infinity Division_by_zero", c16hu);
+        ("divx947 divide  -1E+100  -0.0 ->  Infinity Division_by_zero", c16hu);
+        ("divx948 divide  -1E+1000 -0   ->  Infinity Division_by_zero", c16hu);
+    ]
+
+let c0u = Context.Create(0u,RoundingMode.Unnecessary)
+
+let noContextDivideTests =
+    [
+        //-- sanity checks
+        ("divx001 divide  1     1    ->  1", c0u);
+        ("divx002 divide  2     1    ->  2", c0u);
+        ("divx003 divide  1     2    ->  0.5", c0u);
+        ("divx004 divide  2     2    ->  1", c0u);
+        ("divx005 divide  0     1    ->  0", c0u);
+        ("divx006 divide  0     2    ->  0", c0u);
+        ("divx009 divide  3     3    ->  1", c0u);    
+        ("divx010 divide  2.4   1    ->  2.4", c0u);
+        ("divx011 divide  2.4   -1   ->  -2.4", c0u);
+    ]
+
+let noContextDivideErrorTexts =
+    [
+        //-- sanity checks -- failures
+        ("divx007 divide  1     3    ->  0.333333333 Inexact Rounded", c0u);
+        ("divx008 divide  2     3    ->  0.666666667 Inexact Rounded", c0u);
+    ]
+
+[<Tests>]
+let basicDivideTestList = testList "division examples" (createDivideTests specDivideTests)
+
+[<Tests>]
+let badDivideTestList = testList "bad division examples" (createDivideTestsEx badDivideTests)
+
+[<Tests>]
+let noContextDivideTestList = testList "no context division examples" (createDivideTests noContextDivideTests)
+
+[<Tests>]
+let noContextDivideErrorTestList = testList "bad no context division examples" (createDivideTestsEx noContextDivideErrorTexts)
+
+
+///////////////////////////
+// DivInt tests
+///////////////////////////
+
+
+let divIntTest arg1Str arg2Str c resultStr = 
+    let arg1 = BigDecimal.Parse(arg1Str)
+    let arg2 = BigDecimal.Parse(arg2Str)
+    let div = arg1.DivideInteger(arg2,c)
+    let divStr = div.ToScientificString()
+    Expect.equal divStr resultStr "quotient"
+
+
+let divIntTestFromStrEx test c =
+    let arg1Str, arg2Str, resultStr = getThreeArgs test
+    Expect.throwsT<ArithmeticException> (fun () -> divIntTest arg1Str arg2Str c resultStr) "throws ArithmeticException"
+ 
+let divIntTestFromStr test c =
+    let arg1Str, arg2Str, resultsStr = getThreeArgs test
+    divIntTest arg1Str arg2Str c resultsStr 
+
+
+let createDivIntTests data = 
+    data
+    |> List.map (fun (test, c) ->
+           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                divIntTestFromStr test c
+           )
+
+
+let createDivIntTestsEx data = 
+    data
+    |> List.map (fun (test, c) ->
+           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                divIntTestFromStrEx test c
+           )
+
+let specDivIntTests =    
+    [
+
+        //extended:    1
+        //precision:   9
+        //rounding:    half_up
+        //maxExponent: 384
+        //minexponent: -383
+    
+        ("dvix001 divideint  1     1    ->  1", c9hu);
+        ("dvix002 divideint  2     1    ->  2", c9hu);
+        ("dvix003 divideint  1     2    ->  0", c9hu);
+        ("dvix004 divideint  2     2    ->  1", c9hu);
+        ("dvix005 divideint  0     1    ->  0", c9hu);
+        ("dvix006 divideint  0     2    ->  0", c9hu);
+        ("dvix007 divideint  1     3    ->  0", c9hu);
+        ("dvix008 divideint  2     3    ->  0", c9hu);
+        ("dvix009 divideint  3     3    ->  1", c9hu);
+    
+        ("dvix010 divideint  2.4   1    ->  2", c9hu);
+        ("dvix011 divideint  2.4   -1   ->  -2", c9hu);
+        ("dvix012 divideint  -2.4  1    ->  -2", c9hu);
+        ("dvix013 divideint  -2.4  -1   ->  2", c9hu);
+        ("dvix014 divideint  2.40  1    ->  2", c9hu);
+        ("dvix015 divideint  2.400 1    ->  2", c9hu);
+        ("dvix016 divideint  2.4   2    ->  1", c9hu);
+        ("dvix017 divideint  2.400 2    ->  1", c9hu);
+        ("dvix018 divideint  2.    2    ->  1", c9hu);
+        ("dvix019 divideint  20    20   ->  1", c9hu);
+    
+        ("dvix020 divideint  187   187  ->  1", c9hu);
+        ("dvix021 divideint  5     2    ->  2", c9hu);
+        ("dvix022 divideint  5     2.0    ->  2", c9hu);
+        ("dvix023 divideint  5     2.000  ->  2", c9hu);
+        ("dvix024 divideint  5     0.200  ->  25", c9hu);
+        ("dvix025 divideint  5     0.200  ->  25", c9hu);
+    
+        ("dvix030 divideint  1     2      ->  0", c9hu);
+        ("dvix031 divideint  1     4      ->  0", c9hu);
+        ("dvix032 divideint  1     8      ->  0", c9hu);
+        ("dvix033 divideint  1     16     ->  0", c9hu);
+        ("dvix034 divideint  1     32     ->  0", c9hu);
+        ("dvix035 divideint  1     64     ->  0", c9hu);
+        ("dvix040 divideint  1    -2      -> 0", c9hu); // mod: neg zero
+        ("dvix041 divideint  1    -4      -> 0", c9hu); // mod: neg zero
+        ("dvix042 divideint  1    -8      -> 0", c9hu); // mod: neg zero
+        ("dvix043 divideint  1    -16     -> 0", c9hu); // mod: neg zero
+        ("dvix044 divideint  1    -32     -> 0", c9hu); // mod: neg zero
+        ("dvix045 divideint  1    -64     -> 0", c9hu); // mod: neg zero
+        ("dvix050 divideint -1     2      -> 0", c9hu); // mod: neg zero
+        ("dvix051 divideint -1     4      -> 0", c9hu); // mod: neg zero
+        ("dvix052 divideint -1     8      -> 0", c9hu); // mod: neg zero
+        ("dvix053 divideint -1     16     -> 0", c9hu); // mod: neg zero
+        ("dvix054 divideint -1     32     -> 0", c9hu); // mod: neg zero
+        ("dvix055 divideint -1     64     -> 0", c9hu); // mod: neg zero
+        ("dvix060 divideint -1    -2      ->  0", c9hu);
+        ("dvix061 divideint -1    -4      ->  0", c9hu);
+        ("dvix062 divideint -1    -8      ->  0", c9hu);
+        ("dvix063 divideint -1    -16     ->  0", c9hu);
+        ("dvix064 divideint -1    -32     ->  0", c9hu);
+        ("dvix065 divideint -1    -64     ->  0", c9hu);
+    
+        //-- similar with powers of ten
+        ("dvix160 divideint  1     1         ->  1", c9hu);
+        ("dvix161 divideint  1     10        ->  0", c9hu);
+        ("dvix162 divideint  1     100       ->  0", c9hu);
+        ("dvix163 divideint  1     1000      ->  0", c9hu);
+        ("dvix164 divideint  1     10000     ->  0", c9hu);
+        ("dvix165 divideint  1     100000    ->  0", c9hu);
+        ("dvix166 divideint  1     1000000   ->  0", c9hu);
+        ("dvix167 divideint  1     10000000  ->  0", c9hu);
+        ("dvix168 divideint  1     100000000 ->  0", c9hu);
+        ("dvix170 divideint  1    -1         -> -1", c9hu);
+        ("dvix171 divideint  1    -10        -> 0", c9hu); // mod: neg zero
+        ("dvix172 divideint  1    -100       -> 0", c9hu); // mod: neg zero
+        ("dvix173 divideint  1    -1000      -> 0", c9hu); // mod: neg zero
+        ("dvix174 divideint  1    -10000     -> 0", c9hu); // mod: neg zero
+        ("dvix175 divideint  1    -100000    -> 0", c9hu); // mod: neg zero
+        ("dvix176 divideint  1    -1000000   -> 0", c9hu); // mod: neg zero
+        ("dvix177 divideint  1    -10000000  -> 0", c9hu); // mod: neg zero
+        ("dvix178 divideint  1    -100000000 -> 0", c9hu); // mod: neg zero
+        ("dvix180 divideint -1     1         -> -1", c9hu);
+        ("dvix181 divideint -1     10        -> 0", c9hu); // mod: neg zero
+        ("dvix182 divideint -1     100       -> 0", c9hu); // mod: neg zero
+        ("dvix183 divideint -1     1000      -> 0", c9hu); // mod: neg zero
+        ("dvix184 divideint -1     10000     -> 0", c9hu); // mod: neg zero
+        ("dvix185 divideint -1     100000    -> 0", c9hu); // mod: neg zero
+        ("dvix186 divideint -1     1000000   -> 0", c9hu); // mod: neg zero
+        ("dvix187 divideint -1     10000000  -> 0", c9hu); // mod: neg zero
+        ("dvix188 divideint -1     100000000 -> 0", c9hu); // mod: neg zero
+        ("dvix190 divideint -1    -1         ->  1", c9hu);
+        ("dvix191 divideint -1    -10        ->  0", c9hu);
+        ("dvix192 divideint -1    -100       ->  0", c9hu);
+        ("dvix193 divideint -1    -1000      ->  0", c9hu);
+        ("dvix194 divideint -1    -10000     ->  0", c9hu);
+        ("dvix195 divideint -1    -100000    ->  0", c9hu);
+        ("dvix196 divideint -1    -1000000   ->  0", c9hu);
+        ("dvix197 divideint -1    -10000000  ->  0", c9hu);
+        ("dvix198 divideint -1    -100000000 ->  0", c9hu);
+    
+        //-- some long operand cases here
+        ("dvix070 divideint  999999999     1  ->  999999999", c9hu);
+        ("dvix071 divideint  999999999.4   1  ->  999999999", c9hu);
+        ("dvix072 divideint  999999999.5   1  ->  999999999", c9hu);
+        ("dvix073 divideint  999999999.9   1  ->  999999999", c9hu);
+        ("dvix074 divideint  999999999.999 1  ->  999999999", c9hu);
+        //precision: 6
+    
+        ("dvix083 divideint  999999        1  ->  999999", c6hu);
+        ("dvix084 divideint  99999         1  ->  99999", c6hu);
+        ("dvix085 divideint  9999          1  ->  9999", c6hu);
+        ("dvix086 divideint  999           1  ->  999", c6hu);
+        ("dvix087 divideint  99            1  ->  99", c6hu);
+        ("dvix088 divideint  9             1  ->  9", c6hu);
+    
+        //precision: 9
+        ("dvix090 divideint  0.            1    ->  0", c9hu);
+        ("dvix091 divideint  .0            1    ->  0", c9hu);
+        ("dvix092 divideint  0.00          1    ->  0", c9hu);
+        ("dvix093 divideint  0.00E+9       1    ->  0", c9hu);
+        ("dvix094 divideint  0.0000E-50    1    ->  0", c9hu);
+    
+        ("dvix100 divideint  1  1   -> 1", c9hu);
+        ("dvix101 divideint  1  2   -> 0", c9hu);
+        ("dvix102 divideint  1  3   -> 0", c9hu);
+        ("dvix103 divideint  1  4   -> 0", c9hu);
+        ("dvix104 divideint  1  5   -> 0", c9hu);
+        ("dvix105 divideint  1  6   -> 0", c9hu);
+        ("dvix106 divideint  1  7   -> 0", c9hu);
+        ("dvix107 divideint  1  8   -> 0", c9hu);
+        ("dvix108 divideint  1  9   -> 0", c9hu);
+        ("dvix109 divideint  1  10  -> 0", c9hu);
+        ("dvix110 divideint  1  1   -> 1", c9hu);
+        ("dvix111 divideint  2  1   -> 2", c9hu);
+        ("dvix112 divideint  3  1   -> 3", c9hu);
+        ("dvix113 divideint  4  1   -> 4", c9hu);
+        ("dvix114 divideint  5  1   -> 5", c9hu);
+        ("dvix115 divideint  6  1   -> 6", c9hu);
+        ("dvix116 divideint  7  1   -> 7", c9hu);
+        ("dvix117 divideint  8  1   -> 8", c9hu);
+        ("dvix118 divideint  9  1   -> 9", c9hu);
+        ("dvix119 divideint  10 1   -> 10", c9hu);
+    
+        //-- from DiagBigDecimal
+        ("dvix131 divideint  101.3   1     ->  101", c9hu);
+        ("dvix132 divideint  101.0   1     ->  101", c9hu);
+        ("dvix133 divideint  101.3   3     ->  33", c9hu);
+        ("dvix134 divideint  101.0   3     ->  33", c9hu);
+        ("dvix135 divideint  2.4     1     ->  2", c9hu);
+        ("dvix136 divideint  2.400   1     ->  2", c9hu);
+        ("dvix137 divideint  18      18    ->  1", c9hu);
+        ("dvix138 divideint  1120    1000  ->  1", c9hu);
+        ("dvix139 divideint  2.4     2     ->  1", c9hu);
+        ("dvix140 divideint  2.400   2     ->  1", c9hu);
+        ("dvix141 divideint  0.5     2.000 ->  0", c9hu);
+        ("dvix142 divideint  8.005   7     ->  1", c9hu);
+        ("dvix143 divideint  5       2     ->  2", c9hu);
+        ("dvix144 divideint  0       2     ->  0", c9hu);
+        ("dvix145 divideint  0.00    2     ->  0", c9hu);
+    
+        //-- Others
+        ("dvix150 divideint  12345  4.999  ->  2469", c9hu);
+        ("dvix151 divideint  12345  4.99   ->  2473", c9hu);
+        ("dvix152 divideint  12345  4.9    ->  2519", c9hu);
+        ("dvix153 divideint  12345  5      ->  2469", c9hu);
+        ("dvix154 divideint  12345  5.1    ->  2420", c9hu);
+        ("dvix155 divideint  12345  5.01   ->  2464", c9hu);
+        ("dvix156 divideint  12345  5.001  ->  2468", c9hu);
+        ("dvix157 divideint    101  7.6    ->  13", c9hu);
+        // TODO: Reactivate these tests when we can handle the align (irrelevant when the numbers are so different)
+    
+        // -- test some cases that are close to exponent overflow
+        //maxexponent: 999999999
+        //minexponent: -999999999
+        //TDivI("dvix270 divideint 1 1e999999999    -> 0", c9hu);
+        //TDivI("dvix271 divideint 1 0.9e999999999  -> 0", c9hu);
+        //TDivI("dvix272 divideint 1 0.99e999999999 -> 0", c9hu);
+        //TDivI("dvix273 divideint 1 0.999999999e999999999 -> 0", c9hu);
+        //TDivIEx("dvix274 divideint 9e999999999    1       -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix275 divideint 9.9e999999999  1       -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix276 divideint 9.99e999999999 1       -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix277 divideint 9.99999999e999999999 1 -> NaN Division_impossible", c9hu);
+    
+        //TDivIEx("dvix280 divideint 0.1 9e-999999999       -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix281 divideint 0.1 99e-999999999      -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix282 divideint 0.1 999e-999999999     -> NaN Division_impossible", c9hu);
+    
+        //TDivIEx("dvix283 divideint 0.1 9e-999999998       -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix284 divideint 0.1 99e-999999998      -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix285 divideint 0.1 999e-999999998     -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix286 divideint 0.1 999e-999999997     -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix287 divideint 0.1 9999e-999999997    -> NaN Division_impossible", c9hu);
+        //TDivIEx("dvix288 divideint 0.1 99999e-999999997   -> NaN Division_impossible", c9hu);
+    
+        //-- GD edge cases: lhs smaller than rhs but more digits
+        ("dvix301  divideint  0.9      2      ->  0", c9hu);
+        ("dvix302  divideint  0.9      2.0    ->  0", c9hu);
+        ("dvix303  divideint  0.9      2.1    ->  0", c9hu);
+        ("dvix304  divideint  0.9      2.00   ->  0", c9hu);
+        ("dvix305  divideint  0.9      2.01   ->  0", c9hu);
+        ("dvix306  divideint  0.12     1      ->  0", c9hu);
+        ("dvix307  divideint  0.12     1.0    ->  0", c9hu);
+        ("dvix308  divideint  0.12     1.00   ->  0", c9hu);
+        ("dvix309  divideint  0.12     1.0    ->  0", c9hu);
+        ("dvix310  divideint  0.12     1.00   ->  0", c9hu);
+        ("dvix311  divideint  0.12     2      ->  0", c9hu);
+        ("dvix312  divideint  0.12     2.0    ->  0", c9hu);
+        ("dvix313  divideint  0.12     2.1    ->  0", c9hu);
+        ("dvix314  divideint  0.12     2.00   ->  0", c9hu);
+        ("dvix315  divideint  0.12     2.01   ->  0", c9hu);
+    
+        //-- overflow and underflow tests [from divide]
+        //maxexponent: 999999999
+        //minexponent: -999999999
+        //TDivI("dvix330 divideint +1.23456789012345E-0 9E+999999999    -> 0", c9hu);
+        //TDivIEx("dvix331 divideint 9E+999999999 +0.23456789012345E-0 -> NaN Division_impossible", c9hu);
+        //TDivI("dvix332 divideint +0.100 9E+999999999    -> 0", c9hu);
+        //TDivI("dvix333 divideint 9E-999999999 +9.100    -> 0", c9hu);
+        //TDivI("dvix335 divideint -1.23456789012345E-0 9E+999999999    -> -0", c9hu);
+        //TDivIEx("dvix336 divideint 9E+999999999 -0.83456789012345E-0 -> NaN Division_impossible", c9hu);
+        //TDivI("dvix337 divideint -0.100 9E+999999999    -> -0", c9hu);
+        //TDivI("dvix338 divideint 9E-999999999 -9.100    -> -0", c9hu);
+    
+        //-- long operand checks
+        //maxexponent: 999
+        //minexponent: -999
+        //precision: 9
+        ("dvix401 divideint 12345678000 100 -> 123456780", c9hu);
+        ("dvix402 divideint 1 12345678000   -> 0", c9hu);
+        ("dvix403 divideint 1234567800  10  -> 123456780", c9hu);
+        ("dvix404 divideint 1 1234567800    -> 0", c9hu);
+        ("dvix405 divideint 1234567890  10  -> 123456789", c9hu);
+        ("dvix406 divideint 1 1234567890    -> 0", c9hu);
+        ("dvix407 divideint 1234567891  10  -> 123456789", c9hu);
+        ("dvix408 divideint 1 1234567891    -> 0", c9hu);
+        ("dvix409 divideint 12345678901 100 -> 123456789", c9hu);
+        ("dvix410 divideint 1 12345678901   -> 0", c9hu);
+        ("dvix411 divideint 1234567896  10  -> 123456789", c9hu);
+        ("dvix412 divideint 1 1234567896    -> 0", c9hu);
+        ("dvix413 divideint 12345678948 100 -> 123456789", c9hu);
+        ("dvix414 divideint 12345678949 100 -> 123456789", c9hu);
+        ("dvix415 divideint 12345678950 100 -> 123456789", c9hu);
+        ("dvix416 divideint 12345678951 100 -> 123456789", c9hu);
+        ("dvix417 divideint 12345678999 100 -> 123456789", c9hu);
+    
+        //precision: 15
+    
+        ("dvix441 divideint 12345678000 1 -> 12345678000", c15hu);
+        ("dvix442 divideint 1 12345678000 -> 0", c15hu);
+        ("dvix443 divideint 1234567800  1 -> 1234567800", c15hu);
+        ("dvix444 divideint 1 1234567800  -> 0", c15hu);
+        ("dvix445 divideint 1234567890  1 -> 1234567890", c15hu);
+        ("dvix446 divideint 1 1234567890  -> 0", c9hu);
+        ("dvix447 divideint 1234567891  1 -> 1234567891", c15hu);
+        ("dvix448 divideint 1 1234567891  -> 0", c9hu);
+        ("dvix449 divideint 12345678901 1 -> 12345678901", c15hu);
+        ("dvix450 divideint 1 12345678901 -> 0", c15hu);
+        ("dvix451 divideint 1234567896  1 -> 1234567896", c15hu);
+        ("dvix452 divideint 1 1234567896  -> 0", c15hu);
+
+        //precision:   9
+        //rounding:    half_up
+        //maxExponent: 999
+        //minexponent: -999
+    
+        //-- more zeros, etc.
+        ("dvix531 divideint 5.00 1E-3    -> 5000", c9hu);
+        ("dvix541 divideint  0    -1     -> 0", c9hu); // mod: neg zero
+        ("dvix542 divideint -0    -1     ->  0", c9hu);
+        ("dvix543 divideint  0     1     ->  0", c9hu);
+        ("dvix544 divideint -0     1     -> 0", c9hu); // mod: neg zero
+
+        ("dvix551 divideint  0.0  -1     -> 0", c9hu); // mod: neg zero
+        ("dvix552 divideint -0.0  -1     ->  0", c9hu);
+        ("dvix553 divideint  0.0   1     ->  0", c9hu);
+        ("dvix554 divideint -0.0   1     -> 0", c9hu); // mod: neg zero
+    
+    
+        ("dvix561 divideint  0    -1.0   -> 0", c9hu); // mod: neg zero
+        ("dvix562 divideint -0    -1.0   ->  0", c9hu);
+        ("dvix563 divideint  0     1.0   ->  0", c9hu);
+        ("dvix564 divideint -0     1.0   -> 0", c9hu); // mod: neg zero
+    
+        ("dvix571 divideint  0.0  -1.0   -> 0", c9hu); // mod: neg zero
+        ("dvix572 divideint -0.0  -1.0   ->  0", c9hu);
+        ("dvix573 divideint  0.0   1.0   ->  0", c9hu);
+        ("dvix574 divideint -0.0   1.0   -> 0", c9hu); // mod: neg zero    
+    ]
+
+let specIntDivErrorTests = 
+    [
+
+        ("dvix080 divideint  999999999     1  ->  NaN Division_impossible", c6hu);
+        ("dvix081 divideint  99999999      1  ->  NaN Division_impossible", c6hu);
+        ("dvix082 divideint  9999999       1  ->  NaN Division_impossible", c6hu);
+        //-- Various flavours of divideint by 0
+        //maxexponent: 999999999
+        //minexponent: -999999999
+        ("dvix201 divideint  0      0   -> NaN Division_undefined", c9hu);
+        ("dvix202 divideint  0.0E5  0   -> NaN Division_undefined", c9hu);
+        ("dvix203 divideint  0.000  0   -> NaN Division_undefined", c9hu);
+        ("dvix204 divideint  0.0001 0   -> Infinity Division_by_zero", c9hu);
+        ("dvix205 divideint  0.01   0   -> Infinity Division_by_zero", c9hu);
+        ("dvix206 divideint  0.1    0   -> Infinity Division_by_zero", c9hu);
+        ("dvix207 divideint  1      0   -> Infinity Division_by_zero", c9hu);
+        ("dvix208 divideint  1      0.0 -> Infinity Division_by_zero", c9hu);
+        ("dvix209 divideint 10      0.0 -> Infinity Division_by_zero", c9hu);
+        ("dvix210 divideint 1E+100  0.0 -> Infinity Division_by_zero", c9hu);
+        ("dvix211 divideint 1E+1000 0   -> Infinity Division_by_zero", c9hu);
+        ("dvix214 divideint  -0.0001 0   -> -Infinity Division_by_zero", c9hu);
+        ("dvix215 divideint  -0.01   0   -> -Infinity Division_by_zero", c9hu);
+        ("dvix216 divideint  -0.1    0   -> -Infinity Division_by_zero", c9hu);
+        ("dvix217 divideint  -1      0   -> -Infinity Division_by_zero", c9hu);
+        ("dvix218 divideint  -1      0.0 -> -Infinity Division_by_zero", c9hu);
+        ("dvix219 divideint -10      0.0 -> -Infinity Division_by_zero", c9hu);
+        ("dvix220 divideint -1E+100  0.0 -> -Infinity Division_by_zero", c9hu);
+        ("dvix221 divideint -1E+1000 0   -> -Infinity Division_by_zero", c9hu);
+    
+        //precision:   9
+        //rounding:    half_up
+        //maxExponent: 999
+        //minexponent: -999
+    
+        //-- more zeros, etc.
+        ("dvix533 divideint 00.00 0E-3   -> NaN Division_undefined", c9hu);
+        ("dvix534 divideint  0    -0     -> NaN Division_undefined", c9hu);
+        ("dvix535 divideint -0     0     -> NaN Division_undefined", c9hu);
+        ("dvix536 divideint -0    -0     -> NaN Division_undefined", c9hu);
+
+        ("dvix545 divideint -1     0     -> -Infinity Division_by_zero", c9hu);
+        ("dvix546 divideint -1    -0     ->  Infinity Division_by_zero", c9hu);
+        ("dvix547 divideint  1     0     ->  Infinity Division_by_zero", c9hu);
+        ("dvix548 divideint  1    -0     -> -Infinity Division_by_zero", c9hu);
+
+        ("dvix555 divideint -1.0   0     -> -Infinity Division_by_zero", c9hu);
+        ("dvix556 divideint -1.0  -0     ->  Infinity Division_by_zero", c9hu);
+        ("dvix557 divideint  1.0   0     ->  Infinity Division_by_zero", c9hu);
+        ("dvix558 divideint  1.0  -0     -> -Infinity Division_by_zero", c9hu);
+
+        ("dvix565 divideint -1     0.0   -> -Infinity Division_by_zero", c9hu);
+        ("dvix566 divideint -1    -0.0   ->  Infinity Division_by_zero", c9hu);
+        ("dvix567 divideint  1     0.0   ->  Infinity Division_by_zero", c9hu);
+        ("dvix568 divideint  1    -0.0   -> -Infinity Division_by_zero", c9hu);
+
+        ("dvix575 divideint -1.0   0.0   -> -Infinity Division_by_zero", c9hu);
+        ("dvix576 divideint -1.0  -0.0   ->  Infinity Division_by_zero", c9hu);
+        ("dvix577 divideint  1.0   0.0   ->  Infinity Division_by_zero", c9hu);
+        ("dvix578 divideint  1.0  -0.0   -> -Infinity Division_by_zero", c9hu);
+    
+    ]
+
+
+[<Tests>]
+let specDivIntTestList = testList "divint examples" (createDivIntTests specDivIntTests)
+
+[<Tests>]
+let badSpecDivIntTestList = testList "bad dovont examples" (createDivIntTestsEx specIntDivErrorTests)
+
+
+///////////////////////////
+// Exponentiation tests
+///////////////////////////
+
+
+
+///////////////////////////
+// Moving decimal point tests
+///////////////////////////
+
+
+
+///////////////////////////
+// Create from decimal tests
+///////////////////////////
+
+
 //     [TestFixture]
 //     public class BigDecimalTests
 //     {
@@ -3123,7 +4334,7 @@ let multiplyTestList = testList "multiply examples" (createMultiplyTests multipl
 //         [Test]
 //         public void CanCreateFromDecimal()
 //         {
-//BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
+//BigDecimal.Context c9hu = Context.Create(9, RoundingMode.HalfUp);
 
 //TestDecimal(0M, "0", c9hu);
 //             TestDecimal(1M, "1", c9hu);
@@ -3250,1129 +4461,37 @@ let multiplyTestList = testList "multiply examples" (createMultiplyTests multipl
 
 
 
-
-//         #region Multiply
-
-//         [Test]
-//         public void SpecTestMultiply()
-//         {
-
-
-//         }
-
-
-//         #endregion
-
 //         #region Divide tests
 
-//         [Test]
-//         public void TestSpecDivide()
-//         {
-
-//             BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
-//             //version: 2.59
-
-//             //extended:    1
-//             //precision:   9
-//             //rounding:    half_up
-//             //maxExponent: 384
-//             //minexponent: -383
-
-//             //-- sanity checks
-//             TDiv("divx001 divide  1     1    ->  1", c9hu);
-//             TDiv("divx002 divide  2     1    ->  2", c9hu);
-//             TDiv("divx003 divide  1     2    ->  0.5", c9hu);
-//             TDiv("divx004 divide  2     2    ->  1", c9hu);
-//             TDiv("divx005 divide  0     1    ->  0", c9hu);
-//             TDiv("divx006 divide  0     2    ->  0", c9hu);
-//             TDiv("divx007 divide  1     3    ->  0.333333333 Inexact Rounded", c9hu);
-//             TDiv("divx008 divide  2     3    ->  0.666666667 Inexact Rounded", c9hu);
-//             TDiv("divx009 divide  3     3    ->  1", c9hu);
-
-//             TDiv("divx010 divide  2.4   1    ->  2.4", c9hu);
-//             TDiv("divx011 divide  2.4   -1   ->  -2.4", c9hu);
-//             TDiv("divx012 divide  -2.4  1    ->  -2.4", c9hu);
-//             TDiv("divx013 divide  -2.4  -1   ->  2.4", c9hu);
-//             TDiv("divx014 divide  2.40  1    ->  2.40", c9hu);
-//             TDiv("divx015 divide  2.400 1    ->  2.400", c9hu);
-//             TDiv("divx016 divide  2.4   2    ->  1.2", c9hu);
-//             TDiv("divx017 divide  2.400 2    ->  1.200", c9hu);
-//             TDiv("divx018 divide  2.    2    ->  1", c9hu);
-//             TDiv("divx019 divide  20    20   ->  1", c9hu);
-
-//             TDiv("divx020 divide  187   187    ->  1", c9hu);
-//             TDiv("divx021 divide  5     2      ->  2.5", c9hu);
-//             TDiv("divx022 divide  50    20     ->  2.5", c9hu);
-//             TDiv("divx023 divide  500   200    ->  2.5", c9hu);
-//             TDiv("divx024 divide  50.0  20.0   ->  2.5", c9hu);
-//             TDiv("divx025 divide  5.00  2.00   ->  2.5", c9hu);
-//             TDiv("divx026 divide  5     2.0    ->  2.5", c9hu);
-//             TDiv("divx027 divide  5     2.000  ->  2.5", c9hu);
-//             TDiv("divx028 divide  5     0.20   ->  25", c9hu);
-//             TDiv("divx029 divide  5     0.200  ->  25", c9hu);
-//             TDiv("divx030 divide  10    1      ->  10", c9hu);
-//             TDiv("divx031 divide  100   1      ->  100", c9hu);
-//             TDiv("divx032 divide  1000  1      ->  1000", c9hu);
-//             TDiv("divx033 divide  1000  100    ->  10", c9hu);
-
-//             TDiv("divx035 divide  1     2      ->  0.5", c9hu);
-//             TDiv("divx036 divide  1     4      ->  0.25", c9hu);
-//             TDiv("divx037 divide  1     8      ->  0.125", c9hu);
-//             TDiv("divx038 divide  1     16     ->  0.0625", c9hu);
-//             TDiv("divx039 divide  1     32     ->  0.03125", c9hu);
-//             TDiv("divx040 divide  1     64     ->  0.015625", c9hu);
-//             TDiv("divx041 divide  1    -2      ->  -0.5", c9hu);
-//             TDiv("divx042 divide  1    -4      ->  -0.25", c9hu);
-//             TDiv("divx043 divide  1    -8      ->  -0.125", c9hu);
-//             TDiv("divx044 divide  1    -16     ->  -0.0625", c9hu);
-//             TDiv("divx045 divide  1    -32     ->  -0.03125", c9hu);
-//             TDiv("divx046 divide  1    -64     ->  -0.015625", c9hu);
-//             TDiv("divx047 divide -1     2      ->  -0.5", c9hu);
-//             TDiv("divx048 divide -1     4      ->  -0.25", c9hu);
-//             TDiv("divx049 divide -1     8      ->  -0.125", c9hu);
-//             TDiv("divx050 divide -1     16     ->  -0.0625", c9hu);
-//             TDiv("divx051 divide -1     32     ->  -0.03125", c9hu);
-//             TDiv("divx052 divide -1     64     ->  -0.015625", c9hu);
-//             TDiv("divx053 divide -1    -2      ->  0.5", c9hu);
-//             TDiv("divx054 divide -1    -4      ->  0.25", c9hu);
-//             TDiv("divx055 divide -1    -8      ->  0.125", c9hu);
-//             TDiv("divx056 divide -1    -16     ->  0.0625", c9hu);
-//             TDiv("divx057 divide -1    -32     ->  0.03125", c9hu);
-//             TDiv("divx058 divide -1    -64     ->  0.015625", c9hu);
-
-//             TDiv("divx070 divide  999999999        1    ->  999999999", c9hu);
-//             TDiv("divx071 divide  999999999.4      1    ->  999999999 Inexact Rounded", c9hu);
-//             TDiv("divx072 divide  999999999.5      1    ->  1.00000000E+9 Inexact Rounded", c9hu);
-//             TDiv("divx073 divide  999999999.9      1    ->  1.00000000E+9 Inexact Rounded", c9hu);
-//             TDiv("divx074 divide  999999999.999    1    ->  1.00000000E+9 Inexact Rounded", c9hu);
-//             //precision: 6
-//             BigDecimal.Context c6hu = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp);
-//             TDiv("divx080 divide  999999999     1  ->  1.00000E+9 Inexact Rounded", c6hu);
-//             TDiv("divx081 divide  99999999      1  ->  1.00000E+8 Inexact Rounded", c6hu);
-//             TDiv("divx082 divide  9999999       1  ->  1.00000E+7 Inexact Rounded", c6hu);
-//             TDiv("divx083 divide  999999        1  ->  999999", c6hu);
-//             TDiv("divx084 divide  99999         1  ->  99999", c6hu);
-//             TDiv("divx085 divide  9999          1  ->  9999", c6hu);
-//             TDiv("divx086 divide  999           1  ->  999", c6hu);
-//             TDiv("divx087 divide  99            1  ->  99", c6hu);
-//             TDiv("divx088 divide  9             1  ->  9", c6hu);
-
-//             //precision: 9
-//             TDiv("divx090 divide  0.            1    ->  0", c9hu);
-//             TDiv("divx091 divide  .0            1    ->  0.0", c9hu);
-//             TDiv("divx092 divide  0.00          1    ->  0.00", c9hu);
-//             TDiv("divx093 divide  0.00E+9       1    ->  0E+7", c9hu);
-//             TDiv("divx094 divide  0.0000E-50    1    ->  0E-54", c9hu);
-
-//             TDiv("divx095 divide  1            1E-8  ->  1E+8", c9hu);
-//             TDiv("divx096 divide  1            1E-9  ->  1E+9", c9hu);
-//             TDiv("divx097 divide  1            1E-10 ->  1E+10", c9hu);
-//             TDiv("divx098 divide  1            1E-11 ->  1E+11", c9hu);
-//             TDiv("divx099 divide  1            1E-12 ->  1E+12", c9hu);
-
-//             TDiv("divx100 divide  1  1   -> 1", c9hu);
-//             TDiv("divx101 divide  1  2   -> 0.5", c9hu);
-//             TDiv("divx102 divide  1  3   -> 0.333333333 Inexact Rounded", c9hu);
-//             TDiv("divx103 divide  1  4   -> 0.25", c9hu);
-//             TDiv("divx104 divide  1  5   -> 0.2", c9hu);
-//             TDiv("divx105 divide  1  6   -> 0.166666667 Inexact Rounded", c9hu);
-//             TDiv("divx106 divide  1  7   -> 0.142857143 Inexact Rounded", c9hu);
-//             TDiv("divx107 divide  1  8   -> 0.125", c9hu);
-//             TDiv("divx108 divide  1  9   -> 0.111111111 Inexact Rounded", c9hu);
-//             TDiv("divx109 divide  1  10  -> 0.1", c9hu);
-//             TDiv("divx110 divide  1  1   -> 1", c9hu);
-//             TDiv("divx111 divide  2  1   -> 2", c9hu);
-//             TDiv("divx112 divide  3  1   -> 3", c9hu);
-//             TDiv("divx113 divide  4  1   -> 4", c9hu);
-//             TDiv("divx114 divide  5  1   -> 5", c9hu);
-//             TDiv("divx115 divide  6  1   -> 6", c9hu);
-//             TDiv("divx116 divide  7  1   -> 7", c9hu);
-//             TDiv("divx117 divide  8  1   -> 8", c9hu);
-//             TDiv("divx118 divide  9  1   -> 9", c9hu);
-//             TDiv("divx119 divide  10 1   -> 10", c9hu);
-
-//             TDiv("divx120 divide  3E+1 0.001  -> 3E+4", c9hu);
-//             TDiv("divx121 divide  2.200 2     -> 1.100", c9hu);
-
-//             TDiv("divx130 divide  12345  4.999  ->  2469.49390 Inexact Rounded", c9hu);
-//             TDiv("divx131 divide  12345  4.99   ->  2473.94790 Inexact Rounded", c9hu);
-//             TDiv("divx132 divide  12345  4.9    ->  2519.38776 Inexact Rounded", c9hu);
-//             TDiv("divx133 divide  12345  5      ->  2469", c9hu);
-//             TDiv("divx134 divide  12345  5.1    ->  2420.58824 Inexact Rounded", c9hu);
-//             TDiv("divx135 divide  12345  5.01   ->  2464.07186 Inexact Rounded", c9hu);
-//             TDiv("divx136 divide  12345  5.001  ->  2468.50630 Inexact Rounded", c9hu);
-
-//             //precision:   9
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-
-//             //-- test possibly imprecise results
-//             TDiv("divx220 divide 391   597 ->  0.654941374 Inexact Rounded", c9hu);
-//             TDiv("divx221 divide 391  -597 -> -0.654941374 Inexact Rounded", c9hu);
-//             TDiv("divx222 divide -391  597 -> -0.654941374 Inexact Rounded", c9hu);
-//             TDiv("divx223 divide -391 -597 ->  0.654941374 Inexact Rounded", c9hu);
-
-//             //-- test some cases that are close to exponent overflow
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-//             TDiv("divx270 divide 1 1e999999999    -> 1E-999999999", c9hu);
-//             TDiv("divx271 divide 1 0.9e999999999  -> 1.11111111E-999999999 Inexact Rounded", c9hu);
-//             TDiv("divx272 divide 1 0.99e999999999 -> 1.01010101E-999999999 Inexact Rounded", c9hu);
-//             TDiv("divx273 divide 1 0.999999999e999999999 -> 1.00000000E-999999999 Inexact Rounded", c9hu);
-//             TDiv("divx274 divide 9e999999999    1 -> 9E+999999999", c9hu);
-//             TDiv("divx275 divide 9.9e999999999  1 -> 9.9E+999999999", c9hu);
-//             TDiv("divx276 divide 9.99e999999999 1 -> 9.99E+999999999", c9hu);
-//             TDiv("divx277 divide 9.99999999e999999999 1 -> 9.99999999E+999999999", c9hu);
-
-//             TDiv("divx280 divide 0.1 9e-999999999   -> 1.11111111E+999999997 Inexact Rounded", c9hu);
-//             TDiv("divx281 divide 0.1 99e-999999999  -> 1.01010101E+999999996 Inexact Rounded", c9hu);
-//             TDiv("divx282 divide 0.1 999e-999999999 -> 1.00100100E+999999995 Inexact Rounded", c9hu);
-
-//             TDiv("divx283 divide 0.1 9e-999999998     -> 1.11111111E+999999996 Inexact Rounded", c9hu);
-//             TDiv("divx284 divide 0.1 99e-999999998    -> 1.01010101E+999999995 Inexact Rounded", c9hu);
-//             TDiv("divx285 divide 0.1 999e-999999998   -> 1.00100100E+999999994 Inexact Rounded", c9hu);
-//             TDiv("divx286 divide 0.1 999e-999999997   -> 1.00100100E+999999993 Inexact Rounded", c9hu);
-//             TDiv("divx287 divide 0.1 9999e-999999997  -> 1.00010001E+999999992 Inexact Rounded", c9hu);
-//             TDiv("divx288 divide 0.1 99999e-999999997 -> 1.00001000E+999999991 Inexact Rounded", c9hu);
-
-//             //-- Divide into 0 tests
-
-//             TDiv("divx301 divide    0    7     -> 0", c9hu);
-//             TDiv("divx302 divide    0    7E-5  -> 0E+5", c9hu);
-//             TDiv("divx303 divide    0    7E-1  -> 0E+1", c9hu);
-//             TDiv("divx304 divide    0    7E+1  -> 0.0", c9hu);
-//             TDiv("divx305 divide    0    7E+5  -> 0.00000", c9hu);
-//             TDiv("divx306 divide    0    7E+6  -> 0.000000", c9hu);
-//             TDiv("divx307 divide    0    7E+7  -> 0E-7", c9hu);
-//             TDiv("divx308 divide    0   70E-5  -> 0E+5", c9hu);
-//             TDiv("divx309 divide    0   70E-1  -> 0E+1", c9hu);
-//             TDiv("divx310 divide    0   70E+0  -> 0", c9hu);
-//             TDiv("divx311 divide    0   70E+1  -> 0.0", c9hu);
-//             TDiv("divx312 divide    0   70E+5  -> 0.00000", c9hu);
-//             TDiv("divx313 divide    0   70E+6  -> 0.000000", c9hu);
-//             TDiv("divx314 divide    0   70E+7  -> 0E-7", c9hu);
-//             TDiv("divx315 divide    0  700E-5  -> 0E+5", c9hu);
-//             TDiv("divx316 divide    0  700E-1  -> 0E+1", c9hu);
-//             TDiv("divx317 divide    0  700E+0  -> 0", c9hu);
-//             TDiv("divx318 divide    0  700E+1  -> 0.0", c9hu);
-//             TDiv("divx319 divide    0  700E+5  -> 0.00000", c9hu);
-//             TDiv("divx320 divide    0  700E+6  -> 0.000000", c9hu);
-//             TDiv("divx321 divide    0  700E+7  -> 0E-7", c9hu);
-//             TDiv("divx322 divide    0  700E+77 -> 0E-77", c9hu);
-
-//             TDiv("divx331 divide 0E-3    7E-5  -> 0E+2", c9hu);
-//             TDiv("divx332 divide 0E-3    7E-1  -> 0.00", c9hu);
-//             TDiv("divx333 divide 0E-3    7E+1  -> 0.0000", c9hu);
-//             TDiv("divx334 divide 0E-3    7E+5  -> 0E-8", c9hu);
-//             TDiv("divx335 divide 0E-1    7E-5  -> 0E+4", c9hu);
-//             TDiv("divx336 divide 0E-1    7E-1  -> 0", c9hu);
-//             TDiv("divx337 divide 0E-1    7E+1  -> 0.00", c9hu);
-//             TDiv("divx338 divide 0E-1    7E+5  -> 0.000000", c9hu);
-//             TDiv("divx339 divide 0E+1    7E-5  -> 0E+6", c9hu);
-//             TDiv("divx340 divide 0E+1    7E-1  -> 0E+2", c9hu);
-//             TDiv("divx341 divide 0E+1    7E+1  -> 0", c9hu);
-//             TDiv("divx342 divide 0E+1    7E+5  -> 0.0000", c9hu);
-//             TDiv("divx343 divide 0E+3    7E-5  -> 0E+8", c9hu);
-//             TDiv("divx344 divide 0E+3    7E-1  -> 0E+4", c9hu);
-//             TDiv("divx345 divide 0E+3    7E+1  -> 0E+2", c9hu);
-//             TDiv("divx346 divide 0E+3    7E+5  -> 0.00", c9hu);
-
-
-//             //maxexponent: 92
-//             //minexponent: -92
-//             //precision:    7
-//             BigDecimal.Context c7hu = new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp);
-
-//             TDiv("divx351 divide 0E-92   7E-1  -> 0E-91", c7hu);
-//             TDiv("divx352 divide 0E-92   7E+1  -> 0E-93", c7hu);
-//             TDiv("divx353 divide 0E-92   7E+5  -> 0E-97", c7hu);
-//             TDiv("divx354 divide 0E-92   7E+6  -> 0E-98", c7hu);
-//             //TDiv("divx355 divide 0E-92   7E+7  -> 0E-98 Clamped", c7hu);
-//             TDiv("divx356 divide 0E-92 777E-1  -> 0E-91", c7hu);
-//             TDiv("divx357 divide 0E-92 777E+1  -> 0E-93", c7hu);
-//             TDiv("divx358 divide 0E-92 777E+3  -> 0E-95", c7hu);
-//             TDiv("divx359 divide 0E-92 777E+4  -> 0E-96", c7hu);
-//             TDiv("divx360 divide 0E-92 777E+5  -> 0E-97", c7hu);
-//             TDiv("divx361 divide 0E-92 777E+6  -> 0E-98", c7hu);
-//             //TDiv("divx362 divide 0E-92 777E+7  -> 0E-98 Clamped", c7hu);
-//             //TDiv("divx363 divide 0E-92   7E+92 -> 0E-98 Clamped", c7hu);
-
-//             TDiv("divx371 divide 0E-92 700E-1  -> 0E-91", c7hu);
-//             TDiv("divx372 divide 0E-92 700E+1  -> 0E-93", c7hu);
-//             TDiv("divx373 divide 0E-92 700E+3  -> 0E-95", c7hu);
-//             TDiv("divx374 divide 0E-92 700E+4  -> 0E-96", c7hu);
-//             TDiv("divx375 divide 0E-92 700E+5  -> 0E-97", c7hu);
-//             TDiv("divx376 divide 0E-92 700E+6  -> 0E-98", c7hu);
-//             //TDiv("divx377 divide 0E-92 700E+7  -> 0E-98 Clamped", c7hu);
-
-//             TDiv("divx381 divide 0E+92   7E+1  -> 0E+91", c7hu);
-//             TDiv("divx382 divide 0E+92   7E+0  -> 0E+92", c7hu);
-//             //TDiv("divx383 divide 0E+92   7E-1  -> 0E+92 Clamped", c7hu);
-//             TDiv("divx384 divide 0E+90 777E+1  -> 0E+89", c7hu);
-//             TDiv("divx385 divide 0E+90 777E-1  -> 0E+91", c7hu);
-//             TDiv("divx386 divide 0E+90 777E-2  -> 0E+92", c7hu);
-//             //TDiv("divx387 divide 0E+90 777E-3  -> 0E+92 Clamped", c7hu);
-//             //TDiv("divx388 divide 0E+90 777E-4  -> 0E+92 Clamped", c7hu);
-
-//             TDiv("divx391 divide 0E+90 700E+1  -> 0E+89", c7hu);
-//             TDiv("divx392 divide 0E+90 700E-1  -> 0E+91", c7hu);
-//             TDiv("divx393 divide 0E+90 700E-2  -> 0E+92", c7hu);
-//             //TDiv("divx394 divide 0E+90 700E-3  -> 0E+92 Clamped", c7hu);
-//             //TDiv("divx395 divide 0E+90 700E-4  -> 0E+92 Clamped", c7hu);
-
-//             //-- input rounding checks
-//             //maxexponent: 999
-//             //minexponent: -999
-//             //precision: 9
-//             TDiv("divx401 divide 12345678000 1 -> 1.23456780E+10 Rounded", c9hu);
-//             TDiv("divx402 divide 1 12345678000 -> 8.10000066E-11 Inexact Rounded", c9hu);
-//             TDiv("divx403 divide 1234567800  1 -> 1.23456780E+9  Rounded", c9hu);
-//             TDiv("divx404 divide 1 1234567800  -> 8.10000066E-10 Inexact Rounded", c9hu);
-//             TDiv("divx405 divide 1234567890  1 -> 1.23456789E+9  Rounded", c9hu);
-//             TDiv("divx406 divide 1 1234567890  -> 8.10000007E-10 Inexact Rounded", c9hu);
-//             TDiv("divx407 divide 1234567891  1 -> 1.23456789E+9  Inexact Rounded", c9hu);
-//             TDiv("divx408 divide 1 1234567891  -> 8.10000007E-10 Inexact Rounded", c9hu);
-//             TDiv("divx409 divide 12345678901 1 -> 1.23456789E+10 Inexact Rounded", c9hu);
-//             TDiv("divx410 divide 1 12345678901 -> 8.10000007E-11 Inexact Rounded", c9hu);
-//             TDiv("divx411 divide 1234567896  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
-//             TDiv("divx412 divide 1 1234567896  -> 8.10000003E-10 Inexact Rounded", c9hu);
-//             TDiv("divx413 divide 1 1234567897  -> 8.10000003E-10 Inexact Rounded", c9hu);
-//             TDiv("divx414 divide 1 1234567898  -> 8.10000002E-10 Inexact Rounded", c9hu);
-//             TDiv("divx415 divide 1 1234567899  -> 8.10000001E-10 Inexact Rounded", c9hu);
-//             TDiv("divx416 divide 1 1234567900  -> 8.10000001E-10 Inexact Rounded", c9hu);
-//             TDiv("divx417 divide 1 1234567901  -> 8.10000000E-10 Inexact Rounded", c9hu);
-//             TDiv("divx418 divide 1 1234567902  -> 8.09999999E-10 Inexact Rounded", c9hu);
-//             //-- some longies
-//             TDiv("divx421 divide 1234567896.000000000000  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
-//             TDiv("divx422 divide 1 1234567896.000000000000  -> 8.10000003E-10 Inexact Rounded", c9hu);
-//             TDiv("divx423 divide 1234567896.000000000001  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
-//             TDiv("divx424 divide 1 1234567896.000000000001  -> 8.10000003E-10 Inexact Rounded", c9hu);
-//             TDiv("divx425 divide 1234567896.000000000000000000000000000000000000000009  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
-//             TDiv("divx426 divide 1 1234567896.000000000000000000000000000000000000000009  -> 8.10000003E-10 Inexact Rounded", c9hu);
-//             TDiv("divx427 divide 1234567897.900010000000000000000000000000000000000009  1 -> 1.23456790E+9  Inexact Rounded", c9hu);
-//             TDiv("divx428 divide 1 1234567897.900010000000000000000000000000000000000009  -> 8.10000002E-10 Inexact Rounded", c9hu);
-
-//             //precision: 15
-//             //-- still checking...
-//             BigDecimal.Context c15hu = new BigDecimal.Context(15, BigDecimal.RoundingMode.HalfUp);
-//             TDiv("divx441 divide 12345678000 1 -> 12345678000", c15hu);
-//             TDiv("divx442 divide 1 12345678000 -> 8.10000066420005E-11 Inexact Rounded", c15hu);
-//             TDiv("divx443 divide 1234567800  1 -> 1234567800", c15hu);
-//             TDiv("divx444 divide 1 1234567800  -> 8.10000066420005E-10 Inexact Rounded", c15hu);
-//             TDiv("divx445 divide 1234567890  1 -> 1234567890", c15hu);
-//             TDiv("divx446 divide 1 1234567890  -> 8.10000007371000E-10 Inexact Rounded", c15hu);
-//             TDiv("divx447 divide 1234567891  1 -> 1234567891", c15hu);
-//             TDiv("divx448 divide 1 1234567891  -> 8.10000006714900E-10 Inexact Rounded", c15hu);
-//             TDiv("divx449 divide 12345678901 1 -> 12345678901", c15hu);
-//             TDiv("divx450 divide 1 12345678901 -> 8.10000007305390E-11 Inexact Rounded", c15hu);
-//             TDiv("divx451 divide 1234567896  1 -> 1234567896", c15hu);
-//             TDiv("divx452 divide 1 1234567896  -> 8.10000003434400E-10 Inexact Rounded", c15hu);
-
-//             //-- high-lows
-//             TDiv("divx453 divide 1e+1   1    ->   1E+1", c15hu);
-//             TDiv("divx454 divide 1e+1   1.0  ->   1E+1", c15hu);
-//             TDiv("divx455 divide 1e+1   1.00 ->   1E+1", c15hu);
-//             TDiv("divx456 divide 1e+2   2    ->   5E+1", c15hu);
-//             TDiv("divx457 divide 1e+2   2.0  ->   5E+1", c15hu);
-//             TDiv("divx458 divide 1e+2   2.00 ->   5E+1", c15hu);
-
-//             //-- some from IEEE discussions
-//             TDiv("divx460 divide 3e0      2e0     -> 1.5", c15hu);
-//             TDiv("divx461 divide 30e-1    2e0     -> 1.5", c15hu);
-//             TDiv("divx462 divide 300e-2   2e0     -> 1.50", c15hu);
-//             TDiv("divx464 divide 3000e-3  2e0     -> 1.500", c15hu);
-//             TDiv("divx465 divide 3e0      20e-1   -> 1.5", c15hu);
-//             TDiv("divx466 divide 30e-1    20e-1   -> 1.5", c15hu);
-//             TDiv("divx467 divide 300e-2   20e-1   -> 1.5", c15hu);
-//             TDiv("divx468 divide 3000e-3  20e-1   -> 1.50", c15hu);
-//             TDiv("divx469 divide 3e0      200e-2  -> 1.5", c15hu);
-//             TDiv("divx470 divide 30e-1    200e-2  -> 1.5", c15hu);
-//             TDiv("divx471 divide 300e-2   200e-2  -> 1.5", c15hu);
-//             TDiv("divx472 divide 3000e-3  200e-2  -> 1.5", c15hu);
-//             TDiv("divx473 divide 3e0      2000e-3 -> 1.5", c15hu);
-//             TDiv("divx474 divide 30e-1    2000e-3 -> 1.5", c15hu);
-//             TDiv("divx475 divide 300e-2   2000e-3 -> 1.5", c15hu);
-//             TDiv("divx476 divide 3000e-3  2000e-3 -> 1.5", c15hu);
-
-//             //-- some reciprocals
-//             TDiv("divx480 divide 1        1.0E+33 -> 1E-33", c15hu);
-//             TDiv("divx481 divide 1        10E+33  -> 1E-34", c15hu);
-//             TDiv("divx482 divide 1        1.0E-33 -> 1E+33", c15hu);
-//             TDiv("divx483 divide 1        10E-33  -> 1E+32", c15hu);
-
-//             //-- RMS discussion table
-//             //maxexponent:  96
-//             //minexponent: -95
-//             //precision:     7
-
-//             TDiv("divx484 divide 0e5     1e3 ->   0E+2", c7hu);
-//             TDiv("divx485 divide 0e5     2e3 ->   0E+2", c7hu);
-//             TDiv("divx486 divide 0e5    10e2 ->   0E+3", c7hu);
-//             TDiv("divx487 divide 0e5    20e2 ->   0E+3", c7hu);
-//             TDiv("divx488 divide 0e5   100e1 ->   0E+4", c7hu);
-//             TDiv("divx489 divide 0e5   200e1 ->   0E+4", c7hu);
-
-//             TDiv("divx491 divide 1e5     1e3 ->   1E+2", c7hu);
-//             TDiv("divx492 divide 1e5     2e3 ->   5E+1", c7hu);
-//             TDiv("divx493 divide 1e5    10e2 ->   1E+2", c7hu);
-//             TDiv("divx494 divide 1e5    20e2 ->   5E+1", c7hu);
-//             TDiv("divx495 divide 1e5   100e1 ->   1E+2", c7hu);
-//             TDiv("divx496 divide 1e5   200e1 ->   5E+1", c7hu);
-
-
-//             //-- tryzeros cases
-//             //precision:   7
-//             //rounding:    half_up
-//             //maxExponent: 92
-//             //minexponent: -92
-//             //TDiv("divx497  divide  0E+86 1000E-13  -> 0E+92 Clamped", c7hu);
-//             //TDiv("divx498  divide  0E-98 1000E+13  -> 0E-98 Clamped", c7hu);
-
-//             //precision:   9
-//             //rounding:    half_up
-//             //maxExponent: 999
-//             //minexponent: -999
-
-//             //-- focus on trailing zeros issues
-//             BigDecimal.Context c8hu = new BigDecimal.Context(8, BigDecimal.RoundingMode.HalfUp);
-
-//             //precision:   9
-//             TDiv("divx500 divide  1      9.9    ->  0.101010101  Inexact Rounded", c9hu);
-//             //precision:   8
-//             TDiv("divx501 divide  1      9.9    ->  0.10101010   Inexact Rounded", c8hu);
-//             //precision:   7
-//             TDiv("divx502 divide  1      9.9    ->  0.1010101    Inexact Rounded", c7hu);
-//             //precision:   6
-//             TDiv("divx503 divide  1      9.9    ->  0.101010     Inexact Rounded", c6hu);
-//             //precision:   9
-
-//             TDiv("divx511 divide 1         2    -> 0.5", c9hu);
-//             TDiv("divx512 divide 1.0       2    -> 0.5", c9hu);
-//             TDiv("divx513 divide 1.00      2    -> 0.50", c9hu);
-//             TDiv("divx514 divide 1.000     2    -> 0.500", c9hu);
-//             TDiv("divx515 divide 1.0000    2    -> 0.5000", c9hu);
-//             TDiv("divx516 divide 1.00000   2    -> 0.50000", c9hu);
-//             TDiv("divx517 divide 1.000000  2    -> 0.500000", c9hu);
-//             TDiv("divx518 divide 1.0000000 2    -> 0.5000000", c9hu);
-//             TDiv("divx519 divide 1.00      2.00 -> 0.5", c9hu);
-
-//             TDiv("divx521 divide 2    1         -> 2", c9hu);
-//             TDiv("divx522 divide 2    1.0       -> 2", c9hu);
-//             TDiv("divx523 divide 2    1.00      -> 2", c9hu);
-//             TDiv("divx524 divide 2    1.000     -> 2", c9hu);
-//             TDiv("divx525 divide 2    1.0000    -> 2", c9hu);
-//             TDiv("divx526 divide 2    1.00000   -> 2", c9hu);
-//             TDiv("divx527 divide 2    1.000000  -> 2", c9hu);
-//             TDiv("divx528 divide 2    1.0000000 -> 2", c9hu);
-//             TDiv("divx529 divide 2.00 1.00      -> 2", c9hu);
-
-//             TDiv("divx530 divide  2.40   2      ->  1.20", c9hu);
-//             TDiv("divx531 divide  2.40   4      ->  0.60", c9hu);
-//             TDiv("divx532 divide  2.40  10      ->  0.24", c9hu);
-//             TDiv("divx533 divide  2.40   2.0    ->  1.2", c9hu);
-//             TDiv("divx534 divide  2.40   4.0    ->  0.6", c9hu);
-//             TDiv("divx535 divide  2.40  10.0    ->  0.24", c9hu);
-//             TDiv("divx536 divide  2.40   2.00   ->  1.2", c9hu);
-//             TDiv("divx537 divide  2.40   4.00   ->  0.6", c9hu);
-//             TDiv("divx538 divide  2.40  10.00   ->  0.24", c9hu);
-//             TDiv("divx539 divide  0.9    0.1    ->  9", c9hu);
-//             TDiv("divx540 divide  0.9    0.01   ->  9E+1", c9hu);
-//             TDiv("divx541 divide  0.9    0.001  ->  9E+2", c9hu);
-//             TDiv("divx542 divide  5      2      ->  2.5", c9hu);
-//             TDiv("divx543 divide  5      2.0    ->  2.5", c9hu);
-//             TDiv("divx544 divide  5      2.00   ->  2.5", c9hu);
-//             TDiv("divx545 divide  5      20     ->  0.25", c9hu);
-//             TDiv("divx546 divide  5      20.0   ->  0.25", c9hu);
-//             TDiv("divx547 divide  2.400  2      ->  1.200", c9hu);
-//             TDiv("divx548 divide  2.400  2.0    ->  1.20", c9hu);
-//             TDiv("divx549 divide  2.400  2.400  ->  1", c9hu);
-
-//             TDiv("divx550 divide  240    1      ->  240", c9hu);
-//             TDiv("divx551 divide  240    10     ->  24", c9hu);
-//             TDiv("divx552 divide  240    100    ->  2.4", c9hu);
-//             TDiv("divx553 divide  240    1000   ->  0.24", c9hu);
-//             TDiv("divx554 divide  2400   1      ->  2400", c9hu);
-//             TDiv("divx555 divide  2400   10     ->  240", c9hu);
-//             TDiv("divx556 divide  2400   100    ->  24", c9hu);
-//             TDiv("divx557 divide  2400   1000   ->  2.4", c9hu);
-
-//             //-- +ve exponent
-//             //precision: 5
-//             BigDecimal.Context c5hu = new BigDecimal.Context(5, BigDecimal.RoundingMode.HalfUp);
-//             TDiv("divx570 divide  2.4E+6     2  ->  1.2E+6", c5hu);
-//             TDiv("divx571 divide  2.40E+6    2  ->  1.20E+6", c5hu);
-//             TDiv("divx572 divide  2.400E+6   2  ->  1.200E+6", c5hu);
-//             TDiv("divx573 divide  2.4000E+6  2  ->  1.2000E+6", c5hu);
-//             TDiv("divx574 divide  24E+5      2  ->  1.2E+6", c5hu);
-//             TDiv("divx575 divide  240E+4     2  ->  1.20E+6", c5hu);
-//             TDiv("divx576 divide  2400E+3    2  ->  1.200E+6", c5hu);
-//             TDiv("divx577 divide  24000E+2   2  ->  1.2000E+6", c5hu);
-//             //precision: 6
-//             TDiv("divx580 divide  2.4E+6     2  ->  1.2E+6", c6hu);
-//             TDiv("divx581 divide  2.40E+6    2  ->  1.20E+6", c6hu);
-//             TDiv("divx582 divide  2.400E+6   2  ->  1.200E+6", c6hu);
-//             TDiv("divx583 divide  2.4000E+6  2  ->  1.2000E+6", c6hu);
-//             TDiv("divx584 divide  24E+5      2  ->  1.2E+6", c6hu);
-//             TDiv("divx585 divide  240E+4     2  ->  1.20E+6", c6hu);
-//             TDiv("divx586 divide  2400E+3    2  ->  1.200E+6", c6hu);
-//             TDiv("divx587 divide  24000E+2   2  ->  1.2000E+6", c6hu);
-//             //precision: 7
-//             TDiv("divx590 divide  2.4E+6     2  ->  1.2E+6", c7hu);
-//             TDiv("divx591 divide  2.40E+6    2  ->  1.20E+6", c7hu);
-//             TDiv("divx592 divide  2.400E+6   2  ->  1.200E+6", c7hu);
-//             TDiv("divx593 divide  2.4000E+6  2  ->  1.2000E+6", c7hu);
-//             TDiv("divx594 divide  24E+5      2  ->  1.2E+6", c7hu);
-//             TDiv("divx595 divide  240E+4     2  ->  1.20E+6", c7hu);
-//             TDiv("divx596 divide  2400E+3    2  ->  1.200E+6", c7hu);
-//             TDiv("divx597 divide  24000E+2   2  ->  1.2000E+6", c7hu);
-//             //precision:   9
-//             TDiv("divx600 divide  2.4E+9     2  ->  1.2E+9", c9hu);
-//             TDiv("divx601 divide  2.40E+9    2  ->  1.20E+9", c9hu);
-//             TDiv("divx602 divide  2.400E+9   2  ->  1.200E+9", c9hu);
-//             TDiv("divx603 divide  2.4000E+9  2  ->  1.2000E+9", c9hu);
-//             TDiv("divx604 divide  24E+8      2  ->  1.2E+9", c9hu);
-//             TDiv("divx605 divide  240E+7     2  ->  1.20E+9", c9hu);
-//             TDiv("divx606 divide  2400E+6    2  ->  1.200E+9", c9hu);
-//             TDiv("divx607 divide  24000E+5   2  ->  1.2000E+9", c9hu);
-
-
-//             //-- long operand triangle
-//             //precision: 33
-//             TDiv("divx610 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131097703792 Inexact Rounded", new BigDecimal.Context(33, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 32
-//             TDiv("divx611 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813109770379  Inexact Rounded", new BigDecimal.Context(32, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 31
-//             TDiv("divx612 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81310977038   Inexact Rounded", new BigDecimal.Context(31, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 30
-//             TDiv("divx613 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131097704    Inexact Rounded", new BigDecimal.Context(30, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 29
-//             TDiv("divx614 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813109770     Inexact Rounded", new BigDecimal.Context(29, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 28
-//             TDiv("divx615 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81310977      Inexact Rounded", new BigDecimal.Context(28, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 27
-//             TDiv("divx616 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131098       Inexact Rounded", new BigDecimal.Context(27, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 26
-//             TDiv("divx617 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813110        Inexact Rounded", new BigDecimal.Context(26, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 25
-//             TDiv("divx618 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81311         Inexact Rounded", new BigDecimal.Context(25, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 24
-//             TDiv("divx619 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8131          Inexact Rounded", new BigDecimal.Context(24, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 23
-//             TDiv("divx620 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.813           Inexact Rounded", new BigDecimal.Context(23, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 22
-//             TDiv("divx621 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.81            Inexact Rounded", new BigDecimal.Context(22, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 21
-//             TDiv("divx622 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817797.8             Inexact Rounded", new BigDecimal.Context(21, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 20
-//             TDiv("divx623 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -41011408883796817798               Inexact Rounded", new BigDecimal.Context(20, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 19
-//             TDiv("divx624 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888379681780E+19         Inexact Rounded", new BigDecimal.Context(19, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 18
-//             TDiv("divx625 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114088837968178E+19         Inexact Rounded", new BigDecimal.Context(18, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 17
-//             TDiv("divx626 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011408883796818E+19         Inexact Rounded", new BigDecimal.Context(17, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 16
-//             TDiv("divx627 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888379682E+19         Inexact Rounded", new BigDecimal.Context(16, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 15
-//             TDiv("divx628 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114088837968E+19         Inexact Rounded", new BigDecimal.Context(15, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 14
-//             TDiv("divx629 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011408883797E+19         Inexact Rounded", new BigDecimal.Context(14, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 13
-//             TDiv("divx630 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888380E+19         Inexact Rounded", new BigDecimal.Context(13, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 12
-//             TDiv("divx631 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114088838E+19         Inexact Rounded", new BigDecimal.Context(12, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 11
-//             TDiv("divx632 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011408884E+19         Inexact Rounded", new BigDecimal.Context(11, BigDecimal.RoundingMode.HalfUp));
-//             //precision: 10
-//             TDiv("divx633 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101140888E+19         Inexact Rounded", new BigDecimal.Context(10, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  9
-//             TDiv("divx634 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114089E+19         Inexact Rounded", new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  8
-//             TDiv("divx635 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011409E+19         Inexact Rounded", new BigDecimal.Context(8, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  7
-//             TDiv("divx636 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101141E+19         Inexact Rounded", new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  6
-//             TDiv("divx637 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10114E+19         Inexact Rounded", new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  5
-//             TDiv("divx638 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1011E+19         Inexact Rounded", new BigDecimal.Context(5, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  4
-//             TDiv("divx639 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.101E+19         Inexact Rounded", new BigDecimal.Context(4, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  3
-//             TDiv("divx640 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.10E+19         Inexact Rounded", new BigDecimal.Context(3, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  2
-//             TDiv("divx641 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4.1E+19         Inexact Rounded", new BigDecimal.Context(2, BigDecimal.RoundingMode.HalfUp));
-//             //precision:  1
-//             TDiv("divx642 divide -3374988581607586061255542201048 82293895124.90045271504836568681 -> -4E+19         Inexact Rounded", new BigDecimal.Context(1, BigDecimal.RoundingMode.HalfUp));
-
-
-//             //-- more zeros, etc.
-//             //precision:   16
-//             //rounding:    half_up
-//             //maxExponent: 384
-//             //minExponent: -383
-//             BigDecimal.Context c16hu = new BigDecimal.Context(16, BigDecimal.RoundingMode.HalfUp);
-
-//             TDiv("divx731 divide 5.00 1E-3    -> 5.00E+3", c16hu);
-
-//             TDiv("divx741 divide  0    -1     -> 0", c16hu); // mod: neg zero
-//             TDiv("divx742 divide -0    -1     ->  0", c16hu);
-//             TDiv("divx743 divide  0     1     ->  0", c16hu);
-//             TDiv("divx744 divide -0     1     -> 0", c16hu); // mod: neg zero
-
-//             TDiv("divx751 divide  0.0  -1     -> 0.0", c16hu); // mod: neg zero
-//             TDiv("divx752 divide -0.0  -1     ->  0.0", c16hu);
-//             TDiv("divx753 divide  0.0   1     ->  0.0", c16hu);
-//             TDiv("divx754 divide -0.0   1     -> 0.0", c16hu); // mod: neg zero
-
-//             TDiv("divx761 divide  0    -1.0   -> 0E+1", c16hu); // mod: neg zero
-//             TDiv("divx762 divide -0    -1.0   ->  0E+1", c16hu);
-//             TDiv("divx763 divide  0     1.0   ->  0E+1", c16hu);
-//             TDiv("divx764 divide -0     1.0   -> 0E+1", c16hu); // mod: neg zero
-
-//             TDiv("divx771 divide  0.0  -1.0   -> 0", c16hu); // mod: neg zero
-//             TDiv("divx772 divide -0.0  -1.0   ->  0", c16hu);
-//             TDiv("divx773 divide  0.0   1.0   ->  0", c16hu);
-//             TDiv("divx774 divide -0.0   1.0   -> 0", c16hu); // mod: neg zero
-
-//             //precision:   34
-//             //rounding:    half_up
-//             //maxExponent: 6144
-//             //minExponent: -6143
-
-//             //-- Examples from SQL proposal (Krishna Kulkarni)
-//             //precision: 7
-//             TDiv("divx1021  divide 1E0          1E0 -> 1", c7hu);
-//             TDiv("divx1022  divide 1E0          2E0 -> 0.5", c7hu);
-//             TDiv("divx1023  divide 1E0          3E0 -> 0.3333333 Inexact Rounded", c7hu);
-//             TDiv("divx1024  divide 100E-2   1000E-3 -> 1", c7hu);
-//             TDiv("divx1025  divide 24E-1        2E0 -> 1.2", c7hu);
-//             TDiv("divx1026  divide 2400E-3      2E0 -> 1.200", c7hu);
-//             TDiv("divx1027  divide 5E0          2E0 -> 2.5", c7hu);
-//             TDiv("divx1028  divide 5E0        20E-1 -> 2.5", c7hu);
-//             TDiv("divx1029  divide 5E0      2000E-3 -> 2.5", c7hu);
-//             TDiv("divx1030  divide 5E0         2E-1 -> 25", c7hu);
-//             TDiv("divx1031  divide 5E0        20E-2 -> 25", c7hu);
-//             TDiv("divx1032  divide 480E-2       3E0 -> 1.60", c7hu);
-//             TDiv("divx1033  divide 47E-1        2E0 -> 2.35", c7hu);
-
-//             //-- ECMAScript bad examples
-//             BigDecimal.Context c7hd = new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfDown);
-//             BigDecimal.Context c7he = new BigDecimal.Context(7, BigDecimal.RoundingMode.HalfEven);
-
-//             //rounding:    half_down
-//             //precision: 7
-//             TDiv("divx1050  divide 5 9  -> 0.5555556 Inexact Rounded", c7hd);
-//             //rounding:    half_even
-//             TDiv("divx1051  divide 5 11 -> 0.4545455 Inexact Rounded", c7he);
-//         }
 
 //         [Test]
 //         public void TestBadDivides()
 //         {
-//             BigDecimal.Context c16hu = new BigDecimal.Context(16, BigDecimal.RoundingMode.HalfUp);
+//             BigDecimal.Context c16hu = Context.Create(16, RoundingMode.HalfUp);
 
-//             TDivEx("divx732 divide 00.00 0.000  -> NaN Division_undefined", c16hu);
-//             TDivEx("divx733 divide 00.00 0E-3   -> NaN Division_undefined", c16hu);
-//             TDivEx("divx734 divide  0    -0     -> NaN Division_undefined", c16hu);
-//             TDivEx("divx735 divide -0     0     -> NaN Division_undefined", c16hu);
-//             TDivEx("divx736 divide -0    -0     -> NaN Division_undefined", c16hu);
-//             TDivEx("divx745 divide -1     0     -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx746 divide -1    -0     ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx747 divide  1     0     ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx748 divide  1    -0     -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx755 divide -1.0   0     -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx756 divide -1.0  -0     ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx757 divide  1.0   0     ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx758 divide  1.0  -0     -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx765 divide -1     0.0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx766 divide -1    -0.0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx767 divide  1     0.0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx768 divide  1    -0.0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx775 divide -1.0   0.0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx776 divide -1.0  -0.0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx777 divide  1.0   0.0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx778 divide  1.0  -0.0   -> -Infinity Division_by_zero ", c16hu);
 
-//             //-- Various flavours of divide by 0
-//             TDivEx("divx901 divide    0       0   ->  NaN Division_undefined", c16hu);
-//             TDivEx("divx902 divide    0.0E5   0   ->  NaN Division_undefined", c16hu);
-//             TDivEx("divx903 divide    0.000   0   ->  NaN Division_undefined", c16hu);
-//             TDivEx("divx904 divide    0.0001  0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx905 divide    0.01    0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx906 divide    0.1     0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx907 divide    1       0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx908 divide    1       0.0 ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx909 divide   10       0.0 ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx910 divide   1E+100   0.0 ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx911 divide   1E+1000  0   ->  Infinity Division_by_zero", c16hu);
-
-//             TDivEx("divx921 divide   -0.0001  0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx922 divide   -0.01    0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx923 divide   -0.1     0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx924 divide   -1       0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx925 divide   -1       0.0 -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx926 divide  -10       0.0 -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx927 divide  -1E+100   0.0 -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx928 divide  -1E+1000  0   -> -Infinity Division_by_zero", c16hu);
-
-//             TDivEx("divx931 divide    0.0001 -0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx932 divide    0.01   -0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx933 divide    0.1    -0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx934 divide    1      -0   -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx935 divide    1      -0.0 -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx936 divide   10      -0.0 -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx937 divide   1E+100  -0.0 -> -Infinity Division_by_zero", c16hu);
-//             TDivEx("divx938 divide   1E+1000 -0   -> -Infinity Division_by_zero", c16hu);
-
-//             TDivEx("divx941 divide   -0.0001 -0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx942 divide   -0.01   -0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx943 divide   -0.1    -0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx944 divide   -1      -0   ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx945 divide   -1      -0.0 ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx946 divide  -10      -0.0 ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx947 divide  -1E+100  -0.0 ->  Infinity Division_by_zero", c16hu);
-//             TDivEx("divx948 divide  -1E+1000 -0   ->  Infinity Division_by_zero", c16hu);
 //         }
 
 //         [Test]
 //         public void DivideTestNoContext()
 //         {
-//             BigDecimal.Context c0u = new BigDecimal.Context(0, BigDecimal.RoundingMode.Unnecessary);
-
-//             //-- sanity checks
-//             TDiv("divx001 divide  1     1    ->  1", c0u);
-//             TDiv("divx002 divide  2     1    ->  2", c0u);
-//             TDiv("divx003 divide  1     2    ->  0.5", c0u);
-//             TDiv("divx004 divide  2     2    ->  1", c0u);
-//             TDiv("divx005 divide  0     1    ->  0", c0u);
-//             TDiv("divx006 divide  0     2    ->  0", c0u);
-//             TDivEx("divx007 divide  1     3    ->  0.333333333 Inexact Rounded", c0u);
-//             TDivEx("divx008 divide  2     3    ->  0.666666667 Inexact Rounded", c0u);
-//             TDiv("divx009 divide  3     3    ->  1", c0u);
-
-//             TDiv("divx010 divide  2.4   1    ->  2.4", c0u);
-//             TDiv("divx011 divide  2.4   -1   ->  -2.4", c0u);
-//         }
-
-//         static void TDivEx(string test, BigDecimal.Context c)
-//         {
-//             try
-//             {
-//                 GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//                 TestDivide(arg1Str, arg2Str, c, "1");  // result irrelevant
-//                 Expect(false);
-//             }
-//             catch (ArithmeticException)
-//             {
-//                 Expect(true);
-//             }
-//         }
-
-//         static void TDiv(string test, BigDecimal.Context c)
-//         {
-//             GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//             TestDivide(arg1Str, arg2Str, c, resultStr);
-//         }
+//             BigDecimal.Context c0u = Context.Create(0, RoundingMode.Unnecessary);
 
 
-//         static void TestDivide(string arg1Str, string arg2Str, BigDecimal.Context c, string resultStr)
-//         {
-//             BigDecimal arg1 = BigDecimal.Parse(arg1Str);
-//             BigDecimal arg2 = BigDecimal.Parse(arg2Str);
-//             BigDecimal val = arg1.Divide(arg2, c);
-//             string valStr = val.ToScientificString();
-//             Expect(valStr).To.Equal(resultStr);
 //         }
 
 
 //         #endregion
 
-//         #region DivideInteger tests
-
-//         [Test]
-//         public void SpecTestDivInt()
-//         {
-//             BigDecimal.Context c9hu = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfUp);
-//             //extended:    1
-//             //precision:   9
-//             //rounding:    half_up
-//             //maxExponent: 384
-//             //minexponent: -383
-
-//             TDivI("dvix001 divideint  1     1    ->  1", c9hu);
-//             TDivI("dvix002 divideint  2     1    ->  2", c9hu);
-//             TDivI("dvix003 divideint  1     2    ->  0", c9hu);
-//             TDivI("dvix004 divideint  2     2    ->  1", c9hu);
-//             TDivI("dvix005 divideint  0     1    ->  0", c9hu);
-//             TDivI("dvix006 divideint  0     2    ->  0", c9hu);
-//             TDivI("dvix007 divideint  1     3    ->  0", c9hu);
-//             TDivI("dvix008 divideint  2     3    ->  0", c9hu);
-//             TDivI("dvix009 divideint  3     3    ->  1", c9hu);
-
-//             TDivI("dvix010 divideint  2.4   1    ->  2", c9hu);
-//             TDivI("dvix011 divideint  2.4   -1   ->  -2", c9hu);
-//             TDivI("dvix012 divideint  -2.4  1    ->  -2", c9hu);
-//             TDivI("dvix013 divideint  -2.4  -1   ->  2", c9hu);
-//             TDivI("dvix014 divideint  2.40  1    ->  2", c9hu);
-//             TDivI("dvix015 divideint  2.400 1    ->  2", c9hu);
-//             TDivI("dvix016 divideint  2.4   2    ->  1", c9hu);
-//             TDivI("dvix017 divideint  2.400 2    ->  1", c9hu);
-//             TDivI("dvix018 divideint  2.    2    ->  1", c9hu);
-//             TDivI("dvix019 divideint  20    20   ->  1", c9hu);
-
-//             TDivI("dvix020 divideint  187   187  ->  1", c9hu);
-//             TDivI("dvix021 divideint  5     2    ->  2", c9hu);
-//             TDivI("dvix022 divideint  5     2.0    ->  2", c9hu);
-//             TDivI("dvix023 divideint  5     2.000  ->  2", c9hu);
-//             TDivI("dvix024 divideint  5     0.200  ->  25", c9hu);
-//             TDivI("dvix025 divideint  5     0.200  ->  25", c9hu);
-
-//             TDivI("dvix030 divideint  1     2      ->  0", c9hu);
-//             TDivI("dvix031 divideint  1     4      ->  0", c9hu);
-//             TDivI("dvix032 divideint  1     8      ->  0", c9hu);
-//             TDivI("dvix033 divideint  1     16     ->  0", c9hu);
-//             TDivI("dvix034 divideint  1     32     ->  0", c9hu);
-//             TDivI("dvix035 divideint  1     64     ->  0", c9hu);
-//             TDivI("dvix040 divideint  1    -2      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix041 divideint  1    -4      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix042 divideint  1    -8      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix043 divideint  1    -16     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix044 divideint  1    -32     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix045 divideint  1    -64     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix050 divideint -1     2      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix051 divideint -1     4      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix052 divideint -1     8      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix053 divideint -1     16     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix054 divideint -1     32     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix055 divideint -1     64     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix060 divideint -1    -2      ->  0", c9hu);
-//             TDivI("dvix061 divideint -1    -4      ->  0", c9hu);
-//             TDivI("dvix062 divideint -1    -8      ->  0", c9hu);
-//             TDivI("dvix063 divideint -1    -16     ->  0", c9hu);
-//             TDivI("dvix064 divideint -1    -32     ->  0", c9hu);
-//             TDivI("dvix065 divideint -1    -64     ->  0", c9hu);
-
-//             //-- similar with powers of ten
-//             TDivI("dvix160 divideint  1     1         ->  1", c9hu);
-//             TDivI("dvix161 divideint  1     10        ->  0", c9hu);
-//             TDivI("dvix162 divideint  1     100       ->  0", c9hu);
-//             TDivI("dvix163 divideint  1     1000      ->  0", c9hu);
-//             TDivI("dvix164 divideint  1     10000     ->  0", c9hu);
-//             TDivI("dvix165 divideint  1     100000    ->  0", c9hu);
-//             TDivI("dvix166 divideint  1     1000000   ->  0", c9hu);
-//             TDivI("dvix167 divideint  1     10000000  ->  0", c9hu);
-//             TDivI("dvix168 divideint  1     100000000 ->  0", c9hu);
-//             TDivI("dvix170 divideint  1    -1         -> -1", c9hu);
-//             TDivI("dvix171 divideint  1    -10        -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix172 divideint  1    -100       -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix173 divideint  1    -1000      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix174 divideint  1    -10000     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix175 divideint  1    -100000    -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix176 divideint  1    -1000000   -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix177 divideint  1    -10000000  -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix178 divideint  1    -100000000 -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix180 divideint -1     1         -> -1", c9hu);
-//             TDivI("dvix181 divideint -1     10        -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix182 divideint -1     100       -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix183 divideint -1     1000      -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix184 divideint -1     10000     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix185 divideint -1     100000    -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix186 divideint -1     1000000   -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix187 divideint -1     10000000  -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix188 divideint -1     100000000 -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix190 divideint -1    -1         ->  1", c9hu);
-//             TDivI("dvix191 divideint -1    -10        ->  0", c9hu);
-//             TDivI("dvix192 divideint -1    -100       ->  0", c9hu);
-//             TDivI("dvix193 divideint -1    -1000      ->  0", c9hu);
-//             TDivI("dvix194 divideint -1    -10000     ->  0", c9hu);
-//             TDivI("dvix195 divideint -1    -100000    ->  0", c9hu);
-//             TDivI("dvix196 divideint -1    -1000000   ->  0", c9hu);
-//             TDivI("dvix197 divideint -1    -10000000  ->  0", c9hu);
-//             TDivI("dvix198 divideint -1    -100000000 ->  0", c9hu);
-
-//             //-- some long operand cases here
-//             TDivI("dvix070 divideint  999999999     1  ->  999999999", c9hu);
-//             TDivI("dvix071 divideint  999999999.4   1  ->  999999999", c9hu);
-//             TDivI("dvix072 divideint  999999999.5   1  ->  999999999", c9hu);
-//             TDivI("dvix073 divideint  999999999.9   1  ->  999999999", c9hu);
-//             TDivI("dvix074 divideint  999999999.999 1  ->  999999999", c9hu);
-//             //precision: 6
-//             BigDecimal.Context c6hu = new BigDecimal.Context(6, BigDecimal.RoundingMode.HalfUp);
-
-//             TDivIEx("dvix080 divideint  999999999     1  ->  NaN Division_impossible", c6hu);
-//             TDivIEx("dvix081 divideint  99999999      1  ->  NaN Division_impossible", c6hu);
-//             TDivIEx("dvix082 divideint  9999999       1  ->  NaN Division_impossible", c6hu);
-//             TDivI("dvix083 divideint  999999        1  ->  999999", c6hu);
-//             TDivI("dvix084 divideint  99999         1  ->  99999", c6hu);
-//             TDivI("dvix085 divideint  9999          1  ->  9999", c6hu);
-//             TDivI("dvix086 divideint  999           1  ->  999", c6hu);
-//             TDivI("dvix087 divideint  99            1  ->  99", c6hu);
-//             TDivI("dvix088 divideint  9             1  ->  9", c6hu);
-
-//             //precision: 9
-//             TDivI("dvix090 divideint  0.            1    ->  0", c9hu);
-//             TDivI("dvix091 divideint  .0            1    ->  0", c9hu);
-//             TDivI("dvix092 divideint  0.00          1    ->  0", c9hu);
-//             TDivI("dvix093 divideint  0.00E+9       1    ->  0", c9hu);
-//             TDivI("dvix094 divideint  0.0000E-50    1    ->  0", c9hu);
-
-//             TDivI("dvix100 divideint  1  1   -> 1", c9hu);
-//             TDivI("dvix101 divideint  1  2   -> 0", c9hu);
-//             TDivI("dvix102 divideint  1  3   -> 0", c9hu);
-//             TDivI("dvix103 divideint  1  4   -> 0", c9hu);
-//             TDivI("dvix104 divideint  1  5   -> 0", c9hu);
-//             TDivI("dvix105 divideint  1  6   -> 0", c9hu);
-//             TDivI("dvix106 divideint  1  7   -> 0", c9hu);
-//             TDivI("dvix107 divideint  1  8   -> 0", c9hu);
-//             TDivI("dvix108 divideint  1  9   -> 0", c9hu);
-//             TDivI("dvix109 divideint  1  10  -> 0", c9hu);
-//             TDivI("dvix110 divideint  1  1   -> 1", c9hu);
-//             TDivI("dvix111 divideint  2  1   -> 2", c9hu);
-//             TDivI("dvix112 divideint  3  1   -> 3", c9hu);
-//             TDivI("dvix113 divideint  4  1   -> 4", c9hu);
-//             TDivI("dvix114 divideint  5  1   -> 5", c9hu);
-//             TDivI("dvix115 divideint  6  1   -> 6", c9hu);
-//             TDivI("dvix116 divideint  7  1   -> 7", c9hu);
-//             TDivI("dvix117 divideint  8  1   -> 8", c9hu);
-//             TDivI("dvix118 divideint  9  1   -> 9", c9hu);
-//             TDivI("dvix119 divideint  10 1   -> 10", c9hu);
-
-//             //-- from DiagBigDecimal
-//             TDivI("dvix131 divideint  101.3   1     ->  101", c9hu);
-//             TDivI("dvix132 divideint  101.0   1     ->  101", c9hu);
-//             TDivI("dvix133 divideint  101.3   3     ->  33", c9hu);
-//             TDivI("dvix134 divideint  101.0   3     ->  33", c9hu);
-//             TDivI("dvix135 divideint  2.4     1     ->  2", c9hu);
-//             TDivI("dvix136 divideint  2.400   1     ->  2", c9hu);
-//             TDivI("dvix137 divideint  18      18    ->  1", c9hu);
-//             TDivI("dvix138 divideint  1120    1000  ->  1", c9hu);
-//             TDivI("dvix139 divideint  2.4     2     ->  1", c9hu);
-//             TDivI("dvix140 divideint  2.400   2     ->  1", c9hu);
-//             TDivI("dvix141 divideint  0.5     2.000 ->  0", c9hu);
-//             TDivI("dvix142 divideint  8.005   7     ->  1", c9hu);
-//             TDivI("dvix143 divideint  5       2     ->  2", c9hu);
-//             TDivI("dvix144 divideint  0       2     ->  0", c9hu);
-//             TDivI("dvix145 divideint  0.00    2     ->  0", c9hu);
-
-//             //-- Others
-//             TDivI("dvix150 divideint  12345  4.999  ->  2469", c9hu);
-//             TDivI("dvix151 divideint  12345  4.99   ->  2473", c9hu);
-//             TDivI("dvix152 divideint  12345  4.9    ->  2519", c9hu);
-//             TDivI("dvix153 divideint  12345  5      ->  2469", c9hu);
-//             TDivI("dvix154 divideint  12345  5.1    ->  2420", c9hu);
-//             TDivI("dvix155 divideint  12345  5.01   ->  2464", c9hu);
-//             TDivI("dvix156 divideint  12345  5.001  ->  2468", c9hu);
-//             TDivI("dvix157 divideint    101  7.6    ->  13", c9hu);
-
-//             //-- Various flavours of divideint by 0
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-//             TDivIEx("dvix201 divideint  0      0   -> NaN Division_undefined", c9hu);
-//             TDivIEx("dvix202 divideint  0.0E5  0   -> NaN Division_undefined", c9hu);
-//             TDivIEx("dvix203 divideint  0.000  0   -> NaN Division_undefined", c9hu);
-//             TDivIEx("dvix204 divideint  0.0001 0   -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix205 divideint  0.01   0   -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix206 divideint  0.1    0   -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix207 divideint  1      0   -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix208 divideint  1      0.0 -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix209 divideint 10      0.0 -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix210 divideint 1E+100  0.0 -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix211 divideint 1E+1000 0   -> Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix214 divideint  -0.0001 0   -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix215 divideint  -0.01   0   -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix216 divideint  -0.1    0   -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix217 divideint  -1      0   -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix218 divideint  -1      0.0 -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix219 divideint -10      0.0 -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix220 divideint -1E+100  0.0 -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix221 divideint -1E+1000 0   -> -Infinity Division_by_zero", c9hu);
-
-//             // TODO: Reactivate these tests when we can handle the align (irrelevant when the numbers are so different)
-
-//             // -- test some cases that are close to exponent overflow
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-//             //TDivI("dvix270 divideint 1 1e999999999    -> 0", c9hu);
-//             //TDivI("dvix271 divideint 1 0.9e999999999  -> 0", c9hu);
-//             //TDivI("dvix272 divideint 1 0.99e999999999 -> 0", c9hu);
-//             //TDivI("dvix273 divideint 1 0.999999999e999999999 -> 0", c9hu);
-//             //TDivIEx("dvix274 divideint 9e999999999    1       -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix275 divideint 9.9e999999999  1       -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix276 divideint 9.99e999999999 1       -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix277 divideint 9.99999999e999999999 1 -> NaN Division_impossible", c9hu);
-
-//             //TDivIEx("dvix280 divideint 0.1 9e-999999999       -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix281 divideint 0.1 99e-999999999      -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix282 divideint 0.1 999e-999999999     -> NaN Division_impossible", c9hu);
-
-//             //TDivIEx("dvix283 divideint 0.1 9e-999999998       -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix284 divideint 0.1 99e-999999998      -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix285 divideint 0.1 999e-999999998     -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix286 divideint 0.1 999e-999999997     -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix287 divideint 0.1 9999e-999999997    -> NaN Division_impossible", c9hu);
-//             //TDivIEx("dvix288 divideint 0.1 99999e-999999997   -> NaN Division_impossible", c9hu);
-
-//             //-- GD edge cases: lhs smaller than rhs but more digits
-//             TDivI("dvix301  divideint  0.9      2      ->  0", c9hu);
-//             TDivI("dvix302  divideint  0.9      2.0    ->  0", c9hu);
-//             TDivI("dvix303  divideint  0.9      2.1    ->  0", c9hu);
-//             TDivI("dvix304  divideint  0.9      2.00   ->  0", c9hu);
-//             TDivI("dvix305  divideint  0.9      2.01   ->  0", c9hu);
-//             TDivI("dvix306  divideint  0.12     1      ->  0", c9hu);
-//             TDivI("dvix307  divideint  0.12     1.0    ->  0", c9hu);
-//             TDivI("dvix308  divideint  0.12     1.00   ->  0", c9hu);
-//             TDivI("dvix309  divideint  0.12     1.0    ->  0", c9hu);
-//             TDivI("dvix310  divideint  0.12     1.00   ->  0", c9hu);
-//             TDivI("dvix311  divideint  0.12     2      ->  0", c9hu);
-//             TDivI("dvix312  divideint  0.12     2.0    ->  0", c9hu);
-//             TDivI("dvix313  divideint  0.12     2.1    ->  0", c9hu);
-//             TDivI("dvix314  divideint  0.12     2.00   ->  0", c9hu);
-//             TDivI("dvix315  divideint  0.12     2.01   ->  0", c9hu);
-
-//             //-- overflow and underflow tests [from divide]
-//             //maxexponent: 999999999
-//             //minexponent: -999999999
-//             //TDivI("dvix330 divideint +1.23456789012345E-0 9E+999999999    -> 0", c9hu);
-//             //TDivIEx("dvix331 divideint 9E+999999999 +0.23456789012345E-0 -> NaN Division_impossible", c9hu);
-//             //TDivI("dvix332 divideint +0.100 9E+999999999    -> 0", c9hu);
-//             //TDivI("dvix333 divideint 9E-999999999 +9.100    -> 0", c9hu);
-//             //TDivI("dvix335 divideint -1.23456789012345E-0 9E+999999999    -> -0", c9hu);
-//             //TDivIEx("dvix336 divideint 9E+999999999 -0.83456789012345E-0 -> NaN Division_impossible", c9hu);
-//             //TDivI("dvix337 divideint -0.100 9E+999999999    -> -0", c9hu);
-//             //TDivI("dvix338 divideint 9E-999999999 -9.100    -> -0", c9hu);
-
-//             //-- long operand checks
-//             //maxexponent: 999
-//             //minexponent: -999
-//             //precision: 9
-//             TDivI("dvix401 divideint 12345678000 100 -> 123456780", c9hu);
-//             TDivI("dvix402 divideint 1 12345678000   -> 0", c9hu);
-//             TDivI("dvix403 divideint 1234567800  10  -> 123456780", c9hu);
-//             TDivI("dvix404 divideint 1 1234567800    -> 0", c9hu);
-//             TDivI("dvix405 divideint 1234567890  10  -> 123456789", c9hu);
-//             TDivI("dvix406 divideint 1 1234567890    -> 0", c9hu);
-//             TDivI("dvix407 divideint 1234567891  10  -> 123456789", c9hu);
-//             TDivI("dvix408 divideint 1 1234567891    -> 0", c9hu);
-//             TDivI("dvix409 divideint 12345678901 100 -> 123456789", c9hu);
-//             TDivI("dvix410 divideint 1 12345678901   -> 0", c9hu);
-//             TDivI("dvix411 divideint 1234567896  10  -> 123456789", c9hu);
-//             TDivI("dvix412 divideint 1 1234567896    -> 0", c9hu);
-//             TDivI("dvix413 divideint 12345678948 100 -> 123456789", c9hu);
-//             TDivI("dvix414 divideint 12345678949 100 -> 123456789", c9hu);
-//             TDivI("dvix415 divideint 12345678950 100 -> 123456789", c9hu);
-//             TDivI("dvix416 divideint 12345678951 100 -> 123456789", c9hu);
-//             TDivI("dvix417 divideint 12345678999 100 -> 123456789", c9hu);
-
-//             //precision: 15
-//             BigDecimal.Context c15hu = new BigDecimal.Context(15, BigDecimal.RoundingMode.HalfUp);
-
-//             TDivI("dvix441 divideint 12345678000 1 -> 12345678000", c15hu);
-//             TDivI("dvix442 divideint 1 12345678000 -> 0", c15hu);
-//             TDivI("dvix443 divideint 1234567800  1 -> 1234567800", c15hu);
-//             TDivI("dvix444 divideint 1 1234567800  -> 0", c15hu);
-//             TDivI("dvix445 divideint 1234567890  1 -> 1234567890", c15hu);
-//             TDivI("dvix446 divideint 1 1234567890  -> 0", c9hu);
-//             TDivI("dvix447 divideint 1234567891  1 -> 1234567891", c15hu);
-//             TDivI("dvix448 divideint 1 1234567891  -> 0", c9hu);
-//             TDivI("dvix449 divideint 12345678901 1 -> 12345678901", c15hu);
-//             TDivI("dvix450 divideint 1 12345678901 -> 0", c15hu);
-//             TDivI("dvix451 divideint 1234567896  1 -> 1234567896", c15hu);
-//             TDivI("dvix452 divideint 1 1234567896  -> 0", c15hu);
-
-//             //precision:   9
-//             //rounding:    half_up
-//             //maxExponent: 999
-//             //minexponent: -999
-
-//             //-- more zeros, etc.
-//             TDivI("dvix531 divideint 5.00 1E-3    -> 5000", c9hu);
-//             TDivIEx("dvix532 divideint 00.00 0.000  -> NaN Division_undefined", c9hu);
-//             TDivIEx("dvix533 divideint 00.00 0E-3   -> NaN Division_undefined", c9hu);
-//             TDivIEx("dvix534 divideint  0    -0     -> NaN Division_undefined", c9hu);
-//             TDivIEx("dvix535 divideint -0     0     -> NaN Division_undefined", c9hu);
-//             TDivIEx("dvix536 divideint -0    -0     -> NaN Division_undefined", c9hu);
-
-//             TDivI("dvix541 divideint  0    -1     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix542 divideint -0    -1     ->  0", c9hu);
-//             TDivI("dvix543 divideint  0     1     ->  0", c9hu);
-//             TDivI("dvix544 divideint -0     1     -> 0", c9hu); // mod: neg zero
-//             TDivIEx("dvix545 divideint -1     0     -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix546 divideint -1    -0     ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix547 divideint  1     0     ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix548 divideint  1    -0     -> -Infinity Division_by_zero", c9hu);
-
-//             TDivI("dvix551 divideint  0.0  -1     -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix552 divideint -0.0  -1     ->  0", c9hu);
-//             TDivI("dvix553 divideint  0.0   1     ->  0", c9hu);
-//             TDivI("dvix554 divideint -0.0   1     -> 0", c9hu); // mod: neg zero
-//             TDivIEx("dvix555 divideint -1.0   0     -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix556 divideint -1.0  -0     ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix557 divideint  1.0   0     ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix558 divideint  1.0  -0     -> -Infinity Division_by_zero", c9hu);
-
-//             TDivI("dvix561 divideint  0    -1.0   -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix562 divideint -0    -1.0   ->  0", c9hu);
-//             TDivI("dvix563 divideint  0     1.0   ->  0", c9hu);
-//             TDivI("dvix564 divideint -0     1.0   -> 0", c9hu); // mod: neg zero
-//             TDivIEx("dvix565 divideint -1     0.0   -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix566 divideint -1    -0.0   ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix567 divideint  1     0.0   ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix568 divideint  1    -0.0   -> -Infinity Division_by_zero", c9hu);
-
-//             TDivI("dvix571 divideint  0.0  -1.0   -> 0", c9hu); // mod: neg zero
-//             TDivI("dvix572 divideint -0.0  -1.0   ->  0", c9hu);
-//             TDivI("dvix573 divideint  0.0   1.0   ->  0", c9hu);
-//             TDivI("dvix574 divideint -0.0   1.0   -> 0", c9hu); // mod: neg zero
-//             TDivIEx("dvix575 divideint -1.0   0.0   -> -Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix576 divideint -1.0  -0.0   ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix577 divideint  1.0   0.0   ->  Infinity Division_by_zero", c9hu);
-//             TDivIEx("dvix578 divideint  1.0  -0.0   -> -Infinity Division_by_zero", c9hu);
-
-//         }
-
-//         static void TDivI(string test, BigDecimal.Context c)
-//         {
-//             GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//             TestDivideInt(arg1Str, arg2Str, c, resultStr);
-//         }
-
-
-//         static void TestDivideInt(string arg1Str, string arg2Str, BigDecimal.Context c, string resultStr)
-//         {
-//             BigDecimal arg1 = BigDecimal.Parse(arg1Str);
-//             BigDecimal arg2 = BigDecimal.Parse(arg2Str);
-//             BigDecimal val = arg1.DivideInteger(arg2, c);
-//             string valStr = val.ToScientificString();
-//             Expect(valStr).To.Equal(resultStr);
-//         }
-
-//         static void TDivIEx(string test, BigDecimal.Context c)
-//         {
-//             try
-//             {
-//                 GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//                 BigDecimal arg1 = BigDecimal.Parse(arg1Str);
-//                 BigDecimal arg2 = BigDecimal.Parse(arg2Str);
-//                 arg1.DivideInteger(arg2, c);
-//                 Expect(false);
-//             }
-//             catch (ArithmeticException )
-//             {
-//                 Expect(true);
-//             }
-//         }
-
-
-//         #endregion
 
 //         #region Power tests
 
 //         [Test]
 //         public void PowerTestsFromSpec()
 //         {
-//             BigDecimal.Context c9he = new BigDecimal.Context(9, BigDecimal.RoundingMode.HalfEven);
-//             BigDecimal.Context c10he = new BigDecimal.Context(10, BigDecimal.RoundingMode.HalfEven);
-//             BigDecimal.Context c16he = new BigDecimal.Context(16, BigDecimal.RoundingMode.HalfEven);
+//             BigDecimal.Context c9he = Context.Create(9, RoundingMode.HalfEven);
+//             BigDecimal.Context c10he = Context.Create(10, RoundingMode.HalfEven);
+//             BigDecimal.Context c16he = Context.Create(16, RoundingMode.HalfEven);
 //             //extended:    1
 //             //precision:   16
 //             //rounding:    half_even

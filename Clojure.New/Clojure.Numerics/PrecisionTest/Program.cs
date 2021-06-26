@@ -1,7 +1,7 @@
 ﻿using System;
 using SNBI = System.Numerics.BigInteger;
 using CLBI = clojure.lang.BigInteger;
-using System.Net.Security;
+using CLBD = clojure.lang.BigDecimal;
 
 namespace PrecisionTest
 {
@@ -11,54 +11,54 @@ namespace PrecisionTest
         {
             //CreateFromDouble(100.0);
 
-            for (int i = 5; i < 10; i++)
-            {
-                String s = new String('9', i);
-                var snbi = SNBI.Parse(s);
-                var clbi = CLBI.Parse(s);
-                var cp = clbi.Precision;
-                var sl = (UInt32)Math.Ceiling(SNBI.Log10(snbi));
-                var csl = ComputedPrecision(snbi);
-                var sLen = snbi.ToString().Length;
-                Console.WriteLine($"i={i}, Prec={cp}, Log= {sl}, CLog={csl}, Slen={sLen},m Match={cp == csl}");
+            //for (int i = 5; i < 10; i++)
+            //{
+            //    String s = new String('9', i);
+            //    var snbi = SNBI.Parse(s);
+            //    var clbi = CLBI.Parse(s);
+            //    var cp = clbi.Precision;
+            //    var sl = (UInt32)Math.Ceiling(SNBI.Log10(snbi));
+            //    var csl = ComputedPrecision(snbi);
+            //    var sLen = snbi.ToString().Length;
+            //    Console.WriteLine($"i={i}, Prec={cp}, Log= {sl}, CLog={csl}, Slen={sLen},m Match={cp == csl}");
 
-            }
+            //}
 
-            for (int i = 5; i < 10; i++)
-            {
-                String s = "1" + new String('0', i);
-                var snbi = SNBI.Parse(s);
-                var clbi = CLBI.Parse(s);
-                var cp = clbi.Precision;
-                var sl = SNBI.Log10(snbi);
-                var csl = ComputedPrecision(snbi);
-                var sLen = snbi.ToString().Length;
-                Console.WriteLine($"i={i}, Prec={cp}, Log= {sl}, CLog={csl}, Slen={sLen},m Match={cp == csl}");
+            //for (int i = 5; i < 10; i++)
+            //{
+            //    String s = "1" + new String('0', i);
+            //    var snbi = SNBI.Parse(s);
+            //    var clbi = CLBI.Parse(s);
+            //    var cp = clbi.Precision;
+            //    var sl = SNBI.Log10(snbi);
+            //    var csl = ComputedPrecision(snbi);
+            //    var sLen = snbi.ToString().Length;
+            //    Console.WriteLine($"i={i}, Prec={cp}, Log= {sl}, CLog={csl}, Slen={sLen},m Match={cp == csl}");
 
-            }
-            {
+            //}
+            //{
 
-                var s = "123456789099999989001469561517021489294165803585201501846313476562500";
-                var snbi = SNBI.Parse(s);
-                var clbi = CLBI.Parse(s);
-                var cp = clbi.Precision;
-                var sl = SNBI.Log10(snbi);
-                var csl = ComputedPrecision(snbi);
-                var sLen = snbi.ToString().Length;
-                Console.WriteLine($"Prec={cp}, Log= {sl}, CLog={csl}, Slen={sLen},m Match={cp == csl}");
+            //    var s = "123456789099999989001469561517021489294165803585201501846313476562500";
+            //    var snbi = SNBI.Parse(s);
+            //    var clbi = CLBI.Parse(s);
+            //    var cp = clbi.Precision;
+            //    var sl = SNBI.Log10(snbi);
+            //    var csl = ComputedPrecision(snbi);
+            //    var sLen = snbi.ToString().Length;
+            //    Console.WriteLine($"Prec={cp}, Log= {sl}, CLog={csl}, Slen={sLen},m Match={cp == csl}");
 
 
 
-            }
+            //}
 
-            {
-                var s = "100000000000000000000000000000000000";
-                var snbi = SNBI.Parse(s);
-                var clbi = CLBI.Parse(s);
-                var snbiBits = snbi.ToByteArray();
-                var clbiBits = clbi.GetMagnitude();
-                Console.WriteLine($"{snbiBits} {clbiBits}");
-            }
+            //{
+            //    var s = "100000000000000000000000000000000000";
+            //    var snbi = SNBI.Parse(s);
+            //    var clbi = CLBI.Parse(s);
+            //    var snbiBits = snbi.ToByteArray();
+            //    var clbiBits = clbi.GetMagnitude();
+            //    Console.WriteLine($"{snbiBits} {clbiBits}");
+            //}
 
 
             //(0.1234567891, "0.123456789", c9hu);
@@ -77,6 +77,15 @@ namespace PrecisionTest
 
             //CreateFromDouble(0.1234567891);
             //CreateFromDouble(0.0000001234567891);
+
+
+            var bd = CLBD.Parse("1");
+            //var c = new clojure.lang.BigDecimal.Context(9, CLBD.RoundingMode.HalfUp);
+            var c = new clojure.lang.BigDecimal.Context(0, CLBD.RoundingMode.Unnecessary);
+            var q = bd.Divide(bd, c);
+
+            var s = q.ToScientificString();
+            Console.WriteLine(s);
 
         }
 

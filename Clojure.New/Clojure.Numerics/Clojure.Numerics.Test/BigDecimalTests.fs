@@ -4568,168 +4568,132 @@ let pointMoveTests =
 ///////////////////////////
 
 
-//     [TestFixture]
-//     public class BigDecimalTests
-//     {
+let decimalTest (v:decimal) (expectStr:string) (c:Context) =
+    let d = BigDecimal.CreateC(v,c)
+    let gotStr = d.ToScientificString()
+    Expect.equal gotStr expectStr  "Wrong representation"
 
+    if v <> 0M
+    then 
+        let d = BigDecimal.CreateC(-v,c)
+        let gotStr = d.ToScientificString()
+        Expect.equal gotStr ("-"+expectStr) "Wrong representation"
+    else ()
 
+let createDecimalTests data =
+    data
+    |> List.mapi (fun i (v, expect, context) ->
+            testCase (sprintf "BD from decimal #%i '%s' with context %s" i expect (context.ToString())) <| fun _ -> 
+                decimalTest v expect context
+            )
 
+let decimalTests = 
+    [
+        (0M, "0", c9hu);
+        (1M, "1", c9hu);
+        (2M, "2", c9hu);
+        (3M, "3", c9hu);
+        (4M, "4", c9hu);
+        (5M, "5", c9hu);
+        (6M, "6", c9hu);
+        (7M, "7", c9hu);
+        (8M, "8", c9hu);
+        (9M, "9", c9hu);
+        (10M, "10", c9hu);
+        (11M, "11", c9hu);
+        (12M, "12", c9hu);
+    
+        (1M, "1", c9hu);
+        (10M, "10", c9hu);
+        (100M, "100", c9hu);
+        (1000M, "1000", c9hu);
+        (10000M, "10000", c9hu);
+        (100000M, "100000", c9hu);
+        (1000000M, "1000000", c9hu);
+        (10000000M, "10000000", c9hu);
+        (100000000M, "100000000", c9hu);
+        (1000000000M, "1.00000000E+9", c9hu);
+        (10000000000M, "1.00000000E+10", c9hu);
+        (100000000000M, "1.00000000E+11", c9hu);
+        (1000000000000M, "1.00000000E+12", c9hu);
+        (10000000000000M, "1.00000000E+13", c9hu);
+        (100000000000000M, "1.00000000E+14", c9hu);
+        (1000000000000000M, "1.00000000E+15", c9hu);
+    
+        (0.1M, "0.1", c9hu);
+        (0.01M, "0.01", c9hu);
+        (0.001M, "0.001", c9hu);
+        (0.0001M, "0.0001", c9hu);
+        (0.00001M, "0.00001", c9hu);
+        (0.000001M, "0.000001", c9hu);
+        (0.0000001M, "1E-7", c9hu);
+        (0.00000001M, "1E-8", c9hu);
+        (0.000000001M, "1E-9", c9hu);
+        (0.0000000001M, "1E-10", c9hu);
+        (0.00000000001M, "1E-11", c9hu);
+        (0.000000000001M, "1E-12", c9hu);
+        (0.0000000000001M, "1E-13", c9hu);
+        (0.00000000000001M, "1E-14", c9hu);
+    
+    
+        (1.234567891M, "1.23456789", c9hu);
+        (12.34567891M, "12.3456789", c9hu);
+        (123.4567891M, "123.456789", c9hu);
+        (1234.567891M, "1234.56789", c9hu);
+        (12345.67891M, "12345.6789", c9hu);
+        (123456.7891M, "123456.789", c9hu);
+        (1234567.891M, "1234567.89", c9hu);
+        (12345678.91M, "12345678.9", c9hu);
+        (123456789.1M, "123456789", c9hu);
+        (1234567891M, "1.23456789E+9", c9hu);
+        (12345678910M, "1.23456789E+10", c9hu);
+        (123456789100M, "1.23456789E+11", c9hu);
+        (1234567891000M, "1.23456789E+12", c9hu);
+    
+        (1.234567896M, "1.23456790", c9hu);
+        (12.34567896M, "12.3456790", c9hu);
+        (123.4567896M, "123.456790", c9hu);
+        (1234.567896M, "1234.56790", c9hu);
+        (12345.67896M, "12345.6790", c9hu);
+        (123456.7896M, "123456.790", c9hu);
+        (1234567.896M, "1234567.90", c9hu);
+        (12345678.96M, "12345679.0", c9hu);
+        (123456789.6M, "123456790", c9hu);
+        (1234567896M, "1.23456790E+9", c9hu);
+        (12345678960M, "1.23456790E+10", c9hu);
+        (123456789600M, "1.23456790E+11", c9hu);
+        (1234567896000M, "1.23456790E+12", c9hu);
+    
+        (0.1234567891M, "0.123456789", c9hu);
+        (0.01234567891M, "0.0123456789", c9hu);
+        (0.001234567891M, "0.00123456789", c9hu);
+        (0.0001234567891M, "0.000123456789", c9hu);
+        (0.00001234567891M, "0.0000123456789", c9hu);
+        (0.000001234567891M, "0.00000123456789", c9hu);
+        (0.0000001234567891M, "1.23456789E-7", c9hu);
+        (0.00000001234567891M, "1.23456789E-8", c9hu);
+        (0.000000001234567891M, "1.23456789E-9", c9hu);
+        (0.0000000001234567891M, "1.23456789E-10", c9hu);
+        (0.00000000001234567891M, "1.23456789E-11", c9hu);
+        (0.000000000001234567891M, "1.23456789E-12", c9hu);
+        (0.0000000000001234567891M, "1.23456789E-13", c9hu);
+        (0.00000000000001234567891M, "1.23456789E-14", c9hu);
+    
+        (0.1234567896M, "0.123456790", c9hu);
+        (0.01234567896M, "0.0123456790", c9hu);
+        (0.001234567896M, "0.00123456790", c9hu);
+        (0.0001234567896M, "0.000123456790", c9hu);
+        (0.00001234567896M, "0.0000123456790", c9hu);
+        (0.000001234567896M, "0.00000123456790", c9hu);
+        (0.0000001234567896M, "1.23456790E-7", c9hu);
+        (0.00000001234567896M, "1.23456790E-8", c9hu);
+        (0.000000001234567896M, "1.23456790E-9", c9hu);
+        (0.0000000001234567896M, "1.23456790E-10", c9hu);
+        (0.00000000001234567896M, "1.23456790E-11", c9hu);
+        (0.000000000001234567896M, "1.23456790E-12", c9hu);
+        (0.0000000000001234567896M, "1.23456790E-13", c9hu);
+        (0.00000000000001234567896M, "1.23456790E-14", c9hu);
+    ]
 
-
-//         [Test]
-//         public void CanCreateFromDecimal()
-//         {
-//BigDecimal.Context c9hu = Context.Create(9, RoundingMode.HalfUp);
-
-//TestDecimal(0M, "0", c9hu);
-//             TestDecimal(1M, "1", c9hu);
-//             TestDecimal(2M, "2", c9hu);
-//             TestDecimal(3M, "3", c9hu);
-//             TestDecimal(4M, "4", c9hu);
-//             TestDecimal(5M, "5", c9hu);
-//             TestDecimal(6M, "6", c9hu);
-//             TestDecimal(7M, "7", c9hu);
-//             TestDecimal(8M, "8", c9hu);
-//             TestDecimal(9M, "9", c9hu);
-//             TestDecimal(10M, "10", c9hu);
-//             TestDecimal(11M, "11", c9hu);
-//             TestDecimal(12M, "12", c9hu);
-
-//             TestDecimal(1M, "1", c9hu);
-//             TestDecimal(10M, "10", c9hu);
-//             TestDecimal(100M, "100", c9hu);
-//             TestDecimal(1000M, "1000", c9hu);
-//             TestDecimal(10000M, "10000", c9hu);
-//             TestDecimal(100000M, "100000", c9hu);
-//             TestDecimal(1000000M, "1000000", c9hu);
-//             TestDecimal(10000000M, "10000000", c9hu);
-//             TestDecimal(100000000M, "100000000", c9hu);
-//             TestDecimal(1000000000M, "1.00000000E+9", c9hu);
-//             TestDecimal(10000000000M, "1.00000000E+10", c9hu);
-//             TestDecimal(100000000000M, "1.00000000E+11", c9hu);
-//             TestDecimal(1000000000000M, "1.00000000E+12", c9hu);
-//             TestDecimal(10000000000000M, "1.00000000E+13", c9hu);
-//             TestDecimal(100000000000000M, "1.00000000E+14", c9hu);
-//             TestDecimal(1000000000000000M, "1.00000000E+15", c9hu);
-
-//             TestDecimal(0.1M, "0.1", c9hu);
-//             TestDecimal(0.01M, "0.01", c9hu);
-//             TestDecimal(0.001M, "0.001", c9hu);
-//             TestDecimal(0.0001M, "0.0001", c9hu);
-//             TestDecimal(0.00001M, "0.00001", c9hu);
-//             TestDecimal(0.000001M, "0.000001", c9hu);
-//             TestDecimal(0.0000001M, "1E-7", c9hu);
-//             TestDecimal(0.00000001M, "1E-8", c9hu);
-//             TestDecimal(0.000000001M, "1E-9", c9hu);
-//             TestDecimal(0.0000000001M, "1E-10", c9hu);
-//             TestDecimal(0.00000000001M, "1E-11", c9hu);
-//             TestDecimal(0.000000000001M, "1E-12", c9hu);
-//             TestDecimal(0.0000000000001M, "1E-13", c9hu);
-//             TestDecimal(0.00000000000001M, "1E-14", c9hu);
-
-
-//             TestDecimal(1.234567891M, "1.23456789", c9hu);
-//             TestDecimal(12.34567891M, "12.3456789", c9hu);
-//             TestDecimal(123.4567891M, "123.456789", c9hu);
-//             TestDecimal(1234.567891M, "1234.56789", c9hu);
-//             TestDecimal(12345.67891M, "12345.6789", c9hu);
-//             TestDecimal(123456.7891M, "123456.789", c9hu);
-//             TestDecimal(1234567.891M, "1234567.89", c9hu);
-//             TestDecimal(12345678.91M, "12345678.9", c9hu);
-//             TestDecimal(123456789.1M, "123456789", c9hu);
-//             TestDecimal(1234567891M, "1.23456789E+9", c9hu);
-//             TestDecimal(12345678910M, "1.23456789E+10", c9hu);
-//             TestDecimal(123456789100M, "1.23456789E+11", c9hu);
-//             TestDecimal(1234567891000M, "1.23456789E+12", c9hu);
-
-//             TestDecimal(1.234567896M, "1.23456790", c9hu);
-//             TestDecimal(12.34567896M, "12.3456790", c9hu);
-//             TestDecimal(123.4567896M, "123.456790", c9hu);
-//             TestDecimal(1234.567896M, "1234.56790", c9hu);
-//             TestDecimal(12345.67896M, "12345.6790", c9hu);
-//             TestDecimal(123456.7896M, "123456.790", c9hu);
-//             TestDecimal(1234567.896M, "1234567.90", c9hu);
-//             TestDecimal(12345678.96M, "12345679.0", c9hu);
-//             TestDecimal(123456789.6M, "123456790", c9hu);
-//             TestDecimal(1234567896M, "1.23456790E+9", c9hu);
-//             TestDecimal(12345678960M, "1.23456790E+10", c9hu);
-//             TestDecimal(123456789600M, "1.23456790E+11", c9hu);
-//             TestDecimal(1234567896000M, "1.23456790E+12", c9hu);
-
-//             TestDecimal(0.1234567891M, "0.123456789", c9hu);
-//             TestDecimal(0.01234567891M, "0.0123456789", c9hu);
-//             TestDecimal(0.001234567891M, "0.00123456789", c9hu);
-//             TestDecimal(0.0001234567891M, "0.000123456789", c9hu);
-//             TestDecimal(0.00001234567891M, "0.0000123456789", c9hu);
-//             TestDecimal(0.000001234567891M, "0.00000123456789", c9hu);
-//             TestDecimal(0.0000001234567891M, "1.23456789E-7", c9hu);
-//             TestDecimal(0.00000001234567891M, "1.23456789E-8", c9hu);
-//             TestDecimal(0.000000001234567891M, "1.23456789E-9", c9hu);
-//             TestDecimal(0.0000000001234567891M, "1.23456789E-10", c9hu);
-//             TestDecimal(0.00000000001234567891M, "1.23456789E-11", c9hu);
-//             TestDecimal(0.000000000001234567891M, "1.23456789E-12", c9hu);
-//             TestDecimal(0.0000000000001234567891M, "1.23456789E-13", c9hu);
-//             TestDecimal(0.00000000000001234567891M, "1.23456789E-14", c9hu);
-
-//             TestDecimal(0.1234567896M, "0.123456790", c9hu);
-//             TestDecimal(0.01234567896M, "0.0123456790", c9hu);
-//             TestDecimal(0.001234567896M, "0.00123456790", c9hu);
-//             TestDecimal(0.0001234567896M, "0.000123456790", c9hu);
-//             TestDecimal(0.00001234567896M, "0.0000123456790", c9hu);
-//             TestDecimal(0.000001234567896M, "0.00000123456790", c9hu);
-//             TestDecimal(0.0000001234567896M, "1.23456790E-7", c9hu);
-//             TestDecimal(0.00000001234567896M, "1.23456790E-8", c9hu);
-//             TestDecimal(0.000000001234567896M, "1.23456790E-9", c9hu);
-//             TestDecimal(0.0000000001234567896M, "1.23456790E-10", c9hu);
-//             TestDecimal(0.00000000001234567896M, "1.23456790E-11", c9hu);
-//             TestDecimal(0.000000000001234567896M, "1.23456790E-12", c9hu);
-//             TestDecimal(0.0000000000001234567896M, "1.23456790E-13", c9hu);
-//             TestDecimal(0.00000000000001234567896M, "1.23456790E-14", c9hu);
-
-
-//         }
-
-
-//         static private void TestDecimal(decimal v, string expectStr, BigDecimal.Context c)
-//         {
-//             BigDecimal d = BigDecimal.Create(v, c);
-//             string gotStr = d.ToScientificString();
-//             Expect(gotStr).To.Equal(expectStr);
-
-//             if (v != 0M)
-//             {
-//                 d = BigDecimal.Create(-v, c);
-//                 gotStr = d.ToScientificString();
-//                 Expect(gotStr).To.Equal("-" + expectStr);
-//             }
-//         }
-
-
-//         #region MovePoint tests
-
-//         [Test]
-//         public void testMovePoint()
-//         {
-
-//         }
-
-//         static void testMoveLeft(string strVal, int n, string expectedString)
-//         {
-//             BigDecimal d = BigDecimal.Parse(strVal);
-//             BigDecimal m = d.MovePointLeft(n);
-//             string resultStr = m.ToScientificString();
-//             Expect(resultStr).To.Equal(expectedString);
-//         }
-
-
-//         static void testMoveRight(string strVal, int n, string expectedString)
-//         {
-//             BigDecimal d = BigDecimal.Parse(strVal);
-//             BigDecimal m = d.MovePointRight(n);
-//             string resultStr = m.ToScientificString();
-//             Expect(resultStr).To.Equal(expectedString);
-//         }
-
-//         #endregion
-//     }
-//}
+[<Tests>]
+let decimalTestList = testList "decimal examples" (createDecimalTests decimalTests)

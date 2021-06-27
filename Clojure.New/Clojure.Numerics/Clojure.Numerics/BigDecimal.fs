@@ -306,11 +306,18 @@ type BigDecimal private (coeff, exp, precision) =
             let ints = Decimal.GetBits(v)
             let sign = if v < 0m then -1 else 1
             let exp = (ints.[3] &&& 0x00FF0000 ) >>> 16
-            let byteLength = Buffer.ByteLength(ints)
+            let byteLength = Buffer.ByteLength(ints)-4
             let bytes : byte array = Array.zeroCreate byteLength
             Buffer.BlockCopy(ints,0,bytes,0,byteLength)
-            let coeff = BigInteger(ReadOnlySpan(bytes),false)   // Fix sign vs 2complement
+            let isZero = ints.[0] = 0 && ints.[1] = 0 && ints.[2] = 0
+            let sign = if (ints.[3] &&& 0x80000000) = 0 then 1 else -1
+            let coeff =
+                if isZero
+                then BigInteger.Zero
+                else BigInteger(ReadOnlySpan(bytes),false,false)
+            let coeff = if sign = -1 then -coeff else coeff     
             BigDecimal(coeff,-exp,0u)
+
     static member CreateC(v:decimal, c) = BigDecimal.round (BigDecimal.Create(v)) c
 
     static member Create (v:double) = 

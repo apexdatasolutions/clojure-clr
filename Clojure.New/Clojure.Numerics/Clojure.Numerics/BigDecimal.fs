@@ -86,6 +86,34 @@ module private ArithmeticHelpers =
         | None when candidate > 0L -> raise <| ArithmeticException("Overflow in scale")
         | None -> raise <| ArithmeticException("Underflow in scale")
 
+
+    let uintlogTable = 
+        [
+            0u;
+            9u;
+            99u;
+            999u;
+            9999u;
+            99999u;
+            999999u;
+            9999999u;
+            99999999u;
+            999999999u;
+            UInt32.MaxValue;
+        ]
+
+    /// Log base 10 of a uint
+    let uintPrecision v =
+        // Algorithm from Hacker's Delight, section 11-4
+        // except they use a for-loop, of course
+        match v with
+        | 0u -> 1u
+        | _ ->
+            uintlogTable
+            |> List.findIndex (fun x -> v <= x)
+            |> uint
+
+
 /// Indicates the rounding method to use
 type RoundingMode =
     /// Round away from 0
@@ -933,6 +961,73 @@ type BigDecimal private (coeff, exp, precision) =
     static member (%) (x:BigDecimal, y:BigDecimal) = x.Mod(y)
     
 
+    // Exponentiation
+
+    // Computes x^n
+    member x.Power (n:int)  =
+        if n < 0 || n > 999999999 then invalidArg "n" "Exponent must be between 0 and 999999999"
+
+        let exp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) * (int64 n)) x.Coefficient.IsZero  
+        BigDecimal(BigInteger.Pow(x.Coefficient,n),exp, 0u)
+   
+    // Computes x^n, result rounded according to the context
+    member x.Power(n:int, c:Context) : BigDecimal =
+        // Following the OpenJKD implementation.  
+        // This is an implementation of the X3.274-1996 algorithm:
+        // - An ArithmeticException exception is thrown if
+        // -- abs(n) > 999999999
+        // -- c.precision = 0 and n < 0
+        // -- c.precision > 0 and n has more than c.precision decimal digits
+        // - if n is zero, ONE is returned even is the base is zero; otherwise:
+        // -- if n is positive, the result is calculated via
+        //    the repeated squaring technique into a single accumulator.
+        //    The individual multiplications with the accumulator use the
+        //    same math context settings as in c except for a
+        //    precision increased to c.precision + elength + 1
+        //    where elength is the number of decimal digits in n.
+        // -- if n is negative, the result is calculated as if
+        //    n were positive; this value is then divided into one
+        //    using the working precision specified above.
+        // -- The final value from either the positive or negative case
+        //    is then rounded to the destination precision.
+
+        if c.precision = 0u then x.Power(n)
+        elif n < -999999999 || n > 999999999 then raise <| ArithmeticException("invalid operation")
+        elif n = 0 then BigDecimal.One
+        else
+            let mutable mag = Math.Abs(n)
+            let workC = 
+                if c.precision > 0u
+                then 
+                    let elength = ArithmeticHelpers.uintPrecision (uint mag)
+                    if elength > c.precision  then raise <| ArithmeticException("Invalid precision for exponentiation") // X3.274 rule
+                    Context.Create( (c.precision+elength+1u), c.roundingMode)
+                else c
+            // I suppose I could encapsulate this as a tail-recursive function. Another day
+            let mutable acc = BigDecimal.One
+            let mutable bitSeen = false 
+            for i = 1 to 31 do
+                mag <- mag + mag                                    // shift left 1 bit
+                if mag < 0                                          // top bit is set
+                then    
+                    bitSeen <- true 
+                    acc <- acc.Multiply(x,workC)                    // acc = acc*x
+                if i <> 31 && bitSeen                            // not the last bit
+                then acc <- acc.Multiply(acc,workC)     // acc = acc*acc [square]
+
+            // if negative n, calculate the reciprocal using working precision      
+            if n < 0 then acc <- BigDecimal.One.Divide(acc,workC)
+            // round to final precision and strip zeros
+            BigDecimal.round acc c
+
+    /// Compute x^n
+    static member Power(x:BigDecimal, n:int) : BigDecimal = x.Power(n)
+
+    /// Compute x^n, result rounded according to context
+    static member Power(x:BigDecimal, n:int, c:Context) : BigDecimal = x.Power(n,c)     
+       
+
+
 //           [Serializable]
 //           public class BigDecimal : IComparable, IComparable<BigDecimal>, IEquatable<BigDecimal>, IConvertible
 //           {
@@ -1582,30 +1677,6 @@ type BigDecimal private (coeff, exp, precision) =
 
 
 //               /// <summary>
-//               /// Returns a <see cref="BigInteger"/> raised to an int power.
-//               /// </summary>
-//               /// <param name="x">The value to exponentiate</param>
-//               /// <param name="exp">The exponent</param>
-//               /// <returns>The exponent</returns>
-//               public static BigDecimal Power(BigDecimal x, int exp)
-//               {
-//                   return x.Power(exp);
-//               }
-
-
-//               /// <summary>
-//               /// Returns a <see cref="BigInteger"/> raised to an int power, with result rounded according to the context.
-//               /// </summary>
-//               /// <param name="x">The value to exponentiate</param>
-//               /// <param name="exp">The exponent</param>
-//               /// <returns>The exponent</returns>
-//               public static BigDecimal Power(BigDecimal x, int exp, Context c)
-//               {
-//                   return x.Power(exp,c);
-//               }
-
-
-//               /// <summary>
 //               /// Returns this.
 //               /// </summary>
 //               /// <param name="x"></param>
@@ -1644,103 +1715,7 @@ type BigDecimal private (coeff, exp, precision) =
            
 
 
-
-
-
-
-
-//               /// <summary>
-//               /// Returns the value of this instance raised to an integral power.
-//               /// </summary>
-//               /// <param name="exp">The exponent</param>
-//               /// <returns>The exponetiated value</returns>
-//               /// <exception cref="System.ArgumentOutOfRangeException">Thrown if the exponent is negative.</exception>
-//               public BigDecimal Power(int n)
-//               {
-//                   if (n < 0 || n > 999999999)
-//                       throw new ArithmeticException("Invalid operation");
-
-//                   int exp = CheckExponent((long)_exp * n);
-//                   return new BigDecimal(_coeff.Power(n), exp);
-//               }
-
-//               /// <summary>
-//               /// Returns the value of this instance raised to an integral power.
-//               /// </summary>
-//               /// <param name="exp">The exponent</param>
-//               /// <returns>The exponetiated value</returns>
-//               /// <exception cref="System.ArgumentOutOfRangeException">Thrown if the exponent is negative.</exception>
-//               /// <remarks><para>Follows the OpenJKD implementation.  This is an implementation of the X3.274-1996 algorithm:</para>
-//               /// <list>
-//               ///   <item> An ArithmeticException exception is thrown if
-//               ///     <list>
-//               ///       <item>abs(n) > 999999999</item>
-//               ///       <item>c.precision == 0 and code n &lt; 0</item>
-//               ///       <item>c.precision > 0 and n has more than c.precision decimal digits</item>
-//               ///     </list>
-//               ///   </item>
-//               ///   <item>if n is zero, ONE is returned even if this is zero, otherwise
-//               ///     <list>        
-//               ///       <item>if n is positive, the result is calculated via
-//               ///             the repeated squaring technique into a single accumulator.
-//               ///             The individual multiplications with the accumulator use the
-//               ///             same math context settings as in c except for a
-//               ///             precision increased to c.precision + elength + 1
-//               ///             where elength is the number of decimal digits in n.
-//               ///       </item>       
-//               ///       <item>if n is negative, the result is calculated as if
-//               ///             n were positive; this value is then divided into one
-//               ///             using the working precision specified above.
-//               ///       </item>
-//               ///       <item>The final value from either the positive or negative case
-//               ///              is then rounded to the destination precision.
-//               ///        </item>
-//               ///     </list>
-//               ///  </list>
-//               /// </remarks>
-//               public BigDecimal Power(int n, Context c)
-//               {
-//                   if (c.Precision == 0)
-//                       return Power(n);
-//                   if (n < -999999999 || n > 999999999)
-//                       throw new ArithmeticException("Invalid operation");
-//                   if (n == 0)
-//                       return One;                      
-//                   BigDecimal lhs = this;
-//                   Context workc = c;           
-//                   int mag = Math.Abs(n);               
-//                   if (c.Precision > 0)
-//                   {
-//                       int elength = (int)BigInteger.UIntPrecision((uint)mag);
-//                       if (elength > c.Precision)        // X3.274 rule
-//                           throw new ArithmeticException("Invalid operation");
-//                       workc = new Context((uint)(c.Precision + elength + 1),c.RoundingMode);
-//                   }
-
-//                   BigDecimal acc = One;           
-//                   bool seenbit = false;        
-//                   for (int i = 1; ; i++)
-//                   {            
-//                       mag += mag;                 // shift left 1 bit
-//                       if (mag < 0)
-//                       {              // top bit is set
-//                           seenbit = true;         // OK, we're off
-//                           acc = acc.Multiply(lhs, workc); // acc=acc*x
-//                       }
-//                       if (i == 31)
-//                           break;                  // that was the last bit
-//                       if (seenbit)
-//                           acc = acc.Multiply(acc, workc);   // acc=acc*acc [square]
-//                       // else (!seenbit) no point in squaring ONE
-//                   }
-//                   // if negative n, calculate the reciprocal using working precision
-//                   if (n < 0)                          // [hence mc.precision>0]
-//                       acc = One.Divide(acc, workc);
-//                   // round to final precision and strip zeros
-//                   return acc.Round(c);
-//               }
-
-
+   
 //               public BigDecimal Plus()
 //               {
 //                   return this;

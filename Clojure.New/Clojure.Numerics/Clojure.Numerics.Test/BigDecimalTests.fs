@@ -3199,7 +3199,7 @@ let divideTestFromStr test c =
 let createDivideTests data = 
     data
     |> List.map (fun (test, c) ->
-           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+           testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 divideTestFromStr test c
            )
 
@@ -3207,7 +3207,7 @@ let createDivideTests data =
 let createDivideTestsEx data = 
     data
     |> List.map (fun (test, c) ->
-           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+           testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 divideTestFromStrEx test c
            )
 
@@ -3218,15 +3218,15 @@ let c7he = Context.Create(7u, RoundingMode.HalfEven);
 
 let specDivideTests = 
     [
-    //version: 2.59
+        //version: 2.59
     
-    //extended:    1
-    //precision:   9
-    //rounding:    half_up
-    //maxExponent: 384
-    //minexponent: -383
+        //extended:    1
+        //precision:   9
+        //rounding:    half_up
+        //maxExponent: 384
+        //minexponent: -383
     
-    //-- sanity checks
+        //-- sanity checks
         ("divx001 divide  1     1    ->  1", c9hu);
         ("divx002 divide  2     1    ->  2", c9hu);
         ("divx003 divide  1     2    ->  0.5", c9hu);
@@ -3935,7 +3935,7 @@ let divIntTestFromStr test c =
 let createDivIntTests data = 
     data
     |> List.map (fun (test, c) ->
-           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+           testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 divIntTestFromStr test c
            )
 
@@ -3943,7 +3943,7 @@ let createDivIntTests data =
 let createDivIntTestsEx data = 
     data
     |> List.map (fun (test, c) ->
-           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+           testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 divIntTestFromStrEx test c
            )
 
@@ -4310,6 +4310,173 @@ let badSpecDivIntTestList = testList "bad dovont examples" (createDivIntTestsEx 
 // Exponentiation tests
 ///////////////////////////
 
+let powerTest arg1Str arg2Str c resultStr = 
+    let arg1 = BigDecimal.Parse(arg1Str)
+    let arg2 = Int32.Parse(arg2Str)
+    let pow = arg1.Power(arg2,c)
+    let powStr = pow.ToScientificString()
+    Expect.equal powStr resultStr "power"
+
+ 
+let powerTestFromStr test c =
+    let arg1Str, arg2Str, resultsStr = getThreeArgs test
+    powerTest arg1Str arg2Str c resultsStr 
+
+
+let createPowerTests data = 
+    data
+    |> List.map (fun (test, c) ->
+           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+                powerTestFromStr test c
+           )
+
+
+let c16he = Context.Create(16u, RoundingMode.HalfEven);
+
+let specPowerTests = 
+    [
+        //extended:    1
+        //precision:   16
+        //rounding:    half_even
+        //maxExponent: 384
+        //minExponent: -383
+    
+        //-- base checks.  Note 0**0 is an error.
+        //TPow("powx001 power    '0'  '0'         -> NaN Invalid_operation
+        ("powx002 power    '0'  '1'         -> '0'", c16he);
+        ("powx003 power    '0'  '2'         -> '0'", c16he);
+        ("powx004 power    '1'  '0'         -> '1'", c16he);
+        ("powx005 power    '1'  '1'         -> '1'", c16he);
+        ("powx006 power    '1'  '2'         -> '1'", c16he);
+    
+        ("powx010 power    '2'  '0'         -> '1'", c16he);
+        ("powx011 power    '2'  '1'         -> '2'", c16he);
+        ("powx012 power    '2'  '2'         -> '4'", c16he);
+        ("powx013 power    '2'  '3'         -> '8'", c16he);
+        ("powx014 power    '2'  '4'         -> '16'", c16he);
+        ("powx015 power    '2'  '5'         -> '32'", c16he);
+        ("powx016 power    '2'  '6'         -> '64'", c16he);
+        ("powx017 power    '2'  '7'         -> '128'", c16he);
+        ("powx018 power    '2'  '8'         -> '256'", c16he);
+        ("powx019 power    '2'  '9'         -> '512'", c16he);
+        ("powx020 power    '2'  '10'        -> '1024'", c16he);
+        ("powx021 power    '2'  '11'        -> '2048'", c16he);
+        ("powx022 power    '2'  '12'        -> '4096'", c16he);
+        ("powx023 power    '2'  '15'        -> '32768'", c16he);
+        ("powx024 power    '2'  '16'        -> '65536'", c16he);
+        ("powx025 power    '2'  '31'        -> '2147483648'", c16he);
+        //-- NB 0 not stripped in next
+        ("powx026 power    '2'  '32'        -> '4294967296'", c16he);
+    
+        //precision: 9
+        ("powx027 power    '2'  '31'        -> '2.14748365E+9' Inexact Rounded", c9he);
+        //-- NB 0 not stripped in next
+        ("powx028 power    '2'  '32'        -> '4.29496730E+9' Inexact Rounded", c9he);
+        //precision: 10
+        ("powx029 power    '2'  '31'        -> '2147483648'", c10he);
+        ("powx030 power    '2'  '32'        -> '4294967296'", c10he);
+        //precision: 9
+    
+        ("powx031 power    '3'  '2'         -> 9", c9he);
+        ("powx032 power    '4'  '2'         -> 16", c9he);
+        ("powx033 power    '5'  '2'         -> 25", c9he);
+        ("powx034 power    '6'  '2'         -> 36", c9he);
+        ("powx035 power    '7'  '2'         -> 49", c9he);
+        ("powx036 power    '8'  '2'         -> 64", c9he);
+        ("powx037 power    '9'  '2'         -> 81", c9he);
+        ("powx038 power    '10' '2'         -> 100", c9he);
+        ("powx039 power    '11' '2'         -> 121", c9he);
+        ("powx040 power    '12' '2'         -> 144", c9he);
+    
+        ("powx041 power    '3'  '3'         -> 27", c9he);
+        ("powx042 power    '4'  '3'         -> 64", c9he);
+        ("powx043 power    '5'  '3'         -> 125", c9he);
+        ("powx044 power    '6'  '3'         -> 216", c9he);
+        ("powx045 power    '7'  '3'         -> 343", c9he);
+        ("powx047 power   '-3'  '3'         -> -27", c9he);
+        ("powx048 power   '-4'  '3'         -> -64", c9he);
+        ("powx049 power   '-5'  '3'         -> -125", c9he);
+        ("powx050 power   '-6'  '3'         -> -216", c9he);
+        ("powx051 power   '-7'  '3'         -> -343", c9he);
+    
+        ("powx052 power   '10'  '0'         -> 1", c9he);
+        ("powx053 power   '10'  '1'         -> 10", c9he);
+        ("powx054 power   '10'  '2'         -> 100", c9he);
+        ("powx055 power   '10'  '3'         -> 1000", c9he);
+        ("powx056 power   '10'  '4'         -> 10000", c9he);
+        ("powx057 power   '10'  '5'         -> 100000", c9he);
+        ("powx058 power   '10'  '6'         -> 1000000", c9he);
+        ("powx059 power   '10'  '7'         -> 10000000", c9he);
+        ("powx060 power   '10'  '8'         -> 100000000", c9he);
+        ("powx061 power   '10'  '9'         -> 1.00000000E+9 Rounded", c9he);
+        ("powx062 power   '10'  '22'        -> 1.00000000E+22 Rounded", c9he);
+        ("powx063 power   '10'  '77'        -> 1.00000000E+77 Rounded", c9he);
+        ("powx064 power   '10'  '99'        -> 1.00000000E+99 Rounded", c9he);
+    
+        ("powx070 power  '0.3'  '0'           -> '1'", c9he);
+        ("powx071 power  '0.3'  '1'           -> '0.3'", c9he);
+        //TPow("powx072 power  '0.3'  '1.00'        -> '0.3'", c9he);
+        //TPow("powx073 power  '0.3'  '2.00'        -> '0.09'", c9he);
+        //TPow("powx074 power  '0.3'  '2.000000000' -> '0.09'", c9he);
+        ("powx075 power  '6.0'  '1'           -> '6.0'     -- NB zeros not stripped", c9he);
+        ("powx076 power  '6.0'  '2'           -> '36.00'   -- ..", c9he);
+        ("powx077 power   '-3'  '2'           -> '9'       -- from NetRexx book", c9he);
+        ("powx078 power    '4'  '3'           -> '64'      -- .. (sort of)", c9he);
+    
+        ("powx080 power   0.1    0            -> 1", c9he);
+        ("powx081 power   0.1    1            -> 0.1", c9he);
+        ("powx082 power   0.1    2            -> 0.01", c9he);
+        ("powx083 power   0.1    3            -> 0.001", c9he);
+        ("powx084 power   0.1    4            -> 0.0001", c9he);
+        ("powx085 power   0.1    5            -> 0.00001", c9he);
+        ("powx086 power   0.1    6            -> 0.000001", c9he);
+        ("powx087 power   0.1    7            -> 1E-7", c9he);
+        ("powx088 power   0.1    8            -> 1E-8", c9he);
+        ("powx089 power   0.1    9            -> 1E-9", c9he);
+    
+        ("powx090 power   101    2            -> 10201", c9he);
+        ("powx091 power   101    3            -> 1030301", c9he);
+        ("powx092 power   101    4            -> 104060401", c9he);
+        ("powx093 power   101    5            -> 1.05101005E+10 Inexact Rounded", c9he);
+        ("powx094 power   101    6            -> 1.06152015E+12 Inexact Rounded", c9he);
+        ("powx095 power   101    7            -> 1.07213535E+14 Inexact Rounded", c9he);
+    
+        //-- negative powers
+        ("powx099 power  '1'  '-1'    -> 1", c9he);
+        ("powx100 power  '3'  '-1'    -> 0.333333333 Inexact Rounded", c9he);
+        ("powx101 power  '2'  '-1'    -> 0.5", c9he);
+        ("powx102 power  '2'  '-2'    -> 0.25", c9he);
+        ("powx103 power  '2'  '-4'    -> 0.0625", c9he);
+        ("powx104 power  '2'  '-8'    -> 0.00390625", c9he);
+        ("powx105 power  '2'  '-16'   -> 0.0000152587891 Inexact Rounded", c9he);
+        ("powx106 power  '2'  '-32'   -> 2.32830644E-10 Inexact Rounded", c9he);
+        ("powx108 power  '2'  '-64'   -> 5.42101086E-20 Inexact Rounded", c9he);
+        ("powx110 power  '10'  '-8'   -> 1E-8", c9he);
+        ("powx111 power  '10'  '-7'   -> 1E-7", c9he);
+        ("powx112 power  '10'  '-6'   -> 0.000001", c9he);
+        ("powx113 power  '10'  '-5'   -> 0.00001", c9he);
+        ("powx114 power  '10'  '-4'   -> 0.0001", c9he);
+        ("powx115 power  '10'  '-3'   -> 0.001", c9he);
+        ("powx116 power  '10'  '-2'   -> 0.01", c9he);
+        ("powx117 power  '10'  '-1'   -> 0.1", c9he);
+        ("powx121 power  '10'  '-77'  -> '1E-77'", c9he);
+        ("powx122 power  '10'  '-22'  -> '1E-22'", c9he);
+    
+        ("powx123 power   '2'  '-1'   -> '0.5'", c9he);
+        ("powx124 power   '2'  '-2'   -> '0.25'", c9he);
+        ("powx125 power   '2'  '-4'   -> '0.0625'", c9he);
+    
+        //TPow("powx126 power   '0'  '-1'   -> Infinity", c9he);
+        //TPow("powx127 power   '0'  '-2'   -> Infinity", c9he);
+        //TPow("powx128 power   -0   '-1'   -> -Infinity", c9he);
+        //TPow("powx129 power   -0   '-2'   -> Infinity", c9he);
+    ]
+
+
+
+
+[<Tests>]
+let specPowerTestList = testList "power examples" (createPowerTests specPowerTests)
 
 
 ///////////////////////////
@@ -4459,191 +4626,6 @@ let badSpecDivIntTestList = testList "bad dovont examples" (createDivIntTestsEx 
 //             }
 //         }
 
-
-
-//         #region Divide tests
-
-
-//         [Test]
-//         public void TestBadDivides()
-//         {
-//             BigDecimal.Context c16hu = Context.Create(16, RoundingMode.HalfUp);
-
-
-//         }
-
-//         [Test]
-//         public void DivideTestNoContext()
-//         {
-//             BigDecimal.Context c0u = Context.Create(0, RoundingMode.Unnecessary);
-
-
-//         }
-
-
-//         #endregion
-
-
-//         #region Power tests
-
-//         [Test]
-//         public void PowerTestsFromSpec()
-//         {
-//             BigDecimal.Context c9he = Context.Create(9, RoundingMode.HalfEven);
-//             BigDecimal.Context c10he = Context.Create(10, RoundingMode.HalfEven);
-//             BigDecimal.Context c16he = Context.Create(16, RoundingMode.HalfEven);
-//             //extended:    1
-//             //precision:   16
-//             //rounding:    half_even
-//             //maxExponent: 384
-//             //minExponent: -383
-
-//             //-- base checks.  Note 0**0 is an error.
-//             //TPow("powx001 power    '0'  '0'         -> NaN Invalid_operation
-//             TPow("powx002 power    '0'  '1'         -> '0'", c16he);
-//             TPow("powx003 power    '0'  '2'         -> '0'", c16he);
-//             TPow("powx004 power    '1'  '0'         -> '1'", c16he);
-//             TPow("powx005 power    '1'  '1'         -> '1'", c16he);
-//             TPow("powx006 power    '1'  '2'         -> '1'", c16he);
-
-//             TPow("powx010 power    '2'  '0'         -> '1'", c16he);
-//             TPow("powx011 power    '2'  '1'         -> '2'", c16he);
-//             TPow("powx012 power    '2'  '2'         -> '4'", c16he);
-//             TPow("powx013 power    '2'  '3'         -> '8'", c16he);
-//             TPow("powx014 power    '2'  '4'         -> '16'", c16he);
-//             TPow("powx015 power    '2'  '5'         -> '32'", c16he);
-//             TPow("powx016 power    '2'  '6'         -> '64'", c16he);
-//             TPow("powx017 power    '2'  '7'         -> '128'", c16he);
-//             TPow("powx018 power    '2'  '8'         -> '256'", c16he);
-//             TPow("powx019 power    '2'  '9'         -> '512'", c16he);
-//             TPow("powx020 power    '2'  '10'        -> '1024'", c16he);
-//             TPow("powx021 power    '2'  '11'        -> '2048'", c16he);
-//             TPow("powx022 power    '2'  '12'        -> '4096'", c16he);
-//             TPow("powx023 power    '2'  '15'        -> '32768'", c16he);
-//             TPow("powx024 power    '2'  '16'        -> '65536'", c16he);
-//             TPow("powx025 power    '2'  '31'        -> '2147483648'", c16he);
-//             //-- NB 0 not stripped in next
-//             TPow("powx026 power    '2'  '32'        -> '4294967296'", c16he);
-
-//             //precision: 9
-//             TPow("powx027 power    '2'  '31'        -> '2.14748365E+9' Inexact Rounded", c9he);
-//             //-- NB 0 not stripped in next
-//             TPow("powx028 power    '2'  '32'        -> '4.29496730E+9' Inexact Rounded", c9he);
-//             //precision: 10
-//             TPow("powx029 power    '2'  '31'        -> '2147483648'", c10he);
-//             TPow("powx030 power    '2'  '32'        -> '4294967296'", c10he);
-//             //precision: 9
-
-//             TPow("powx031 power    '3'  '2'         -> 9", c9he);
-//             TPow("powx032 power    '4'  '2'         -> 16", c9he);
-//             TPow("powx033 power    '5'  '2'         -> 25", c9he);
-//             TPow("powx034 power    '6'  '2'         -> 36", c9he);
-//             TPow("powx035 power    '7'  '2'         -> 49", c9he);
-//             TPow("powx036 power    '8'  '2'         -> 64", c9he);
-//             TPow("powx037 power    '9'  '2'         -> 81", c9he);
-//             TPow("powx038 power    '10' '2'         -> 100", c9he);
-//             TPow("powx039 power    '11' '2'         -> 121", c9he);
-//             TPow("powx040 power    '12' '2'         -> 144", c9he);
-
-//             TPow("powx041 power    '3'  '3'         -> 27", c9he);
-//             TPow("powx042 power    '4'  '3'         -> 64", c9he);
-//             TPow("powx043 power    '5'  '3'         -> 125", c9he);
-//             TPow("powx044 power    '6'  '3'         -> 216", c9he);
-//             TPow("powx045 power    '7'  '3'         -> 343", c9he);
-//             TPow("powx047 power   '-3'  '3'         -> -27", c9he);
-//             TPow("powx048 power   '-4'  '3'         -> -64", c9he);
-//             TPow("powx049 power   '-5'  '3'         -> -125", c9he);
-//             TPow("powx050 power   '-6'  '3'         -> -216", c9he);
-//             TPow("powx051 power   '-7'  '3'         -> -343", c9he);
-
-//             TPow("powx052 power   '10'  '0'         -> 1", c9he);
-//             TPow("powx053 power   '10'  '1'         -> 10", c9he);
-//             TPow("powx054 power   '10'  '2'         -> 100", c9he);
-//             TPow("powx055 power   '10'  '3'         -> 1000", c9he);
-//             TPow("powx056 power   '10'  '4'         -> 10000", c9he);
-//             TPow("powx057 power   '10'  '5'         -> 100000", c9he);
-//             TPow("powx058 power   '10'  '6'         -> 1000000", c9he);
-//             TPow("powx059 power   '10'  '7'         -> 10000000", c9he);
-//             TPow("powx060 power   '10'  '8'         -> 100000000", c9he);
-//             TPow("powx061 power   '10'  '9'         -> 1.00000000E+9 Rounded", c9he);
-//             TPow("powx062 power   '10'  '22'        -> 1.00000000E+22 Rounded", c9he);
-//             TPow("powx063 power   '10'  '77'        -> 1.00000000E+77 Rounded", c9he);
-//             TPow("powx064 power   '10'  '99'        -> 1.00000000E+99 Rounded", c9he);
-
-//             TPow("powx070 power  '0.3'  '0'           -> '1'", c9he);
-//             TPow("powx071 power  '0.3'  '1'           -> '0.3'", c9he);
-//             //TPow("powx072 power  '0.3'  '1.00'        -> '0.3'", c9he);
-//             //TPow("powx073 power  '0.3'  '2.00'        -> '0.09'", c9he);
-//             //TPow("powx074 power  '0.3'  '2.000000000' -> '0.09'", c9he);
-//             TPow("powx075 power  '6.0'  '1'           -> '6.0'     -- NB zeros not stripped", c9he);
-//             TPow("powx076 power  '6.0'  '2'           -> '36.00'   -- ..", c9he);
-//             TPow("powx077 power   '-3'  '2'           -> '9'       -- from NetRexx book", c9he);
-//             TPow("powx078 power    '4'  '3'           -> '64'      -- .. (sort of)", c9he);
-
-//             TPow("powx080 power   0.1    0            -> 1", c9he);
-//             TPow("powx081 power   0.1    1            -> 0.1", c9he);
-//             TPow("powx082 power   0.1    2            -> 0.01", c9he);
-//             TPow("powx083 power   0.1    3            -> 0.001", c9he);
-//             TPow("powx084 power   0.1    4            -> 0.0001", c9he);
-//             TPow("powx085 power   0.1    5            -> 0.00001", c9he);
-//             TPow("powx086 power   0.1    6            -> 0.000001", c9he);
-//             TPow("powx087 power   0.1    7            -> 1E-7", c9he);
-//             TPow("powx088 power   0.1    8            -> 1E-8", c9he);
-//             TPow("powx089 power   0.1    9            -> 1E-9", c9he);
-
-//             TPow("powx090 power   101    2            -> 10201", c9he);
-//             TPow("powx091 power   101    3            -> 1030301", c9he);
-//             TPow("powx092 power   101    4            -> 104060401", c9he);
-//             TPow("powx093 power   101    5            -> 1.05101005E+10 Inexact Rounded", c9he);
-//             TPow("powx094 power   101    6            -> 1.06152015E+12 Inexact Rounded", c9he);
-//             TPow("powx095 power   101    7            -> 1.07213535E+14 Inexact Rounded", c9he);
-
-//             //-- negative powers
-//             TPow("powx099 power  '1'  '-1'    -> 1", c9he);
-//             TPow("powx100 power  '3'  '-1'    -> 0.333333333 Inexact Rounded", c9he);
-//             TPow("powx101 power  '2'  '-1'    -> 0.5", c9he);
-//             TPow("powx102 power  '2'  '-2'    -> 0.25", c9he);
-//             TPow("powx103 power  '2'  '-4'    -> 0.0625", c9he);
-//             TPow("powx104 power  '2'  '-8'    -> 0.00390625", c9he);
-//             TPow("powx105 power  '2'  '-16'   -> 0.0000152587891 Inexact Rounded", c9he);
-//             TPow("powx106 power  '2'  '-32'   -> 2.32830644E-10 Inexact Rounded", c9he);
-//             TPow("powx108 power  '2'  '-64'   -> 5.42101086E-20 Inexact Rounded", c9he);
-//             TPow("powx110 power  '10'  '-8'   -> 1E-8", c9he);
-//             TPow("powx111 power  '10'  '-7'   -> 1E-7", c9he);
-//             TPow("powx112 power  '10'  '-6'   -> 0.000001", c9he);
-//             TPow("powx113 power  '10'  '-5'   -> 0.00001", c9he);
-//             TPow("powx114 power  '10'  '-4'   -> 0.0001", c9he);
-//             TPow("powx115 power  '10'  '-3'   -> 0.001", c9he);
-//             TPow("powx116 power  '10'  '-2'   -> 0.01", c9he);
-//             TPow("powx117 power  '10'  '-1'   -> 0.1", c9he);
-//             TPow("powx121 power  '10'  '-77'  -> '1E-77'", c9he);
-//             TPow("powx122 power  '10'  '-22'  -> '1E-22'", c9he);
-
-//             TPow("powx123 power   '2'  '-1'   -> '0.5'", c9he);
-//             TPow("powx124 power   '2'  '-2'   -> '0.25'", c9he);
-//             TPow("powx125 power   '2'  '-4'   -> '0.0625'", c9he);
-
-//             //TPow("powx126 power   '0'  '-1'   -> Infinity", c9he);
-//             //TPow("powx127 power   '0'  '-2'   -> Infinity", c9he);
-//             //TPow("powx128 power   -0   '-1'   -> -Infinity", c9he);
-//             //TPow("powx129 power   -0   '-2'   -> Infinity", c9he);
-//         }
-
-//         static void TPow(string test, BigDecimal.Context c)
-//         {
-//             GetThreeArgs(test, out string arg1Str, out string arg2Str, out string resultStr);
-//             TestPower(arg1Str, arg2Str, c, resultStr);
-//         }
-
-//         static  void TestPower(string arg1Str, string arg2Str, BigDecimal.Context c, string resultStr)
-//         {
-//             BigDecimal arg1 = BigDecimal.Parse(arg1Str);
-//             int arg2 = Int32.Parse(arg2Str);
-//             BigDecimal val = arg1.Power(arg2, c);
-//             string valStr = val.ToScientificString();
-//             Expect(valStr).To.Equal(resultStr);
-//         }
-//         #endregion
 
 //         #region MovePoint tests
 

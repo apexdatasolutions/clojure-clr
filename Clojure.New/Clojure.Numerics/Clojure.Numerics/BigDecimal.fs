@@ -878,7 +878,7 @@ type BigDecimal private (coeff, exp, precision) =
             //let preferredExp = Math.Max(Math.Min((int64 x.Exponent) - (int64 y.Exponent), (int64 Int32.MaxValue)), (int64 Int32.MaxValue)) |> int
             let preferredExp = 0
 
-            (*  OpenJKD says:
+            (*  OpenJDK says:
             * Perform a normal divide to mc.precision digits.  If the
             * remainder has absolute value less than the divisor, the
             * integer portion of the quotient fits into mc.precision
@@ -972,7 +972,7 @@ type BigDecimal private (coeff, exp, precision) =
    
     // Computes x^n, result rounded according to the context
     member x.Power(n:int, c:Context) : BigDecimal =
-        // Following the OpenJKD implementation.  
+        // Following the OpenJDK implementation.  
         // This is an implementation of the X3.274-1996 algorithm:
         // - An ArithmeticException exception is thrown if
         // -- abs(n) > 999999999
@@ -1025,7 +1025,28 @@ type BigDecimal private (coeff, exp, precision) =
 
     /// Compute x^n, result rounded according to context
     static member Power(x:BigDecimal, n:int, c:Context) : BigDecimal = x.Power(n,c)     
-       
+     
+
+     // Shift operations
+
+     member x.MovePointRight(n:int)  : BigDecimal =
+        let newExp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) + (int64 n)) x.Coefficient.IsZero
+        BigDecimal(x.Coefficient,newExp,x.RawPrecision)
+
+    member x.MovePointLeft(n:int)  : BigDecimal =
+       let newExp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) - (int64 n)) x.Coefficient.IsZero
+       BigDecimal(x.Coefficient,newExp,x.RawPrecision)
+
+
+    // Miscellaneous operations
+ 
+    member x.Signum() : int =
+        x.Coefficient.Sign
+
+    member x.IsZero = x.Coefficient.IsZero
+    member x.IsPositive = x.Coefficient.Sign > 0
+    member x.IsNegative = x.Coefficient.Sign < 0
+
 
 
 //           [Serializable]
@@ -1742,60 +1763,6 @@ type BigDecimal private (coeff, exp, precision) =
 
 //               #endregion
 
-//               #region Other computed values
-
-//               /// <summary>
-//               /// Does this BigDecimal have a zero value?
-//               /// </summary>
-//               public bool IsZero
-//               {
-//                   get { return _coeff.IsZero; }
-//               }
-
-//               /// <summary>
-//               /// Does this BigDecimal represent a positive value?
-//               /// </summary>
-//               public bool IsPositive
-//               {
-//                   get { return _coeff.IsPositive; }
-//               }
-
-//               /// <summary>
-//               /// Does this BigDecimal represent a negative value?
-//               /// </summary>
-//               public bool IsNegative
-//               {
-//                   get { return _coeff.IsNegative; }
-//               }
-
-//               /// <summary>
-//               /// Returns the sign (-1, 0, +1) of this BigDecimal.
-//               /// </summary>
-//               public int Signum
-//               {
-//                   get { return _coeff.Signum; }
-//               }
-
-
-//               public BigDecimal MovePointRight(int n)
-//               {
-//                   int newExp = CheckExponent((long)_exp + n);
-//                   BigDecimal d = new(_coeff, newExp);
-//                   return d;
-//               }
-
-//               public BigDecimal MovePointLeft(int n)
-//               {
-//                   int newExp = CheckExponent((long)_exp - n);
-//                   BigDecimal d = new(_coeff, newExp);
-//                   return d;
-//               }
-
-               
-
-
-
-//               #endregion
 
 //               #region Exponent computations
 
@@ -1813,7 +1780,7 @@ type BigDecimal private (coeff, exp, precision) =
 //               /// <para>If the exponent is out of range, but the coefficient is zero,
 //               /// the exponent in some sense is not that relevant, so we just clamp to 
 //               /// the appropriate (pos/neg) extreme value for Int32.  (This handling inspired by 
-//               /// the OpenJKD implementation.)</para>
+//               /// the OpenJDK implementation.)</para>
 //               /// </remarks>
 //               static bool CheckExponent(long candidate, bool isZero, out int exponent)
 //               {

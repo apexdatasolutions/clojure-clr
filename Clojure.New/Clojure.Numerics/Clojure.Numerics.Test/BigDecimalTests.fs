@@ -4326,7 +4326,7 @@ let powerTestFromStr test c =
 let createPowerTests data = 
     data
     |> List.map (fun (test, c) ->
-           ftestCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
+           testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 powerTestFromStr test c
            )
 
@@ -4473,16 +4473,94 @@ let specPowerTests =
     ]
 
 
-
-
 [<Tests>]
 let specPowerTestList = testList "power examples" (createPowerTests specPowerTests)
 
 
 ///////////////////////////
-// Moving decimal point tests
+// Moving point tests
 ///////////////////////////
 
+let testMoveLeft(strVal, n, expectedStr) = 
+    testCase (sprintf "MoveLeft %s by %i" strVal n) <| fun _ ->
+        let d = BigDecimal.Parse(strVal)
+        let m = d.MovePointLeft(n)
+        let resultStr = m.ToScientificString()
+        Expect.equal resultStr expectedStr "move left"
+
+let testMoveRight(strVal, n, expectedStr) = 
+    testCase (sprintf "MoveRight %s by %i" strVal n) <| fun _ ->
+        let d = BigDecimal.Parse(strVal)
+        let m = d.MovePointRight(n)
+        let resultStr = m.ToScientificString()
+        Expect.equal resultStr expectedStr "move left"
+
+
+let pointMoveTests = 
+    [ 
+        testMoveLeft("123456789000", 0, "123456789000");
+        testMoveLeft("123456789000", 1, "12345678900.0");
+        testMoveLeft("123456789000", 2, "1234567890.00");
+        testMoveLeft("123456789000", 3, "123456789.000");
+        testMoveLeft("123456789000", 4, "12345678.9000");
+        testMoveLeft("123456789000", 5, "1234567.89000");
+        testMoveLeft("123456789000", 6, "123456.789000");
+        testMoveLeft("123456789000", 7, "12345.6789000");
+        testMoveLeft("123456789000", 8, "1234.56789000");
+        testMoveLeft("123456789000", 9, "123.456789000");
+        testMoveLeft("123456789000", 10, "12.3456789000");
+        testMoveLeft("123456789000", 11, "1.23456789000");
+        testMoveLeft("123456789000", 12, "0.123456789000");
+        testMoveLeft("123456789000", 13, "0.0123456789000");
+        testMoveLeft("123456789000", 14, "0.00123456789000");
+        testMoveLeft("123456789000", 15, "0.000123456789000");
+        testMoveLeft("123456789000", 16, "0.0000123456789000");
+        testMoveLeft("123456789000", 17, "0.00000123456789000");
+    
+        testMoveLeft("123456789000", -1, "1.23456789000E+12");
+        testMoveLeft("123456789000", -2, "1.23456789000E+13");
+        testMoveLeft("123456789000", -3, "1.23456789000E+14");
+        testMoveLeft("123456789000", -4, "1.23456789000E+15");
+    
+        testMoveLeft("123.456", 0, "123.456");
+        testMoveLeft("123.456", 1, "12.3456");
+        testMoveLeft("123.456", 2, "1.23456");
+        testMoveLeft("123.456", 3, "0.123456");
+        testMoveLeft("123.456", 4, "0.0123456");
+        testMoveLeft("123.456", 5, "0.00123456");
+        testMoveLeft("123.456", 6, "0.000123456");
+        testMoveLeft("123.456", -1, "1234.56");
+        testMoveLeft("123.456", -2, "12345.6");
+        testMoveLeft("123.456", -3, "123456");
+        testMoveLeft("123.456", -4, "1.23456E+6");
+        testMoveLeft("123.456", -5, "1.23456E+7");
+        testMoveLeft("123.456", -6, "1.23456E+8");
+    
+        testMoveRight("123.456", 0, "123.456");
+        testMoveRight("123.456", -1, "12.3456");
+        testMoveRight("123.456", -2, "1.23456");
+        testMoveRight("123.456", -3, "0.123456");
+        testMoveRight("123.456", -4, "0.0123456");
+        testMoveRight("123.456", -5, "0.00123456");
+        testMoveRight("123.456", -6, "0.000123456");
+        testMoveRight("123.456", 1, "1234.56");
+        testMoveRight("123.456", 2, "12345.6");
+        testMoveRight("123.456", 3, "123456");
+        testMoveRight("123.456", 4, "1.23456E+6");
+        testMoveRight("123.456", 5, "1.23456E+7");
+        testMoveRight("123.456", 6, "1.23456E+8");
+    
+        testMoveRight("123456789000", 0, "123456789000");
+        testMoveRight("123456789000", -1, "12345678900.0");
+        testMoveRight("123456789000", -2, "1234567890.00");
+        testMoveRight("123456789000", -3, "123456789.000");
+        testMoveRight("123456789000", -4, "12345678.9000");
+    
+        testMoveRight("123456789000", 1, "1.23456789000E+12");
+        testMoveRight("123456789000", 2, "1.23456789000E+13");
+        testMoveRight("123456789000", 3, "1.23456789000E+14");
+        testMoveRight("123456789000", 4, "1.23456789000E+15");
+    ]
 
 
 ///////////////////////////
@@ -4630,73 +4708,12 @@ let specPowerTestList = testList "power examples" (createPowerTests specPowerTes
 //         #region MovePoint tests
 
 //         [Test]
-//         public void TestMovePoint()
+//         public void testMovePoint()
 //         {
-//             TestMoveLeft("123456789000", 0, "123456789000");
-//             TestMoveLeft("123456789000", 1, "12345678900.0");
-//             TestMoveLeft("123456789000", 2, "1234567890.00");
-//             TestMoveLeft("123456789000", 3, "123456789.000");
-//             TestMoveLeft("123456789000", 4, "12345678.9000");
-//             TestMoveLeft("123456789000", 5, "1234567.89000");
-//             TestMoveLeft("123456789000", 6, "123456.789000");
-//             TestMoveLeft("123456789000", 7, "12345.6789000");
-//             TestMoveLeft("123456789000", 8, "1234.56789000");
-//             TestMoveLeft("123456789000", 9, "123.456789000");
-//             TestMoveLeft("123456789000", 10, "12.3456789000");
-//             TestMoveLeft("123456789000", 11, "1.23456789000");
-//             TestMoveLeft("123456789000", 12, "0.123456789000");
-//             TestMoveLeft("123456789000", 13, "0.0123456789000");
-//             TestMoveLeft("123456789000", 14, "0.00123456789000");
-//             TestMoveLeft("123456789000", 15, "0.000123456789000");
-//             TestMoveLeft("123456789000", 16, "0.0000123456789000");
-//             TestMoveLeft("123456789000", 17, "0.00000123456789000");
 
-//             TestMoveLeft("123456789000", -1, "1.23456789000E+12");
-//             TestMoveLeft("123456789000", -2, "1.23456789000E+13");
-//             TestMoveLeft("123456789000", -3, "1.23456789000E+14");
-//             TestMoveLeft("123456789000", -4, "1.23456789000E+15");
-
-//             TestMoveLeft("123.456", 0, "123.456");
-//             TestMoveLeft("123.456", 1, "12.3456");
-//             TestMoveLeft("123.456", 2, "1.23456");
-//             TestMoveLeft("123.456", 3, "0.123456");
-//             TestMoveLeft("123.456", 4, "0.0123456");
-//             TestMoveLeft("123.456", 5, "0.00123456");
-//             TestMoveLeft("123.456", 6, "0.000123456");
-//             TestMoveLeft("123.456", -1, "1234.56");
-//             TestMoveLeft("123.456", -2, "12345.6");
-//             TestMoveLeft("123.456", -3, "123456");
-//             TestMoveLeft("123.456", -4, "1.23456E+6");
-//             TestMoveLeft("123.456", -5, "1.23456E+7");
-//             TestMoveLeft("123.456", -6, "1.23456E+8");
-
-//             TestMoveRight("123.456", 0, "123.456");
-//             TestMoveRight("123.456", -1, "12.3456");
-//             TestMoveRight("123.456", -2, "1.23456");
-//             TestMoveRight("123.456", -3, "0.123456");
-//             TestMoveRight("123.456", -4, "0.0123456");
-//             TestMoveRight("123.456", -5, "0.00123456");
-//             TestMoveRight("123.456", -6, "0.000123456");
-//             TestMoveRight("123.456", 1, "1234.56");
-//             TestMoveRight("123.456", 2, "12345.6");
-//             TestMoveRight("123.456", 3, "123456");
-//             TestMoveRight("123.456", 4, "1.23456E+6");
-//             TestMoveRight("123.456", 5, "1.23456E+7");
-//             TestMoveRight("123.456", 6, "1.23456E+8");
-
-//             TestMoveRight("123456789000", 0, "123456789000");
-//             TestMoveRight("123456789000", -1, "12345678900.0");
-//             TestMoveRight("123456789000", -2, "1234567890.00");
-//             TestMoveRight("123456789000", -3, "123456789.000");
-//             TestMoveRight("123456789000", -4, "12345678.9000");
-
-//             TestMoveRight("123456789000", 1, "1.23456789000E+12");
-//             TestMoveRight("123456789000", 2, "1.23456789000E+13");
-//             TestMoveRight("123456789000", 3, "1.23456789000E+14");
-//             TestMoveRight("123456789000", 4, "1.23456789000E+15");
 //         }
 
-//         static void TestMoveLeft(string strVal, int n, string expectedString)
+//         static void testMoveLeft(string strVal, int n, string expectedString)
 //         {
 //             BigDecimal d = BigDecimal.Parse(strVal);
 //             BigDecimal m = d.MovePointLeft(n);
@@ -4705,7 +4722,7 @@ let specPowerTestList = testList "power examples" (createPowerTests specPowerTes
 //         }
 
 
-//         static void TestMoveRight(string strVal, int n, string expectedString)
+//         static void testMoveRight(string strVal, int n, string expectedString)
 //         {
 //             BigDecimal d = BigDecimal.Parse(strVal);
 //             BigDecimal m = d.MovePointRight(n);

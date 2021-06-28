@@ -33,6 +33,44 @@ open Clojure.Numerics
 open System.Numerics
 open System
 
+///////////////////////////
+// Contexts used in the tests
+///////////////////////////
+
+let c1hu = Context.Create(1u, RoundingMode.HalfUp);
+let c2hu = Context.Create(2u, RoundingMode.HalfUp);
+let c3hu = Context.Create(3u, RoundingMode.HalfUp);
+let c4hu = Context.Create(4u, RoundingMode.HalfUp);
+let c5hu = Context.Create(5u, RoundingMode.HalfUp);
+let c6hu = Context.Create(6u, RoundingMode.HalfUp)
+let c7hu = Context.Create(7u, RoundingMode.HalfUp);
+let c8hu = Context.Create(8u, RoundingMode.HalfUp);
+let c9hu = Context.Create(9u, RoundingMode.HalfUp)
+let c10hu = Context.Create(10u, RoundingMode.HalfUp);
+let c12hu = Context.Create(12u, RoundingMode.HalfUp);
+let c15hu = Context.Create(15u, RoundingMode.HalfUp)
+let c16hu = Context.Create(16u, RoundingMode.HalfUp);
+let c30hu =  Context.Create(30u, RoundingMode.HalfUp);
+let c33hu =  Context.Create(33u, RoundingMode.HalfUp);
+let c34hu = Context.Create(34u, RoundingMode.HalfUp);
+
+let c6he = Context.Create(6u, RoundingMode.HalfEven);
+let c7he = Context.Create(7u, RoundingMode.HalfEven);
+let c9he = Context.Create(9u, RoundingMode.HalfEven)
+let c10he = Context.Create(10u, RoundingMode.HalfEven);
+let c16he = Context.Create(16u, RoundingMode.HalfEven);
+
+let c9d = Context.Create(9u, RoundingMode.Down)
+
+let c3hd = Context.Create(3u, RoundingMode.HalfDown);
+let c6hd = Context.Create(6u, RoundingMode.HalfDown);
+let c7hd = Context.Create(7u, RoundingMode.HalfDown);
+let c10hd = Context.Create(10u, RoundingMode.HalfDown);
+
+let c0u = Context.Create(0u,RoundingMode.Unnecessary);
+
+let mhu = RoundingMode.HalfUp
+
 
 ///////////////////////////
 // Parsing tests
@@ -41,7 +79,6 @@ open System
 [<Tests>]
 let basicParsingList =
     testList "basic string parsing" [
-
 
         testCase "parsing empty string returns false" <| fun _ ->
             let f input = let (ok,_) = BigDecimal.TryParse(input) in ok
@@ -156,7 +193,6 @@ let basicExponentParsingTests =
         ("1.00E20", "100", 18, 3u);
         ("1.000E20", "1000", 17, 4u) ]
 
-
 let basicPostitiveExponentParsingTests = 
     [   ("1E+0", "1", 0, 1u);
         ("1E+1", "1", 1, 1u);
@@ -201,7 +237,6 @@ let basicNegativeExponentParsingTests =
         ("1.00E-20", "100", -22, 3u);
         ("1.000E-20", "1000", -23, 4u); ]
 
-
 let javaDocParsingTests =
     [   ("0", "0", 0, 1u);
         ("0.00", "0", -2, 1u);
@@ -236,7 +271,6 @@ let specParsingTests =
         ("0E+7", "0",7,1u);
         ("-0E-7", "0",-7,1u);   ]
 
-
 [<Tests>]
 let basicIntParsingList = testList "basic int parsing"  (createIntTests basicIntParsingTests)
 
@@ -262,11 +296,9 @@ let javaDocParsingList = testList "Java doc parsing examples"  (createIntTests j
 let specParsingList = testList "Spec parsing examples"  (createIntTests specParsingTests)
 
 
-
 ///////////////////////////
 // ToString tests
 ///////////////////////////
-
 
 let scientificStringTest biStr exp outStr =
     let bi = BigInteger.Parse(biStr)
@@ -317,7 +349,6 @@ let toStringPointPlacementTests =
     [   ("123456789", -2, "1234567.89");
         ("-123456789", -2, "-1234567.89");  ]
 
-
 [<Tests>]
 let basicToStringList = testList "Basic ToString examples"  (createToStringTests basicToStringTests)
 
@@ -331,7 +362,6 @@ let toStringPointPlacementList = testList "point placement ToString examples"  (
 ///////////////////////////
 // Precision tests
 ///////////////////////////
-
 
 let precisionTest str exponent precision =
     let bd = BigDecimal.Create(BigInteger.Parse(str),exponent)
@@ -376,11 +406,9 @@ let contantsTests = testList "tests of contants" [
     ]
 
 
-
 ///////////////////////////
 // Create from double tests
 ///////////////////////////
-
 
 let doubleTest (v:double) (expectStr:string) (c:Context) =
     let d = BigDecimal.CreateC(v,c)
@@ -394,15 +422,12 @@ let doubleTest (v:double) (expectStr:string) (c:Context) =
         Expect.equal gotStr ("-"+expectStr) "Wrong representation"
     else ()
 
-
 let createDoubleTests data =
     data
     |> List.mapi (fun i (v, expect, context) ->
             testCase (sprintf "BD from double #%i '%s' with context %s" i expect (context.ToString())) <| fun _ -> 
                 doubleTest v expect context
             )
-
-let c9hu = Context.Create(9u, RoundingMode.HalfUp)
 
 let doubleTests =
     [   (0.0, "0", c9hu);
@@ -537,20 +562,16 @@ let doubleTests =
         (0.00000000001234567896, "1.23456790E-11", c9hu);
         (0.000000000001234567896, "1.23456790E-12", c9hu);
         (0.0000000000001234567896, "1.23456790E-13", c9hu);
-
-        
-        ]
+    ]
 
     
 [<Tests>]
 let doubleList = testList "creation from double examples"  (createDoubleTests doubleTests)
 
 
-
 ///////////////////////////
 // Rounding tests
 ///////////////////////////
-
 
 let basicRoundingTest bdStr precision mode biStr exponent =
     let mc = Context.Create(precision,mode)
@@ -677,9 +698,7 @@ let javaDocRoundingList = testList "javaDoc rounding" (createRoundingTests javaD
 // helpers
 ///////////////////////////
 
-
 // support functions for parsing the standardized tests
-
 
 let stripSingleQuotes (str:string) =
     let start, len = 
@@ -691,7 +710,6 @@ let stripSingleQuotes (str:string) =
 
     str.Substring(start,len)
 
-
 let getTwoArgs (test:string) =
     let atoms : string array = test.Split(System.Array.Empty<char>(), System.StringSplitOptions.RemoveEmptyEntries)
     stripSingleQuotes(atoms.[2]),  stripSingleQuotes(atoms.[4])
@@ -701,11 +719,9 @@ let getThreeArgs (test:string) =
     stripSingleQuotes(atoms.[2]),  stripSingleQuotes(atoms.[3]), stripSingleQuotes(atoms.[5])
 
 
-
 ///////////////////////////
 // Quantization tests
 ///////////////////////////
-
 
 let testQuantize lhsStr rhsStr mode expectStr =
     let lhs = BigDecimal.Parse(lhsStr)
@@ -714,7 +730,6 @@ let testQuantize lhsStr rhsStr mode expectStr =
     let resultStr = result.ToScientificString();
     Expect.equal resultStr expectStr "Quantization incorrect"
 
-
 let createTestQuantizeTests data =
     data
     |> List.map (fun (lhsStr, rhsStr, mode, expectStr) ->
@@ -722,12 +737,9 @@ let createTestQuantizeTests data =
                 testQuantize lhsStr rhsStr mode expectStr
            )
 
-
 let TQ test mode =
     let lhs, rhs, result = getThreeArgs test
     testQuantize lhs rhs mode result
-
-
 
 let createTQTests data =
     data
@@ -738,8 +750,6 @@ let createTQTests data =
 
 
 // The following tests are taken from the spec test cases.
-
-let mhu = RoundingMode.HalfUp
 
 let quantizeSpecSanityChecks = 
     [   
@@ -1087,7 +1097,7 @@ let quantizeSpecExamplesFromEmail =
 
 let quantizeSpecSome9999Examples = 
     [
-     // Some operations here were invalid in the original due to overal precision limits that we do not capture.
+         // Some operations here were invalid in the original due to overal precision limits that we do not capture.
         ("quax400 quantize   9.999        1e-5  ->  9.99900", mhu);
         ("quax401 quantize   9.999        1e-4  ->  9.9990", mhu);
         ("quax402 quantize   9.999        1e-3  ->  9.999", mhu);
@@ -1261,11 +1271,9 @@ let quantizeSpecExamplesFromEmailList = testList "quantize spec examples from em
 let quantizeSpecSome9999ExamplesList = testList "quantize spec esome 9999 examples" (createTQTests quantizeSpecSome9999Examples)
 
 
-
 ///////////////////////////
 // Abs tests
 ///////////////////////////
-
 
 let absTest argStr c shouldStr =
     let arg = BigDecimal.Parse(argStr)
@@ -1284,75 +1292,70 @@ let createSpecAbsTests data =
                 absTestFromString test c
            )
 
-let c9 = Context.Create(9u, RoundingMode.HalfUp);
-let c7 = Context.Create(7u, RoundingMode.HalfUp);
-let c6 = Context.Create(6u, RoundingMode.HalfUp);
-let c3 = Context.Create(3u, RoundingMode.HalfUp);
-
 
 let specAbsTests =
     [
-        ("absx001 abs '1'      -> '1'", c9);
-        ("absx002 abs '-1'     -> '1'", c9);
-        ("absx003 abs '1.00'   -> '1.00'", c9);
-        ("absx004 abs '-1.00'  -> '1.00'", c9);
-        ("absx005 abs '0'      -> '0'", c9);
-        ("absx006 abs '0.00'   -> '0.00'", c9);
-        ("absx007 abs '00.0'   -> '0.0'", c9);
-        ("absx008 abs '00.00'  -> '0.00'", c9);
-        ("absx009 abs '00'     -> '0'", c9);
+        ("absx001 abs '1'      -> '1'", c9hu);
+        ("absx002 abs '-1'     -> '1'", c9hu);
+        ("absx003 abs '1.00'   -> '1.00'", c9hu);
+        ("absx004 abs '-1.00'  -> '1.00'", c9hu);
+        ("absx005 abs '0'      -> '0'", c9hu);
+        ("absx006 abs '0.00'   -> '0.00'", c9hu);
+        ("absx007 abs '00.0'   -> '0.0'", c9hu);
+        ("absx008 abs '00.00'  -> '0.00'", c9hu);
+        ("absx009 abs '00'     -> '0'", c9hu);
     
-        ("absx010 abs '-2'     -> '2'", c9);
-        ("absx011 abs '2'      -> '2'", c9);
-        ("absx012 abs '-2.00'  -> '2.00'", c9);
-        ("absx013 abs '2.00'   -> '2.00'", c9);
-        ("absx014 abs '-0'     -> '0'", c9);
-        ("absx015 abs '-0.00'  -> '0.00'", c9);
-        ("absx016 abs '-00.0'  -> '0.0'", c9);
-        ("absx017 abs '-00.00' -> '0.00'", c9);
-        ("absx018 abs '-00'    -> '0'", c9);
+        ("absx010 abs '-2'     -> '2'", c9hu);
+        ("absx011 abs '2'      -> '2'", c9hu);
+        ("absx012 abs '-2.00'  -> '2.00'", c9hu);
+        ("absx013 abs '2.00'   -> '2.00'", c9hu);
+        ("absx014 abs '-0'     -> '0'", c9hu);
+        ("absx015 abs '-0.00'  -> '0.00'", c9hu);
+        ("absx016 abs '-00.0'  -> '0.0'", c9hu);
+        ("absx017 abs '-00.00' -> '0.00'", c9hu);
+        ("absx018 abs '-00'    -> '0'", c9hu);
     
-        ("absx020 abs '-2000000' -> '2000000'", c9);
-        ("absx021 abs '2000000'  -> '2000000'", c9);
+        ("absx020 abs '-2000000' -> '2000000'", c9hu);
+        ("absx021 abs '2000000'  -> '2000000'", c9hu);
     
         //  precision: 7
-        ("absx022 abs '-2000000' -> '2000000'", c7);
-        ("absx023 abs '2000000'  -> '2000000'", c7);
+        ("absx022 abs '-2000000' -> '2000000'", c7hu);
+        ("absx023 abs '2000000'  -> '2000000'", c7hu);
     
         //  precision: 6
-        ("absx024 abs '-2000000' -> '2.00000E+6' Rounded", c6);
-        ("absx025 abs '2000000'  -> '2.00000E+6' Rounded", c6);
+        ("absx024 abs '-2000000' -> '2.00000E+6' Rounded", c6hu);
+        ("absx025 abs '2000000'  -> '2.00000E+6' Rounded", c6hu);
     
     
         //  precision: 3
-        ("absx026 abs '-2000000' -> '2.00E+6' Rounded", c3);
-        ("absx027 abs '2000000'  -> '2.00E+6' Rounded", c3);
+        ("absx026 abs '-2000000' -> '2.00E+6' Rounded", c3hu);
+        ("absx027 abs '2000000'  -> '2.00E+6' Rounded", c3hu);
     
-        ("absx030 abs '+0.1'            -> '0.1'", c3);
-        ("absx031 abs '-0.1'            -> '0.1'", c3);
-        ("absx032 abs '+0.01'           -> '0.01'", c3);
-        ("absx033 abs '-0.01'           -> '0.01'", c3);
-        ("absx034 abs '+0.001'          -> '0.001'", c3);
-        ("absx035 abs '-0.001'          -> '0.001'", c3);
-        ("absx036 abs '+0.000001'       -> '0.000001'", c3);
-        ("absx037 abs '-0.000001'       -> '0.000001'", c3);
-        ("absx038 abs '+0.000000000001' -> '1E-12'", c3);
-        ("absx039 abs '-0.000000000001' -> '1E-12'", c3);
+        ("absx030 abs '+0.1'            -> '0.1'", c3hu);
+        ("absx031 abs '-0.1'            -> '0.1'", c3hu);
+        ("absx032 abs '+0.01'           -> '0.01'", c3hu);
+        ("absx033 abs '-0.01'           -> '0.01'", c3hu);
+        ("absx034 abs '+0.001'          -> '0.001'", c3hu);
+        ("absx035 abs '-0.001'          -> '0.001'", c3hu);
+        ("absx036 abs '+0.000001'       -> '0.000001'", c3hu);
+        ("absx037 abs '-0.000001'       -> '0.000001'", c3hu);
+        ("absx038 abs '+0.000000000001' -> '1E-12'", c3hu);
+        ("absx039 abs '-0.000000000001' -> '1E-12'", c3hu);
     
         //-- examples from decArith
         //precision: 9
-        ("absx040 abs '2.1'     ->  '2.1'", c9);
-        ("absx041 abs '-100'    ->  '100'", c9);
-        ("absx042 abs '101.5'   ->  '101.5'", c9);
-        ("absx043 abs '-101.5'  ->  '101.5'", c9);
+        ("absx040 abs '2.1'     ->  '2.1'", c9hu);
+        ("absx041 abs '-100'    ->  '100'", c9hu);
+        ("absx042 abs '101.5'   ->  '101.5'", c9hu);
+        ("absx043 abs '-101.5'  ->  '101.5'", c9hu);
     
         //-- more fixed, potential LHS swaps/overlays if done by subtract 0
         //precision: 9
-        ("absx060 abs '-56267E-10'  -> '0.0000056267'", c9);
-        ("absx061 abs '-56267E-5'   -> '0.56267'", c9);
-        ("absx062 abs '-56267E-2'   -> '562.67'", c9);
-        ("absx063 abs '-56267E-1'   -> '5626.7'", c9);
-        ("absx065 abs '-56267E-0'   -> '56267'", c9);
+        ("absx060 abs '-56267E-10'  -> '0.0000056267'", c9hu);
+        ("absx061 abs '-56267E-5'   -> '0.56267'", c9hu);
+        ("absx062 abs '-56267E-2'   -> '562.67'", c9hu);
+        ("absx063 abs '-56267E-1'   -> '5626.7'", c9hu);
+        ("absx065 abs '-56267E-0'   -> '56267'", c9hu);
     ]
 
 
@@ -1363,7 +1366,6 @@ let specAbsTestList = testList "quantize spec esome 9999 examples" (createSpecAb
 ///////////////////////////
 // Addition tests
 ///////////////////////////
-
 
 let addTest arg1Str arg2Str c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
@@ -1376,26 +1378,12 @@ let addTestFromStr test c =
     let arg1Str, arg2Str, resultStr = getThreeArgs test
     addTest arg1Str arg2Str c resultStr
 
-
 let createAddTests data =
     data
     |> List.map (fun (test, c) ->
            testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 addTestFromStr test c
            )
-
-let c6hu = Context.Create(6u, RoundingMode.HalfUp)
-let c15hu = Context.Create(15u, RoundingMode.HalfUp)
-let c9he = Context.Create(9u, RoundingMode.HalfEven)
-let c9d = Context.Create(9u, RoundingMode.Down)
-let c3hu = Context.Create(3u, RoundingMode.HalfUp);
-let c3hd = Context.Create(3u, RoundingMode.HalfDown);
-let c6hd = Context.Create(6u, RoundingMode.HalfDown);
-let c6he = Context.Create(6u, RoundingMode.HalfEven);
-let c7hu = Context.Create(7u, RoundingMode.HalfUp);
-let c10hd = Context.Create(10u, RoundingMode.HalfDown);
-let c10hu = Context.Create(10u, RoundingMode.HalfUp);
-let c10he = Context.Create(10u, RoundingMode.HalfEven);
 
 
 let addTests =
@@ -1875,11 +1863,9 @@ let addTests =
 let addTestList = testList "addition examples" (createAddTests addTests)
 
 
-
 ///////////////////////////
 // Subtraction tests
 ///////////////////////////
-
 
 let subTest arg1Str arg2Str c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
@@ -1887,7 +1873,6 @@ let subTest arg1Str arg2Str c resultStr =
     let diff = arg1.Subtract(arg2,c)
     let diffStr = diff.ToScientificString()
     Expect.equal diffStr resultStr "difference incorrect"
-
 
 let subTestFromString test c =
     let arg1Str, arg2Str, resultStr = getThreeArgs test
@@ -1900,13 +1885,6 @@ let createSubTests data =
                 subTestFromString test c
            )
 
-let c1hu = Context.Create(1u, RoundingMode.HalfUp);
-let c2hu = Context.Create(2u, RoundingMode.HalfUp);
-let c4hu = Context.Create(4u, RoundingMode.HalfUp);
-let c5hu = Context.Create(5u, RoundingMode.HalfUp);
-let c8hu = Context.Create(8u, RoundingMode.HalfUp);
-let c12hu = Context.Create(12u, RoundingMode.HalfUp);
-let c34hu = Context.Create(34u, RoundingMode.HalfUp);
 
 let subTests =
     [|
@@ -2777,7 +2755,6 @@ let subTestList = testList "subtraction examples" (Array.toList (createSubTests 
 // Multiplication tests
 ///////////////////////////
 
-
 let multiplyTest arg1Str arg2Str c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
@@ -2798,9 +2775,6 @@ let createMultiplyTests data =
                 multiplyTestFromStr test c
            )
 
-
-let c30hu =  Context.Create(30u, RoundingMode.HalfUp);
-let c33hu =  Context.Create(33u, RoundingMode.HalfUp);
 
 let multiplyTests = 
     [
@@ -3173,11 +3147,9 @@ let multiplyTests =
 let multiplyTestList = testList "multiply examples" (createMultiplyTests multiplyTests)
 
 
-
 ///////////////////////////
 // Division tests
 ///////////////////////////
-
 
 let divideTest arg1Str arg2Str c resultStr = 
     let arg1 = BigDecimal.Parse(arg1Str)
@@ -3185,7 +3157,6 @@ let divideTest arg1Str arg2Str c resultStr =
     let div = arg1.Divide(arg2,c)
     let divStr = div.ToScientificString()
     Expect.equal divStr resultStr "quotient"
-
 
 let divideTestFromStrEx test c =
     let arg1Str, arg2Str, resultStr = getThreeArgs test
@@ -3195,14 +3166,12 @@ let divideTestFromStr test c =
     let arg1Str, arg2Str, resultsStr = getThreeArgs test
     divideTest arg1Str arg2Str c resultsStr 
 
-
 let createDivideTests data = 
     data
     |> List.map (fun (test, c) ->
            testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 divideTestFromStr test c
            )
-
 
 let createDivideTestsEx data = 
     data
@@ -3211,10 +3180,6 @@ let createDivideTestsEx data =
                 divideTestFromStrEx test c
            )
 
-
-let c16hu = Context.Create(16u, RoundingMode.HalfUp);
-let c7hd = Context.Create(7u, RoundingMode.HalfDown);
-let c7he = Context.Create(7u, RoundingMode.HalfEven);
 
 let specDivideTests = 
     [
@@ -3874,8 +3839,6 @@ let badDivideTests =
         ("divx948 divide  -1E+1000 -0   ->  Infinity Division_by_zero", c16hu);
     ]
 
-let c0u = Context.Create(0u,RoundingMode.Unnecessary)
-
 let noContextDivideTests =
     [
         //-- sanity checks
@@ -3914,14 +3877,12 @@ let noContextDivideErrorTestList = testList "bad no context division examples" (
 // DivInt tests
 ///////////////////////////
 
-
 let divIntTest arg1Str arg2Str c resultStr = 
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
     let div = arg1.DivideInteger(arg2,c)
     let divStr = div.ToScientificString()
     Expect.equal divStr resultStr "quotient"
-
 
 let divIntTestFromStrEx test c =
     let arg1Str, arg2Str, resultStr = getThreeArgs test
@@ -3931,14 +3892,12 @@ let divIntTestFromStr test c =
     let arg1Str, arg2Str, resultsStr = getThreeArgs test
     divIntTest arg1Str arg2Str c resultsStr 
 
-
 let createDivIntTests data = 
     data
     |> List.map (fun (test, c) ->
            testCase (sprintf "'%s' with context %s " test (c.ToString()) ) <| fun _ -> 
                 divIntTestFromStr test c
            )
-
 
 let createDivIntTestsEx data = 
     data
@@ -3947,9 +3906,9 @@ let createDivIntTestsEx data =
                 divIntTestFromStrEx test c
            )
 
+
 let specDivIntTests =    
     [
-
         //extended:    1
         //precision:   9
         //rounding:    half_up
@@ -4316,12 +4275,10 @@ let powerTest arg1Str arg2Str c resultStr =
     let pow = arg1.Power(arg2,c)
     let powStr = pow.ToScientificString()
     Expect.equal powStr resultStr "power"
-
  
 let powerTestFromStr test c =
     let arg1Str, arg2Str, resultsStr = getThreeArgs test
     powerTest arg1Str arg2Str c resultsStr 
-
 
 let createPowerTests data = 
     data
@@ -4330,8 +4287,6 @@ let createPowerTests data =
                 powerTestFromStr test c
            )
 
-
-let c16he = Context.Create(16u, RoundingMode.HalfEven);
 
 let specPowerTests = 
     [
@@ -4566,7 +4521,6 @@ let pointMoveTests =
 ///////////////////////////
 // Create from decimal tests
 ///////////////////////////
-
 
 let decimalTest (v:decimal) (expectStr:string) (c:Context) =
     let d = BigDecimal.CreateC(v,c)

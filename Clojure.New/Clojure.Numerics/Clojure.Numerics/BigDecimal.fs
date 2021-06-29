@@ -10,6 +10,8 @@ open System.Runtime.CompilerServices
 
 module private ArithmeticHelpers =
 
+    // BigInteger helpers
+
     let biFive = BigInteger(5)
     let biTen = BigInteger(10)
 
@@ -25,30 +27,6 @@ module private ArithmeticHelpers =
         //else
         //    let log = BigInteger.Log10 (if bi.Sign <= 0 then -bi else bi) 
         //    1u+((Math.Floor(log) |> uint32)   
-
-
-    /// Exponent bias in the 64-bit floating point representation.
-    let doubleExponentBias = 1023
-
-    /// The size in bits of the significand in the 64-bit floating point representation.
-    let doubleSignificandBitLength = 52
-
-    /// How much to shift to accommodate the exponent and the binary digits of the significand.
-    let doubleShiftBias = doubleExponentBias + doubleSignificandBitLength
-    
-    /// Extract the sign bit from a byte-array representaition of a double.
-    let getDoubleSign (v:byte[]) = v.[7] &&& 0x80uy
-
-    /// Extract the significand (AKA mantissa, coefficient) from a byte-array representation of a double.
-    let getDoubleSignificand (v:byte[]) = 
-        let i1 = (uint v.[0]) ||| ((uint v.[1]) <<< 8) ||| ((uint v.[2]) <<< 16) ||| ((uint v.[3]) <<< 24)
-        let i2 = (uint v.[4]) ||| ((uint v.[5]) <<< 8) ||| ((uint (v.[6] &&& 0xFuy)) <<< 16)
-        uint64 i1 ||| ((uint64 i2) <<< 32)
-        
-    /// Extract the exponent from a byte-array representaition of a double.
-    let getDoubleBiasedExponent (v:byte[]) = ((uint16 (v.[7] &&& 0x7fuy)) <<< 4) ||| ((uint16 (v.[6] &&& 0xF0uy)) >>> 4)
-
-
 
     let biPowersOfTen = 
         [| 
@@ -73,6 +51,33 @@ module private ArithmeticHelpers =
             buf.[0] <- '1'
             BigInteger.Parse(String(buf))
 
+
+    // double representation
+
+    /// Exponent bias in the 64-bit floating point representation.
+    let doubleExponentBias = 1023
+
+    /// The size in bits of the significand in the 64-bit floating point representation.
+    let doubleSignificandBitLength = 52
+
+    /// How much to shift to accommodate the exponent and the binary digits of the significand.
+    let doubleShiftBias = doubleExponentBias + doubleSignificandBitLength
+    
+    /// Extract the sign bit from a byte-array representaition of a double.
+    let getDoubleSign (v:byte[]) = v.[7] &&& 0x80uy
+
+    /// Extract the significand (AKA mantissa, coefficient) from a byte-array representation of a double.
+    let getDoubleSignificand (v:byte[]) = 
+        let i1 = (uint v.[0]) ||| ((uint v.[1]) <<< 8) ||| ((uint v.[2]) <<< 16) ||| ((uint v.[3]) <<< 24)
+        let i2 = (uint v.[4]) ||| ((uint v.[5]) <<< 8) ||| ((uint (v.[6] &&& 0xFuy)) <<< 16)
+        uint64 i1 ||| ((uint64 i2) <<< 32)
+        
+    /// Extract the exponent from a byte-array representaition of a double.
+    let getDoubleBiasedExponent (v:byte[]) = ((uint16 (v.[7] &&& 0x7fuy)) <<< 4) ||| ((uint16 (v.[6] &&& 0xF0uy)) >>> 4)
+
+
+    // Exponent support
+
     let checkExponent (candidate:int64) (isZero:bool) : int option =
         match candidate with
         | x when x <= (int64 Int32.MaxValue) && x >= (int64 Int32.MinValue) -> Some (int32 x)
@@ -86,6 +91,8 @@ module private ArithmeticHelpers =
         | None when candidate > 0L -> raise <| ArithmeticException("Overflow in scale")
         | None -> raise <| ArithmeticException("Underflow in scale")
 
+
+    // Miscellaneous
 
     let uintlogTable = 
         [
@@ -152,6 +159,9 @@ type Context =
     static member ExtendedDefault precision = {precision=precision; roundingMode = HalfEven}
     static member Create( precision, roundingMode) = {precision = precision; roundingMode = roundingMode }
 
+
+// Parser support
+
 [<Struct>]
 type internal ParserSpan = {Start: int; Length: int}  // shall we go to the trouble of making these uints?
 
@@ -161,6 +171,7 @@ type internal ParseData =
       exponent: ParserSpan }
 
 type internal ParseResult = ParseResult of ParseData * int
+
 
 
 /// <summary>
@@ -175,7 +186,6 @@ type internal ParseResult = ParseResult of ParseData * int
 /// of the GDAS: infinite values, NaNs, subnormal values and negative zero are not represented, and most conditions throw exceptions. 
 /// Exponent limits in the context are not implemented, except a limit to the range of an Int32. 
 /// However, we do not do "conversion to shorter" for arith ops.</para>
-/// <para>It is our long term intention to convert this to a complete implementation of the standard.</para>
 /// <para>The representation is an arbitrary precision integer (the signed coefficient, also called the unscaled value) 
 /// and an exponent.  The exponent is limited to the range of an Int32. 
 /// The value of a BigDecimal representation is <c>coefficient * 10^exponent</c>. </para>
@@ -186,7 +196,7 @@ type internal ParseResult = ParseResult of ParseData * int
 /// That class does not have a representation for signed zero.</para>
 /// <para>Note: Compared to j.m.BigDecimal, our coefficient = their <c>unscaledValue</c> 
 /// and our exponent is the negation of their <c>scale</c>.</para>
-/// <para>The representation also track the number of significant digits.  This is usually the number of digits in the coefficient,
+/// <para>The representation also tracks the number of significant digits.  This is usually the number of digits in the coefficient,
 /// except when the coeffiecient is zero.  This value is computed lazily and cached.</para>
 /// <para>This is not a clean-room implementation.  
 /// I examined at other code, especially OpenJDK implementation of java.math.BigDecimal, 
@@ -195,22 +205,58 @@ type internal ParseResult = ParseResult of ParseData * int
 /// However, there are only so many ways to skim certain cats, so some similarities are unavoidable.</para>
 /// </remarks>
 type BigDecimal private (coeff, exp, precision) = 
+
+    // Precision
+
+    // Constructor precision is shadowed with a mutable.
+    // Value of 0 indicates precision not computed
     let mutable precision : uint = precision
-
-    static member Zero = BigDecimal(BigInteger.Zero,0,1u);
-    static member One = BigDecimal(BigInteger.One,0,1u)
-    static member Ten =  BigDecimal(new BigInteger(10),0,2u);        
-
+    
+    // Compute actual precision and cache it.
     member private x.GetPrecision() = 
         match precision with    
         | 0u -> precision <- Math.Max(ArithmeticHelpers.getBIPrecision(coeff),1u)
         | _ -> ()
         precision
 
-    member _.Coefficient = coeff
-    member _.Exponent = exp
+    /// Gets the precision (will compute if necessary and cache)
     member x.Precision = x.GetPrecision()
+
+    /// Gets the precision. Won't compute if not yet determined.  Value 0 => not computed.
     member x.RawPrecision = precision
+
+    /// is the precision computed?
+    member x.IsPrecisionKnown = x.RawPrecision <> 0u
+
+    // Other accessors
+
+    /// Returns the coefficent
+    member _.Coefficient = coeff
+
+    // Returns the exponent
+    member _.Exponent = exp
+
+    // Useful info
+ 
+    /// Returns the sign (-1, 0, +1)
+    member x.Signum() : int = 
+        match x.Coefficient.Sign with
+        | 0 -> 0
+        | sign when sign > 0 -> 1
+        | _ -> -1
+
+
+    member x.IsZero = x.Coefficient.IsZero
+    member x.IsPositive = x.Coefficient.Sign > 0
+    member x.IsNegative = x.Coefficient.Sign < 0
+
+
+    // Useful constants
+
+    static member Zero = BigDecimal(BigInteger.Zero,0,1u);
+    static member One = BigDecimal(BigInteger.One,0,1u)
+    static member Ten =  BigDecimal(new BigInteger(10),0,2u);        
+
 
     // Rounding/quantize/rescale
 
@@ -234,7 +280,7 @@ type BigDecimal private (coeff, exp, precision) =
             else q + BigInteger.One
         else q
 
-    static member private round (v:BigDecimal) (c:Context): BigDecimal = 
+    static member private round (v:BigDecimal) c = 
         let vp = v.GetPrecision()
         if ( vp <= c.precision ) 
         then v
@@ -248,9 +294,13 @@ type BigDecimal private (coeff, exp, precision) =
             then BigDecimal.round result c
             else result
 
+    /// Return a BigDecimal rounded to the given context
     static member Round(v:BigDecimal, c:Context) = BigDecimal.round v c 
+
+     /// Return a BigDecimal rounded to the given context
     member x.Round(c:Context) = BigDecimal.Round(x,c)
 
+    // Return an equivalent-valued BigDecimal rescaled to the given exponent. 
     static member Rescale(lhs:BigDecimal, newExponent,mode) : BigDecimal =
 
         let increaseExponent delta = 
@@ -272,7 +322,6 @@ type BigDecimal private (coeff, exp, precision) =
             let newPrec = oldPrec + (if oldPrec = 0u then 0u else delta)
             BigDecimal(newCoeff,newExponent,newPrec)    
 
-            
         let delta = ArithmeticHelpers.checkExponentE ((int64 lhs.Exponent) - (int64 newExponent)) false
         if delta = 0 then lhs
         elif lhs.Coefficient.IsZero then BigDecimal(BigInteger.Zero,newExponent,0u)
@@ -280,111 +329,15 @@ type BigDecimal private (coeff, exp, precision) =
         else decreaseExponent (uint delta)
 
 
-
+    /// Rescale first BigDecimal to the exponent of the second BigDecimal
     static member Quantize(lhs:BigDecimal, rhs:BigDecimal, mode:RoundingMode) = BigDecimal.Rescale(lhs,rhs.Exponent,mode)
+
+    /// Rescale this to the exponent of the provided BigDecimal
     member x.Quantize(v,mode) = BigDecimal.Quantize(x,v,mode)
 
+ 
 
-    static member Create (bi:BigDecimal) = BigDecimal(bi.Coefficient,bi.Exponent,bi.RawPrecision)
-    static member Create(coeff, exp, [<Optional; DefaultParameterValue( 0u )>]prec) = BigDecimal(coeff,exp,prec)
-
-    static member Create (v:int32) = BigDecimal(BigInteger(v),0,0u) 
-    static member CreateC(v:int32,c) = BigDecimal.round (BigDecimal.Create(v)) c
-    
-    static member Create (v:int64) = BigDecimal(BigInteger(v),0,0u) 
-    static member CreateC(v:int64,c) = BigDecimal.round (BigDecimal.Create(v)) c
-
-    static member Create (v:uint64) = BigDecimal(BigInteger(v),0,0u) 
-    static member CreateC(v:uint64,c) = BigDecimal.round (BigDecimal.Create(v)) c
-
-    static member Create (v:BigInteger) = BigDecimal(v,0,0u) 
-    static member CreateC(v:BigInteger,c) = BigDecimal.round (BigDecimal.Create(v)) c
-
-    static member Create (v:decimal) = 
-        if v = 0m then BigDecimal.Zero
-        else 
-            let ints = Decimal.GetBits(v)
-            let sign = if v < 0m then -1 else 1
-            let exp = (ints.[3] &&& 0x00FF0000 ) >>> 16
-            let byteLength = Buffer.ByteLength(ints)-4
-            let bytes : byte array = Array.zeroCreate byteLength
-            Buffer.BlockCopy(ints,0,bytes,0,byteLength)
-            let isZero = ints.[0] = 0 && ints.[1] = 0 && ints.[2] = 0
-            let sign = if (ints.[3] &&& 0x80000000) = 0 then 1 else -1
-            let coeff =
-                if isZero
-                then BigInteger.Zero
-                else BigInteger(ReadOnlySpan(bytes),false,false)
-            let coeff = if sign = -1 then -coeff else coeff     
-            BigDecimal(coeff,-exp,0u)
-
-    static member CreateC(v:decimal, c) = BigDecimal.round (BigDecimal.Create(v)) c
-
-    static member Create (v:double) = 
-        if Double.IsNaN(v) then invalidArg "value" "NaN is not supported in BigDecimal"
-        if Double.IsInfinity(v) then invalidArg "value" "Infinity is not supported in BigDecimal"
-
-        let dbytes = BitConverter.GetBytes(v)
-        let signficand = ArithmeticHelpers.getDoubleSignificand dbytes
-        let biasedExp = ArithmeticHelpers.getDoubleBiasedExponent dbytes
-        let leftShift = (int biasedExp) - ArithmeticHelpers.doubleShiftBias;
-        if signficand = 0UL && biasedExp = 0us then BigDecimal(BigInteger.Zero,0,1u)
-        else
-            let ( coeff, leftShift ) =
-                if ( signficand = 0UL) 
-                then ( ( if v < 0.0 then BigInteger.MinusOne else BigInteger.One),
-                       (int biasedExp) - ArithmeticHelpers.doubleExponentBias )
-                else 
-                    let unadjustedCoeff = BigInteger(signficand ||| 0x10000000000000UL)
-                    ( (if v < 0.0 then BigInteger.Negate(unadjustedCoeff) else unadjustedCoeff),
-                      leftShift)
-            let (coeffToUse, expToUse) =
-                if leftShift < 0
-                    then ( coeff*BigInteger.Pow(ArithmeticHelpers.biFive,-leftShift), leftShift)
-                elif leftShift > 0
-                    then ( coeff <<< leftShift , 0 )
-                else ( coeff, 0 )
-            BigDecimal(coeffToUse,expToUse,0u)
-                                  
-
-
-    static member CreateC(v:double, c) = BigDecimal.round (BigDecimal.Create(v)) c
-
-    static member private CreateInternalCh (v:char[]) (c: Context option) = NotImplementedException() |> raise       
-    static member Create (v) = BigDecimal.CreateInternalCh v None
-    static member CreateC(v,c) = BigDecimal.CreateInternalCh v (Some c) 
-
-
-    member _.ToScientificString() =
-        let sb = StringBuilder(coeff.ToString())
-        let coeffLen, negOffset = if coeff.Sign < 0 then sb.Length-1, 1 else sb.Length, 0
-
-        let adjustedExp = (int64 exp) + (int64 coeffLen) - 1L
-
-        if exp <= 0 && adjustedExp >= -6L
-        then
-            if exp <> 0  // we need a decimal point
-            then
-                match -exp with
-                | _ as numDec when numDec < coeffLen -> sb.Insert(coeffLen-numDec+negOffset, '.') |> ignore
-                | _ as numDec when numDec = coeffLen -> sb.Insert(negOffset,"0.") |> ignore
-                | _ as numDec ->
-                    let numZeros = numDec - coeffLen
-                    sb.Insert(negOffset, "0",numZeros) |> ignore
-                    sb.Insert(negOffset, "0.") |> ignore
-            else ()
-        else // using exponential notation
-            if coeffLen > 1 then sb.Insert(negOffset+1, '.') |> ignore
-            sb.Append('E') |> ignore
-            if adjustedExp >= 0L then sb.Append('+') |> ignore
-            sb.Append(adjustedExp) |> ignore
-        sb.ToString()
-
-
-
-    override x.ToString() : String = x.ToScientificString()
-
-
+    // Parsing
 
     // Using ReadOnlySpan<char> (ROSC) as input to consolidate versions for char arrays, strings, and similar.
     // Unfortunately, using spans has a lot of limitations, so I could not use them through most of the code.
@@ -394,9 +347,10 @@ type BigDecimal private (coeff, exp, precision) =
     // All parts are optional with the following constraints:
     //  (1) there must be a digit in whole-part + fraction-part
     //  (2) if there is an E, there must be a digit in exponent 
+    // I may completely redo this.  Seems more complicated than necessary, but it was a nice exercise.
   
     static member private DoParse (buf : ReadOnlySpan<char> ) : Result<BigDecimal,String> =
-        let input = buf.ToArray()
+        let input = buf.ToArray()  
         
         let inputIsEmpty posn = posn >= input.Length
 
@@ -526,20 +480,200 @@ type BigDecimal private (coeff, exp, precision) =
         | Ok bd -> bd
         | Error x -> invalidArg "input" x
 
+    /// Converts a string representation of a number to its BigDecimal equivalent.
     static member Parse (s:String) = BigDecimal.DoParseE(s.AsSpan())
+
+    /// Converts a string representation of a number to its BigDecimal equivalent, rounded per the given Context.
     static member Parse (s: String, c) = BigDecimal.round (BigDecimal.Parse(s)) c
 
+    /// Create a BigDecimal from a character array
+    static member Parse(v:char array) = BigDecimal.DoParseE(ReadOnlySpan(v))
+   
+    /// Create a BigDecimal from a character array, rounded per the given context
+    static member Parse(v:char array, c) = BigDecimal.round (BigDecimal.Create(v)) c
+
+    /// Create a BigDecimal from a segment of a character array
+    static member Parse(v:char array, offset:int, len:int) = BigDecimal.DoParseE(ReadOnlySpan(v,offset,len))
+
+    /// Create a BigDecimal from a segment of a character array, rounded per the given context
+    static member Parse(v:char array, offset:int, len:int, c) = BigDecimal.round (BigDecimal.Create(v,offset,len)) c
+
+    /// Tries to conver t a string representation of a number to its BigDecimal equivalent, and returns a value indicating if it succeeded.
     static member TryParse(s:String, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (s.AsSpan()) with
         | Ok bd -> value <- bd; true
         | Error _ -> false
 
+    /// Tries to conver t a string representation of a number to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
     static member TryParse(s:String, c, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (s.AsSpan()) with
         | Ok bd -> value <- BigDecimal.round bd c; true
         | Error _ -> false
 
+    /// Tries to conver t a string representation of a number to its BigDecimal equivalent, and returns a value indicating if it succeeded.
+    static member TryParse(a:char array, value:outref<BigDecimal>) : bool = 
+        match BigDecimal.DoParse (ReadOnlySpan(a)) with
+        | Ok bd -> value <- bd; true
+        | Error _ -> false
 
+    /// Tries to conver t a string representation of a number to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
+    static member TryParse(a:char array, c, value:outref<BigDecimal>) : bool = 
+        match BigDecimal.DoParse (ReadOnlySpan(a)) with
+        | Ok bd -> value <- BigDecimal.round bd c; true
+        | Error _ -> false
+
+    /// Tries to conver t a string representation of a number to its BigDecimal equivalent, and returns a value indicating if it succeeded.
+    static member TryParse(a:char array, offset:int, len:int, value:outref<BigDecimal>) : bool = 
+        match BigDecimal.DoParse (ReadOnlySpan(a,offset,len)) with
+        | Ok bd -> value <- bd; true
+        | Error _ -> false
+
+    /// Tries to conver t a string representation of a number to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
+    static member TryParse(a:char array, offset:int, len:int, c, value:outref<BigDecimal>) : bool = 
+        match BigDecimal.DoParse (ReadOnlySpan(a,offset,len)) with
+        | Ok bd -> value <- BigDecimal.round bd c; true
+        | Error _ -> false
+
+
+    // Factory methods
+
+    /// Create a copy of BigDecimal -- rethink your priorities, BDs are immutable, so why?
+    static member Create (bi:BigDecimal) = BigDecimal(bi.Coefficient,bi.Exponent,bi.RawPrecision)
+
+    /// Create a BigDecimal from given coefficient, exponent, and (optional) precision.
+    static member Create(coeff, exp, [<Optional; DefaultParameterValue( 0u )>]prec) = BigDecimal(coeff,exp,prec)
+
+    /// Create a BigDecimal from an Int32.
+    static member Create (v:int32) = BigDecimal(BigInteger(v),0,0u) 
+
+    /// Create a BigDecimal from an Int32, rounded per the given context.
+    static member CreateC(v:int32,c) = BigDecimal.round (BigDecimal.Create(v)) c
+ 
+    /// Create a BigDecimal from an Int64.
+    static member Create (v:int64) = BigDecimal(BigInteger(v),0,0u) 
+
+    /// Create a BigDecimal from an Int64, rounded per the given context.
+    static member CreateC(v:int64,c) = BigDecimal.round (BigDecimal.Create(v)) c
+
+    /// Create a BigDecimal from a UInt64.
+    static member Create (v:uint64) = BigDecimal(BigInteger(v),0,0u) 
+
+    /// Create a BigDecimal from a UInt64, rounded per the given context.
+    static member CreateC(v:uint64,c) = BigDecimal.round (BigDecimal.Create(v)) c
+
+    /// Create a BigDecimal from a BigInteger.
+    static member Create (v:BigInteger) = BigDecimal(v,0,0u) 
+
+    /// Create a BigDecimal from a BigInteger, rounded per the given context.
+    static member CreateC(v:BigInteger,c) = BigDecimal.round (BigDecimal.Create(v)) c
+
+    /// Create a BigDecimal from a Decimal.
+    static member Create (v:decimal) = 
+        if v = 0m then BigDecimal.Zero
+        else 
+            let ints = Decimal.GetBits(v)
+            let sign = if v < 0m then -1 else 1
+            let exp = (ints.[3] &&& 0x00FF0000 ) >>> 16
+            let byteLength = Buffer.ByteLength(ints)-4
+            let bytes : byte array = Array.zeroCreate byteLength
+            Buffer.BlockCopy(ints,0,bytes,0,byteLength)
+            let isZero = ints.[0] = 0 && ints.[1] = 0 && ints.[2] = 0
+            let sign = if (ints.[3] &&& 0x80000000) = 0 then 1 else -1
+            let coeff =
+                if isZero
+                then BigInteger.Zero
+                else BigInteger(ReadOnlySpan(bytes),false,false)
+            let coeff = if sign = -1 then -coeff else coeff     
+            BigDecimal(coeff,-exp,0u)
+
+    /// Create a BigDecimal from a Decimal, rounded per the given context.
+    static member CreateC(v:decimal, c) = BigDecimal.round (BigDecimal.Create(v)) c
+
+    /// Create a BigDecimal from a Double.
+    static member Create (v:double) = 
+        if Double.IsNaN(v) then invalidArg "value" "NaN is not supported in BigDecimal"
+        if Double.IsInfinity(v) then invalidArg "value" "Infinity is not supported in BigDecimal"
+
+        let dbytes = BitConverter.GetBytes(v)
+        let signficand = ArithmeticHelpers.getDoubleSignificand dbytes
+        let biasedExp = ArithmeticHelpers.getDoubleBiasedExponent dbytes
+        let leftShift = (int biasedExp) - ArithmeticHelpers.doubleShiftBias;
+        if signficand = 0UL && biasedExp = 0us then BigDecimal(BigInteger.Zero,0,1u)
+        else
+            let ( coeff, leftShift ) =
+                if ( signficand = 0UL) 
+                then ( ( if v < 0.0 then BigInteger.MinusOne else BigInteger.One),
+                    (int biasedExp) - ArithmeticHelpers.doubleExponentBias )
+                else 
+                    let unadjustedCoeff = BigInteger(signficand ||| 0x10000000000000UL)
+                    ( (if v < 0.0 then BigInteger.Negate(unadjustedCoeff) else unadjustedCoeff),
+                      leftShift)
+            let (coeffToUse, expToUse) =
+                if leftShift < 0
+                    then ( coeff*BigInteger.Pow(ArithmeticHelpers.biFive,-leftShift), leftShift)
+                elif leftShift > 0
+                    then ( coeff <<< leftShift , 0 )
+                else ( coeff, 0 )
+            BigDecimal(coeffToUse,expToUse,0u)
+                               
+
+    /// Create a BigDecimal from a Double, rounded per the given context.
+    static member CreateC(v:double, c) = BigDecimal.round (BigDecimal.Create(v)) c
+
+    /// Create a BigDecimal from a String
+    static member Create(v:String) = BigDecimal.Parse(v)
+   
+    /// Create a BigDecimal from a String, rounded per the given context
+    static member Create(v:String, c) = BigDecimal.Parse(v,c)
+
+    /// Create a BigDecimal from a character array
+    static member Create(v:char array) = BigDecimal.Parse(v)
+   
+    /// Create a BigDecimal from a character array, rounded per the given context
+    static member Create(v:char array, c) = BigDecimal.Parse(v,c)
+
+    /// Create a BigDecimal from a segment of a character array
+    static member Create(v:char array, offset:int, len:int) = BigDecimal.Parse(v,offset,len)
+
+    /// Create a BigDecimal from a segment of a character array, rounded per the given context
+    static member Create(v:char array, offset:int, len:int, c) = BigDecimal.Parse(v,offset,len,c)
+
+
+
+    // ToString implementation
+
+    /// Converts the numeric value of this instance to its equivalent string representation.
+    member _.ToScientificString() =
+        let sb = StringBuilder(coeff.ToString())
+        let coeffLen, negOffset = if coeff.Sign < 0 then sb.Length-1, 1 else sb.Length, 0
+
+        let adjustedExp = (int64 exp) + (int64 coeffLen) - 1L
+
+        if exp <= 0 && adjustedExp >= -6L
+        then
+            if exp <> 0  // we need a decimal point
+            then
+                match -exp with
+                | _ as numDec when numDec < coeffLen -> sb.Insert(coeffLen-numDec+negOffset, '.') |> ignore
+                | _ as numDec when numDec = coeffLen -> sb.Insert(negOffset,"0.") |> ignore
+                | _ as numDec ->
+                    let numZeros = numDec - coeffLen
+                    sb.Insert(negOffset, "0",numZeros) |> ignore
+                    sb.Insert(negOffset, "0.") |> ignore
+            else ()
+        else // using exponential notation
+            if coeffLen > 1 then sb.Insert(negOffset+1, '.') |> ignore
+            sb.Append('E') |> ignore
+            if adjustedExp >= 0L then sb.Append('+') |> ignore
+            sb.Append(adjustedExp) |> ignore
+        sb.ToString()
+
+
+    /// Converts the numeric value of this instance to its equivalent string representation.
+    override x.ToString() : String = x.ToScientificString()
+
+
+    // support for some of the arithmetic operations
 
     /// Align the bigger BigDecimal by increasing its coefficient and decreasing its exponent
     static member private computeAlign (big:BigDecimal) (small:BigDecimal) =
@@ -572,7 +706,58 @@ type BigDecimal private (coeff, exp, precision) =
     interface IEquatable<BigDecimal> with   
         member x.Equals (y:BigDecimal) =
                 if x.Exponent <> y.Exponent then false else x.Coefficient.Equals(y.Coefficient)
-            
+
+    static member op_LessThan (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) < 0
+    static member op_LessThanOrEqual (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) <= 0
+    static member op_GreaterThan (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) > 0
+    static member op_GreaterThanOrEqual (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) >= 0 
+    static member op__Equality (left:BigDecimal, right:BigDecimal) : bool = (left :> IEquatable<BigDecimal>).Equals(right)
+    static member op_Inequality (left:BigDecimal, right:BigDecimal) : bool = (left :> IEquatable<BigDecimal>).Equals(right)
+
+    override x.Equals(obj) =
+        match obj with
+        | :? BigDecimal as bd -> (x :> IEquatable<BigDecimal>).Equals(bd)
+        | _ -> false
+
+        
+    static member private hashCombine seed hash =
+        // a la boost  -- maybe someday use Murmur3 instead?
+        (seed ^^^ (hash + 0x9e3779b9 + (seed <<< 6)) + (seed >>> 2))
+
+    override x.GetHashCode() = BigDecimal.hashCombine (x.Coefficient.GetHashCode()) (x.Exponent.GetHashCode()) 
+                
+    member x.ToBigInteger() = BigDecimal.Rescale(x, 0, RoundingMode.Down).Coefficient
+    
+    interface IConvertible with
+        member x.GetTypeCode() = TypeCode.Object
+        member x.ToBoolean(_:IFormatProvider) = not x.IsZero
+        member x.ToByte(_:IFormatProvider) = x.ToBigInteger() |> byte
+        member x.ToChar(_:IFormatProvider) = x.ToBigInteger() |> uint16 |> char
+        member x.ToDateTime(_:IFormatProvider) = raise <| InvalidCastException("Cannot convert to DateTime")
+        member x.ToDecimal(_:IFormatProvider) = x.ToString() |> Decimal.Parse
+
+        // As j.m.BigDecimal puts it: "Somewhat inefficient, but guaranteed to work."
+        // However, JVM's double parser goes to +/- Infinity when out of range,
+        // while CLR's throws an exception.
+        // Hate dealing with that.
+        member x.ToDouble(fp:IFormatProvider) = 
+            try 
+                Double.Parse(x.ToString(),fp)
+            with
+            | :? OverflowException -> if x.IsNegative then Double.NegativeInfinity else Double.PositiveInfinity
+        
+        
+        member x.ToInt16(_:IFormatProvider) = x.ToBigInteger() |> int16
+        member x.ToInt32(_:IFormatProvider) = x.ToBigInteger() |> int32
+        member x.ToInt64(_:IFormatProvider) = x.ToBigInteger() |> int64
+        member x.ToSByte(_:IFormatProvider) = x.ToBigInteger() |> sbyte        
+        member x.ToSingle(_:IFormatProvider) = x.ToBigInteger() |> single
+        member x.ToString(_:IFormatProvider) = x.ToString()
+        member x.ToType(conversionType: Type, fp:IFormatProvider) = Convert.ChangeType((x :> IConvertible).ToDouble(fp),conversionType,fp)
+        member x.ToUInt16(_:IFormatProvider) = x.ToBigInteger() |> uint16
+        member x.ToUInt32(_:IFormatProvider) = x.ToBigInteger() |> uint32
+        member x.ToUInt64(_:IFormatProvider) = x.ToBigInteger() |> uint64
+
 
     //////////////////////////////////
     // Arithmetic operations
@@ -677,6 +862,12 @@ type BigDecimal private (coeff, exp, precision) =
             else bd
         else bd
 
+    /// Return a BigDecimal numerically equal to this one, but with any trailing zeros removed.
+    member x.StripTrailingZeros() =
+        // Not needed in this code, but apparently at some point ClojureCLR needed it.
+        BigDecimal.stripZerosToMatchExponent x Int64.MaxValue
+
+    
     /// Computes this / y.
     member lhs.Divide(rhs:BigDecimal,c:Context) =
 
@@ -1044,850 +1235,5 @@ type BigDecimal private (coeff, exp, precision) =
        let newExp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) - (int64 n)) x.Coefficient.IsZero
        BigDecimal(x.Coefficient,newExp,x.RawPrecision)
 
-
-    // Miscellaneous operations
- 
-    member x.Signum() : int =
-        x.Coefficient.Sign
-
-    member x.IsZero = x.Coefficient.IsZero
-    member x.IsPositive = x.Coefficient.Sign > 0
-    member x.IsNegative = x.Coefficient.Sign < 0
-
-
-
-//           [Serializable]
-//           public class BigDecimal : IComparable, IComparable<BigDecimal>, IEquatable<BigDecimal>, IConvertible
-//           {
-
-
-
-//               #region Factory methods
-
-//               // I went with factory methods rather than constructors so that I could, if I wanted,
-//               // return cached values for things such as zero, one, etc.
-
-
-//               /// <summary>
-//               /// Create a BigDecimal from a double.
-//               /// </summary>
-//               /// <param name="v">The double value</param>
-//               /// <returns>A BigDecimal corresponding to the double value.</returns>
-//               /// <remarks>Watch out!  BigDecimal.Create(0.1) is not the same as BigDecimal.Parse("0.1").  
-//               /// We create exact representations of doubles,
-//               /// and 1/10 does not have an exact representation as a double.  So the double 1.0 is not exactly 1/10.</remarks>
-//               public static BigDecimal Create(double v)
-//               {
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal from a double, rounded as specified.
-//               /// </summary>
-//               /// <param name="v">The double value</param>
-//               /// <param name="c">The rounding context</param>
-//               /// <returns>A BigDecimal corresponding to the double value, rounded as specified.</returns>
-//               /// <remarks>Watch out!  BigDecimal.Create(0.1) is not the same as BigDecimal.Parse("0.1").  
-//               /// We create exact representations of doubles,
-//               /// and 1/10 does not have an exact representation as a double.  So the double 1.0 is not exactly 1/10.</remarks>
-//               public static BigDecimal Create(double v, Context c)
-//               {
-
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given Int32.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <returns>A BigDecimal with the same value.</returns>
-//               public static BigDecimal Create(int v)
-//               {
-
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given Int32, rounded appropriately.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <param name="c">The rounding context</param>
-//               /// <returns>A BigDecimal with the same value, appropriately rounded</returns>
-//               public static BigDecimal Create(int v, Context c)
-//               {
-
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given Int64.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <returns>A BigDecimal with the same value.</returns>
-//               public static BigDecimal Create(long v)
-//               {
-//                   return new BigDecimal(BigInteger.Create(v), 0);
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given Int64, rounded appropriately.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <param name="c">The rounding context</param>
-//               /// <returns>A BigDecimal with the same value, appropriately rounded</returns>
-//               public static BigDecimal Create(long v, Context c)
-//               {
-//                   BigDecimal d = new(BigInteger.Create(v), 0);
-//                   d.RoundInPlace(c);
-//                   return d;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given UInt64.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <returns>A BigDecimal with the same value.</returns>
-//               public static BigDecimal Create(ulong v)
-//               {
-//                   return new BigDecimal(BigInteger.Create(v), 0);
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given UInt64, rounded appropriately.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <param name="c">The rounding context</param>
-//               /// <returns>A BigDecimal with the same value, appropriately rounded</returns>
-//               public static BigDecimal Create(ulong v, Context c)
-//               {
-//                   BigDecimal d = new(BigInteger.Create(v), 0);
-//                   d.RoundInPlace(c);
-//                   return d;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given Decimal.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <returns>A BigDecimal with the same value.</returns>
-//               public static BigDecimal Create(decimal v)
-//               {
-//                   int[] bits = Decimal.GetBits(v);
-
-//                   uint[] data = new uint[3];
-//                   data[0] = (uint)bits[2];
-//                   data[1] = (uint)bits[1];
-//                   data[2] = (uint)bits[0];
-
-//                   int sign = (bits[3] & 0x80000000) == 0 ? 1 : -1;
-//                   int exp = (bits[3] & 0x00FF0000) >> 16;
-
-//                   bool isZero = data[0] == 0U && data[1] == 0U && data[2] == 0U;
-
-//                   BigInteger coeff = isZero ? BigInteger.Zero : new BigInteger(sign, data);
-
-//                   return new BigDecimal(coeff, -exp);
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given UInt64, rounded appropriately.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <param name="c">The rounding context</param>
-//               /// <returns>A BigDecimal with the same value, appropriately rounded</returns>
-//               public static BigDecimal Create(decimal v, Context c)
-//               {
-//                   BigDecimal d = Create(v);
-//                   d.RoundInPlace(c);
-//                   return d;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given BigInteger.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <returns>A BigDecimal with the same value.</returns>
-//               public static BigDecimal Create(BigInteger v)
-//               {
-//                   return new BigDecimal(v, 0);
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with the same value as the given BigInteger, rounded appropriately.
-//               /// </summary>
-//               /// <param name="v">The initial value</param>
-//               /// <param name="c">The rounding context</param>
-//               /// <returns>A BigDecimal with the same value, appropriately rounded</returns>
-//               public static BigDecimal Create(BigInteger v, Context c)
-//               {
-//                   BigDecimal d = new(v, 0);
-//                   d.RoundInPlace(c);
-//                   return d;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal by parsing a string.
-//               /// </summary>
-//               /// <param name="v"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Create(String v)
-//               {
-//                   return BigDecimal.Parse(v);
-//               }
-
-
-//               /// <summary>
-//               /// Create a BigDecimal by parsing a string.
-//               /// </summary>
-//               /// <param name="v"></param>
-//               /// <returns></returns>        
-//               public static BigDecimal Create(String v, Context c)
-//               {
-//                   return BigDecimal.Parse(v, c);
-//               }
-
-
-//               /// <summary>
-//               /// Create a BigDecimal by parsing a character array.
-//               /// </summary>
-//               /// <param name="v"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Create(char[] v)
-//               {
-//                   return BigDecimal.Parse(v);
-//               }
-
-
-//               /// <summary>
-//               /// Create a BigDecimal by parsing a character array.
-//               /// </summary>
-//               /// <param name="v"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Create(char[] v, Context c)
-//               {
-//                   return BigDecimal.Parse(v,c);
-//               }
-
-
-//               /// <summary>
-//               /// Create a BigDecimal by parsing a segment of character array.
-//               /// </summary>
-//               /// <param name="v"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Create(char[] v, int offset, int len)
-//               {
-//                   return BigDecimal.Parse(v,offset,len);
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal by parsing a segment of character array.
-//               /// </summary>
-//               /// <param name="v"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Create(char[] v, int offset, int len, Context c)
-//               {
-//                   return BigDecimal.Parse(v, offset, len, c);
-//               }
-
-//               #endregion
-
-//               #region C-tors
-
-//               /// <summary>
-//               /// Creates a copy of given BigDecimal.
-//               /// </summary>
-//               /// <param name="copy">A copy of the given BigDecimal</param>
-//               /// <remarks>Really only needed internally.  BigDecimals are immutable, so why copy?  
-//               /// Internally, we sometimes need to copy and modify before releasing into the wild.</remarks>
-//#pragma warning disable IDE0051 // Remove unused private members
-//               BigDecimal(BigDecimal copy)
-//#pragma warning restore IDE0051 // Remove unused private members
-//                   : this(copy._coeff,copy._exp,copy._precision)
-//               {
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with given coefficient, exponent, and precision.
-//               /// </summary>
-//               /// <param name="coeff">The coefficient</param>
-//               /// <param name="exp">The exponent</param>
-//               /// <param name="precision">The precision</param>
-//               /// <remarks>For internal use only.  We can't trust someone outside to set the precision for us.
-//               /// Only for use when we know the precision explicitly.</remarks>
-//               BigDecimal(BigInteger coeff, int exp, uint precision)
-//               {
-//                   _coeff = coeff;
-//                   _exp = exp;
-//                   _precision = precision;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal with given coefficient and exponent.
-//               /// </summary>
-//               /// <param name="coeff">The coefficient</param>
-//               /// <param name="exp">The exponent</param>
-//               public BigDecimal(BigInteger coeff, int exp)
-//                   : this(coeff, exp, 0)
-//               {
-//               }
-
-//               #endregion
-
-//               #region Object overrides
-
-//               public override bool Equals(object obj)
-//               {
-//                   BigDecimal d = obj as BigDecimal;
-//                   if (d == null)
-//                       return false;
-
-//                   return Equals(d);
-//               }
-
-
-//               // Stole this from Util.  Eventually, use Murmur.
-//               static public int HashCombine(int seed, int hash)
-//               {
-//                   //a la boost
-//                   return (int)(seed ^ (hash + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
-
-//               }
-
-//               public override int GetHashCode()
-//               {
-//                   // Originall call to Util.hashCombine
-//                   return HashCombine(_coeff.GetHashCode(),_exp.GetHashCode());
-//               }
-
-//               #endregion
-
-//               #region String parsing
-
-//               /// <summary>
-//               /// Create a BigDecimal from a string representation
-//               /// </summary>
-//               /// <param name="s"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Parse(string s)
-//               {
-//                   DoParse(s.ToCharArray(), 0, s.Length, true, out BigDecimal v);
-//                   return v;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal from a string representation, rounded as indicated.
-//               /// </summary>
-//               /// <param name="s"></param>
-//               /// <param name="c"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Parse(string s, Context c)
-//               {
-//                   DoParse(s.ToCharArray(), 0, s.Length, true, out BigDecimal v);
-//                   v.RoundInPlace(c);
-//                   return v;
-//               }
-
-//               /// <summary>
-//               /// Try to create a BigDecimal from a string representation.
-//               /// </summary>
-//               /// <param name="s">The string to convert</param>
-//               /// <param name="v">Set to the BigDecimal corresponding to the string.</param>
-//               /// <returns>True if successful, false if there is an error parsing.</returns>
-//               public static bool TryParse(string s, out BigDecimal v)
-//               {
-//                   return DoParse(s.ToCharArray(),0, s.Length, false, out v);
-//               }
-
-
-//               /// <summary>
-//               /// Try to create a BigDecimal from a string representation, rounded as indicated.
-//               /// </summary>
-//               /// <param name="s">The string to convert</param>
-//               /// <param name="c">The rounding context</param>
-//               /// <param name="v">Set to the BigDecimal corresponding to the string.</param>
-//               /// <returns></returns>
-//               public static bool TryParse(string s, Context c, out BigDecimal v)
-//               {
-//                   bool result;
-//                   if ((result = DoParse(s.ToCharArray(), 0, s.Length, false, out v)))
-//                       v.RoundInPlace(c);
-//                   return result;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal from an array of characters.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Parse(char[] buf)
-//               {
-//                   DoParse(buf, 0, buf.Length, true, out BigDecimal v);
-//                   return v;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal from an array of characters, rounded as indicated.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <param name="c"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Parse(char[] buf, Context c)
-//               {
-//                   DoParse(buf, 0, buf.Length, true, out BigDecimal v);
-//                   v.RoundInPlace(c);
-//                   return v;
-//               }
-
-//               /// <summary>
-//               /// Try to create a BigDecimal from an array of characters.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <param name="v"></param>
-//               /// <returns>True if successful; false otherwise</returns>      
-//               public static bool TryParse(char[] buf, out BigDecimal v)
-//               {
-//                   return DoParse(buf, 0, buf.Length, false, out v);
-//               }
-
-//               /// <summary>
-//               /// Try to create a BigDecimal from an array of characters, rounded as indicated.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <param name="c"></param>
-//               /// <param name="v"></param>
-//               /// <returns>True if successful; false otherwise</returns>      
-//               public static bool TryParse(char[] buf, Context c, out BigDecimal v)
-//               {
-//                   bool result;
-//                   if ((result = DoParse(buf, 0, buf.Length, false, out v)))
-//                       v.RoundInPlace(c);
-//                   return result;
-//               }
-
-
-//               /// <summary>
-//               /// Create a BigDecimal corresponding to a sequence of characters from an array.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <param name="offset"></param>
-//               /// <param name="len"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Parse(char[] buf, int offset, int len)
-//               {
-//                   DoParse(buf, offset, len, true, out BigDecimal v);
-//                   return v;
-//               }
-
-//               /// <summary>
-//               /// Create a BigDecimal corresponding to a sequence of characters from an array, rounded as indicated.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <param name="offset"></param>
-//               /// <param name="len"></param>
-//               /// <param name="c"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Parse(char[] buf, int offset, int len, Context c)
-//               {
-//                   DoParse(buf, offset, len, true, out BigDecimal v);
-//                   v.RoundInPlace(c);
-//                   return v;
-//               }
-
-//               /// <summary>
-//               /// Try to create a BigDecimal corresponding to a sequence of characters from an array.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <param name="offset"></param>
-//               /// <param name="len"></param>
-//               /// <param name="v"></param>
-//               /// <returns></returns>
-//               public static bool TryParse(char[] buf, int offset, int len, out BigDecimal v)
-//               {
-//                   return DoParse(buf, offset, len, false, out v);
-//               }
-
-//               /// <summary>
-//               /// Try to create a BigDecimal corresponding to a sequence of characters from an array.
-//               /// </summary>
-//               /// <param name="buf"></param>
-//               /// <param name="offset"></param>
-//               /// <param name="len"></param>
-//               /// <param name="c"></param>
-//               /// <param name="v"></param>
-//               /// <returns></returns>
-//               public static bool TryParse(char[] buf, int offset, int len, Context c, out BigDecimal v)
-//               {
-//                   bool result;
-//                   if ((result = DoParse(buf, offset, len, false, out v)))
-//                       v.RoundInPlace(c);
-//                   return result;
-//               }
-
-
-//               #region Conversion to string
-
-//               #endregion
-
-
-
-//               #endregion
-
-//               #region IConvertible Members
-
-//               public TypeCode GetTypeCode()
-//               {
-//                   return TypeCode.Object;
-//               }
-
-//               public bool ToBoolean(IFormatProvider provider)
-//               {
-//                   return !IsZero;
-//               }
-
-//               public byte ToByte(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToByte(provider);
-//               }
-
-//               public char ToChar(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToChar(provider);
-//               }
-
-//               public DateTime ToDateTime(IFormatProvider provider)
-//               {
-//                   throw new InvalidCastException();
-//               }
-
-//               static readonly BigDecimal ClrDecimalMin = Create(Decimal.MinValue);
-//               static readonly BigDecimal ClrDecimalMax = Create(Decimal.MaxValue);
-                   
-//               public decimal ToDecimal(IFormatProvider provider)
-//               {
-//                   if (this < ClrDecimalMin || this > ClrDecimalMax)
-//                       throw new InvalidOperationException("BigDecimal value out of decimal range");
-
-//                   if ( IsZero )
-//                       return Decimal.Zero;
-
-//                   uint[] data = _coeff.GetMagnitude();
-//                   int length = data.Length;
-
-//                   if (length <= 3 && -28 <= _exp && _exp <= 0)
-//                   {
-//                       int lo = 0, mi = 0, hi = 0;
-
-//                       switch (length)
-//                       {
-//                           case 1:
-//                               lo = (int)data[0];
-//                               break;
-//                           case 2:
-//                               lo = (int)data[1];
-//                               mi = (int)data[0];
-//                               break;
-//                           case 3:
-//                               lo = (int)data[2];
-//                               mi = (int)data[1];
-//                               hi = (int)data[0];
-//                               break;
-//                       }
-
-//                       return new Decimal(lo, mi, hi, IsNegative, (byte)(-_exp));
-//                   }
-
-//                   // do it the dumb way
-//                   return Decimal.Parse(ToString());
-//               }
-
-//               public double ToDouble(IFormatProvider provider)
-//               {
-//                   // As j.m.BigDecimal puts it: "Somewhat inefficient, but guaranteed to work."
-//                   // However, JVM's double parser goes to +/- Infinity when out of range,
-//                   // while CLR's throws an exception.
-//                   // Hate dealing with that.
-//                   try
-//                   {
-//                       return Double.Parse(ToString(), provider);
-//                   }
-//                   catch (OverflowException)
-//                   {
-//                       return IsNegative ? Double.NegativeInfinity : Double.PositiveInfinity;
-//                   }
-//               }
-
-//               public short ToInt16(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToInt16(provider);
-//               }
-
-//               public int ToInt32(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToInt32(provider);
-//               }
-
-//               public long ToInt64(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToInt64(provider);
-//               }
-
-//               public sbyte ToSByte(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToSByte(provider);
-//               }
-
-//               public float ToSingle(IFormatProvider provider)
-//               {
-//                   return (float)ToDouble(provider);
-//               }
-
-//               public string ToString(IFormatProvider provider)
-//               {
-//                   return ToString();
-//               }
-
-//               public object ToType(Type conversionType, IFormatProvider provider)
-//               {
-//                   return Convert.ChangeType(ToDouble(provider), conversionType, provider);
-//               }
-
-//               public ushort ToUInt16(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToUInt16(provider);
-//               }
-
-//               public uint ToUInt32(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToUInt32(provider);
-//               }
-
-//               public ulong ToUInt64(IFormatProvider provider)
-//               {
-//                   return ToBigInteger().ToUInt64(provider);
-//               }
-
-//               public BigInteger ToBigInteger()
-//               {
-//                   return Rescale(this, 0, RoundingMode.Down)._coeff;
-//               }
-
-//               #endregion
-
-//               #region Arithmetic operators
-
-//               public static bool operator ==(BigDecimal x, BigDecimal y)
-//               {
-//                   if (ReferenceEquals(x, y))
-//                       return true;
-
-//                   return !(x is null) && !(y is null) && x.Equals(y);
-//               }
-
-//               public static bool operator !=(BigDecimal x, BigDecimal y)
-//               {
-//                   return !(x == y);
-//               }
-
-//               public static bool operator <(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.CompareTo(y) < 0;
-//               }
-
-//               public static bool operator >(BigDecimal x, BigDecimal y)
-//               {
-//                   return x.CompareTo(y) > 0;
-//               }
-
-
-
-
-//               #endregion
-
-
-
-
-
-
-//               /// <summary>
-//               /// Returns this.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Plus(BigDecimal x)
-//               {
-//                   return x;
-//               }
-
-//               public static BigDecimal Plus(BigDecimal x, Context c)
-//               {
-//                   return x.Plus(c);
-//               }
-
-//               /// <summary>
-//               /// Returns the negation of this.
-//               /// </summary>
-//               /// <param name="x"></param>
-//               /// <returns></returns>
-//               public static BigDecimal Minus(BigDecimal x)
-//               {
-//                   return x.Negate();
-//               }
-
-//               public static BigDecimal Minus(BigDecimal x, Context c)
-//               {
-//                   return x.Negate(c);
-//               }
-
-
-//               #endregion
-
-//               #region Arithmetic methods
-
-
-           
-
-
-   
-//               public BigDecimal Plus()
-//               {
-//                   return this;
-//               }
-
-//               public BigDecimal Plus(Context c)
-//               {
-//                   if ( c.Precision == 0 )
-//                       return this;
-//                   return this.Round(c);
-//               }
-
-               
-//               public BigDecimal Minus()
-//               {
-//                   return Negate();
-//               }
-
-//               public BigDecimal Minus(Context c)
-//               {
-//                   return Negate(c);
-//               }
-               
-
-//               #endregion
-
-
-//               #region Exponent computations
-
-//               /// <summary>
-//               /// Check to see if the result of exponent arithmetic is valid.
-//               /// </summary>
-//               /// <param name="candidate">The value resulting from exponent arithmetic.</param>
-//               /// <param name="isZero">Are we computing an exponent for a zero coefficient?</param>
-//               /// <param name="exponent">The exponent to use</param>
-//               /// <returns>True if the candidate is valid, false otherwise.</returns>
-//               /// <remarks>
-//               /// <para>Exponent arithmetic during various operations may result in values
-//               /// that are out of range of an Int32.  We can do the computation as a long,
-//               /// then use this to make sure the result is okay to use.</para>
-//               /// <para>If the exponent is out of range, but the coefficient is zero,
-//               /// the exponent in some sense is not that relevant, so we just clamp to 
-//               /// the appropriate (pos/neg) extreme value for Int32.  (This handling inspired by 
-//               /// the OpenJDK implementation.)</para>
-//               /// </remarks>
-//               static bool CheckExponent(long candidate, bool isZero, out int exponent)
-//               {
-//                   exponent = (int)candidate;
-//                   if (exponent == candidate)
-//                       return true;
-
-//                   // We have underflow/overflow.
-//                   // If Zero, use the max value of the appropriate sign.
-//                   if (isZero)
-//                   {
-//                       exponent = candidate > Int32.MaxValue ? Int32.MaxValue : Int32.MinValue;
-//                       return true;
-//                   }
-
-//                   return false;
-//               }
-
-//               /// <summary>
-//               /// Reduce exponent to Int32.  Throw error if out of range.
-//               /// </summary>
-//               /// <param name="candidate">The value resulting from exponent arithmetic.</param>
-//               /// <param name="isZero">Are we computing an exponent for a zero coefficient?</param>
-//               /// <returns>The exponent to use</returns>
-//               static int CheckExponent(long candidate, bool isZero)
-//               {
-//                   bool result = CheckExponent(candidate, isZero, out int exponent);
-//                   if (result)
-//                       return exponent;
-
-//                   // Report error condition
-//                   if (candidate > Int32.MaxValue)
-//                       throw new ArithmeticException("Overflow in scale");
-//                   else
-//                       throw new ArithmeticException("Underflow in scale");
-//               }
-
-//#pragma warning disable IDE0051 // Remove unused private members
-//               bool CheckExponent(long candidate, out int exponent)
-//#pragma warning restore IDE0051 // Remove unused private members
-//               {
-//                   return CheckExponent(candidate, _coeff.IsZero, out exponent);
-//               }
-
-//               int CheckExponent(long candidate)
-//               {
-//                   return CheckExponent(candidate, _coeff.IsZero);
-//               }
-         
-//               static BigInteger BIPowerOfTen(int n)
-//               {
-//                   if ( n < 0 )
-//                       throw new ArgumentException("Power of ten must be non-negative");
-
-//                   if (n < _maxCachedPowerOfTen)
-//                       return _biPowersOfTen[n];
-
-//                   char[] buf = new char[n + 1];
-//                   buf[0] = '1';
-//                   for (int i = 1; i <= n; i++)
-//                       buf[i] = '0';
-//                   return BigInteger.Parse(new String(buf));
-//               }
-
-//               static readonly BigInteger[] _biPowersOfTen = new BigInteger[] {
-//                   BigInteger.One,
-//                   BigInteger.Ten,
-//                   BigInteger.Create(100),
-//                   BigInteger.Create(1000),
-//                   BigInteger.Create(10000),
-//                   BigInteger.Create(100000),
-//                   BigInteger.Create(1000000),
-//                   BigInteger.Create(10000000),
-//                   BigInteger.Create(100000000),
-//                   BigInteger.Create(1000000000),
-//                   BigInteger.Create(10000000000),
-//                   BigInteger.Create(100000000000)
-//               };
-               
-//               static readonly int _maxCachedPowerOfTen = _biPowersOfTen.Length;
-
-
-
-
-//               /// <summary>
-//               /// Returns a BigDecimal numerically equal to this one, but with 
-//               /// any trailing zeros removed.
-//               /// </summary>
-//               /// <returns></returns>
-//               /// <remarks>Ended up needing this in ClojureCLR, grabbed from OpenJDK.</remarks>
-//               public BigDecimal StripTrailingZeros()
-//               {    
-//                   BigDecimal result = new(this._coeff,this._exp);
-//                   result.StripZerosToMatchExponent(Int64.MaxValue);
-//                   return result;
-//               }
-
-//               #endregion
-
-//               #region Rounding/quantize/rescale
-           
-//           }
-//}
+    static member (<<<) (x : BigDecimal, shift : int) : BigDecimal = x.MovePointLeft(shift)
+    static member (>>>) (x : BigDecimal, shift : int) : BigDecimal = x.MovePointRight(shift)

@@ -81,7 +81,7 @@ namespace PrecisionTest
 
             var bd = CLBD.Parse("1");
             //var c = new clojure.lang.BigDecimal.Context(9, CLBD.RoundingMode.HalfUp);
-            var c = new clojure.lang.BigDecimal.Context(0, CLBD.RoundingMode.Unnecessary);
+            var c = new clojure.lang.BigDecimal.Context(0, CLBD.RoundingMode.HalfUp);
             var q = bd.Divide(bd, c);
 
             var s = q.ToScientificString();

@@ -81,16 +81,16 @@ let basicParsingList =
     testList "basic string parsing" [
 
         testCase "parsing empty string returns false" <| fun _ ->
-            let f input = let (ok,_) = BigDecimal.TryParse(input) in ok
+            let f (input:string) = let (ok,_) = BigDecimal.TryParse(input) in ok
             Expect.isFalse (f "") "Expect false return parsing empty string"
 
         testCase "parsing sign-only returns false" <| fun _ ->
-            let f input = let (ok,_) = BigDecimal.TryParse(input) in ok
+            let f (input:string) = let (ok,_) = BigDecimal.TryParse(input) in ok
             [| "+"; "-" |] 
             |> Seq.iter (fun v -> Expect.isFalse (f v) "Expect false return parsing sign only.")
 
         testCase "parsing input with missing exponent digits returns false" <| fun _ ->
-            let f input = let (ok,_) = BigDecimal.TryParse(input) in ok
+            let f (input:string) = let (ok,_) = BigDecimal.TryParse(input) in ok
             [| "0E"; "0e"; "0E+"; "0E-";  "0e+";  "0e-" |]
             |> Seq.iter (fun v -> Expect.isFalse (f v) "Expect false return parsing with missing exponent digits.")           
     ]
@@ -112,7 +112,7 @@ let zeroParsingTests =
 [<Tests>]
 let zeroParsingList = testList "zero string parsing"  zeroParsingTests
 
-let simpleIntTest decString intString exponent precision =
+let simpleIntTest (decString:string) intString exponent precision =
     let ok, bd = BigDecimal.TryParse(decString)
     Expect.isTrue ok (sprintf "TryParse on %s should return true" decString)
     Expect.equal bd.Coefficient (System.Numerics.BigInteger.Parse(intString)) (sprintf "Bad coefficient for %s" decString)
@@ -573,7 +573,7 @@ let doubleList = testList "creation from double examples"  (createDoubleTests do
 // Rounding tests
 ///////////////////////////
 
-let basicRoundingTest bdStr precision mode biStr exponent =
+let basicRoundingTest (bdStr:string) precision mode biStr exponent =
     let mc = Context.Create(precision,mode)
     let bd = BigDecimal.Parse(bdStr)
     let br = BigDecimal.Round(bd,mc)
@@ -723,7 +723,7 @@ let getThreeArgs (test:string) =
 // Quantization tests
 ///////////////////////////
 
-let testQuantize lhsStr rhsStr mode expectStr =
+let testQuantize (lhsStr:string) (rhsStr:string) mode expectStr =
     let lhs = BigDecimal.Parse(lhsStr)
     let rhs = BigDecimal.Parse(rhsStr)
     let result = BigDecimal.Quantize(lhs,rhs,mode)
@@ -1275,7 +1275,7 @@ let quantizeSpecSome9999ExamplesList = testList "quantize spec esome 9999 exampl
 // Abs tests
 ///////////////////////////
 
-let absTest argStr c shouldStr =
+let absTest (argStr:string) c shouldStr =
     let arg = BigDecimal.Parse(argStr)
     let result = BigDecimal.Abs(arg,c)
     let resultStr = result.ToScientificString()
@@ -1367,7 +1367,7 @@ let specAbsTestList = testList "quantize spec esome 9999 examples" (createSpecAb
 // Addition tests
 ///////////////////////////
 
-let addTest arg1Str arg2Str c resultStr =
+let addTest (arg1Str:string) (arg2Str:string) c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
     let sum = arg1.Add(arg2,c)
@@ -1867,7 +1867,7 @@ let addTestList = testList "addition examples" (createAddTests addTests)
 // Subtraction tests
 ///////////////////////////
 
-let subTest arg1Str arg2Str c resultStr =
+let subTest (arg1Str:string) (arg2Str:string) c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
     let diff = arg1.Subtract(arg2,c)
@@ -2755,7 +2755,7 @@ let subTestList = testList "subtraction examples" (Array.toList (createSubTests 
 // Multiplication tests
 ///////////////////////////
 
-let multiplyTest arg1Str arg2Str c resultStr =
+let multiplyTest (arg1Str:string) (arg2Str:string) c resultStr =
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
     let pdt = arg1.Multiply(arg2,c)
@@ -3151,7 +3151,7 @@ let multiplyTestList = testList "multiply examples" (createMultiplyTests multipl
 // Division tests
 ///////////////////////////
 
-let divideTest arg1Str arg2Str c resultStr = 
+let divideTest (arg1Str:string) (arg2Str:string) c resultStr = 
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
     let div = arg1.Divide(arg2,c)
@@ -3877,7 +3877,7 @@ let noContextDivideErrorTestList = testList "bad no context division examples" (
 // DivInt tests
 ///////////////////////////
 
-let divIntTest arg1Str arg2Str c resultStr = 
+let divIntTest (arg1Str:string) (arg2Str:string) c resultStr = 
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = BigDecimal.Parse(arg2Str)
     let div = arg1.DivideInteger(arg2,c)
@@ -4269,7 +4269,7 @@ let badSpecDivIntTestList = testList "bad dovont examples" (createDivIntTestsEx 
 // Exponentiation tests
 ///////////////////////////
 
-let powerTest arg1Str arg2Str c resultStr = 
+let powerTest (arg1Str:string) arg2Str c resultStr = 
     let arg1 = BigDecimal.Parse(arg1Str)
     let arg2 = Int32.Parse(arg2Str)
     let pow = arg1.Power(arg2,c)

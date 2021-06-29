@@ -2,6 +2,7 @@
 using SNBI = System.Numerics.BigInteger;
 using CLBI = clojure.lang.BigInteger;
 using CLBD = clojure.lang.BigDecimal;
+using System.Threading;
 
 namespace PrecisionTest
 {
@@ -127,6 +128,16 @@ namespace PrecisionTest
             Console.WriteLine($"old = {cldCoeff} {cldExp} {cldPrec} {cld.ToString()}");
             Console.WriteLine($"new = {cndCoeff} {cndExp} {cndPrec} {cnd.ToString()}");
 
+        }
+
+        static void PlayTime()
+        {
+
+            var b = SNBI.Parse("123");
+            var b1 = SNBI.Parse("234");
+            var x = b < b1;
+            var p = b1 / b;
+            var p1 = b1 << 2;
         }
 
 

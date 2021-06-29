@@ -6,7 +6,12 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OtherFlags></OtherFlags>
+  </PropertyGroup>
+
   <ItemGroup>
+    <Compile Include="BigDecimal.fsi" />
     <Compile Include="BigDecimal.fs" />
   </ItemGroup>
 

@@ -486,49 +486,71 @@ type BigDecimal private (coeff, exp, precision) =
     /// Converts a string representation of a number to its BigDecimal equivalent, rounded per the given Context.
     static member Parse (s: String, c) = BigDecimal.round (BigDecimal.Parse(s)) c
 
-    /// Create a BigDecimal from a character array
+    /// Converts a representation of a number, contained in the specified read-only character span, to its BigDecimal equivalent.
+    static member Parse (s:ReadOnlySpan<char>) = BigDecimal.DoParseE(s)
+
+    /// Converts a representation of a number, contained in the specified read-only character span, to its BigDecimal equivalent, rounded per the given Context.
+    static member Parse (s: ReadOnlySpan<char>, c) = BigDecimal.round (BigDecimal.Parse(s)) c
+
+    // Kept the following for backwards compatibility, don't really need now that we have spans.
+
+    /// Converts a representation of a number, given as an array of characters,  to its BigDecimal equivalent.
     static member Parse(v:char array) = BigDecimal.DoParseE(ReadOnlySpan(v))
    
-    /// Create a BigDecimal from a character array, rounded per the given context
+    /// Converts a representation of a number, given as an array of characters,  to its BigDecimal equivalent, rounded per the given context
     static member Parse(v:char array, c) = BigDecimal.round (BigDecimal.Create(v)) c
 
-    /// Create a BigDecimal from a segment of a character array
+    /// Converts a representation of a number, given as a segment of an array of characters,  to its BigDecimal equivalent.
     static member Parse(v:char array, offset:int, len:int) = BigDecimal.DoParseE(ReadOnlySpan(v,offset,len))
 
-    /// Create a BigDecimal from a segment of a character array, rounded per the given context
+    /// Converts a representation of a number, given as a segment of an array of characters,  to its BigDecimal equivalent, rounded per the given context
     static member Parse(v:char array, offset:int, len:int, c) = BigDecimal.round (BigDecimal.Create(v,offset,len)) c
 
-    /// Tries to conver t a string representation of a number to its BigDecimal equivalent, and returns a value indicating if it succeeded.
+    /// Tries to convert a string representation of a number to its BigDecimal equivalent, and returns a value indicating if it succeeded.
     static member TryParse(s:String, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (s.AsSpan()) with
         | Ok bd -> value <- bd; true
         | Error _ -> false
 
-    /// Tries to conver t a string representation of a number to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
+    /// Tries to convert a string representation of a number to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
     static member TryParse(s:String, c, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (s.AsSpan()) with
         | Ok bd -> value <- BigDecimal.round bd c; true
         | Error _ -> false
 
-    /// Tries to conver t a string representation of a number to its BigDecimal equivalent, and returns a value indicating if it succeeded.
+    /// Tries to convert a representation of a number, contained in the specified read-only character span, to its BigDecimal equivalent, and returns a value indicating if it succeeded.
+    static member TryParse(s:ReadOnlySpan<char>, value:outref<BigDecimal>) : bool = 
+        match BigDecimal.DoParse (s) with
+        | Ok bd -> value <- bd; true
+        | Error _ -> false
+
+    /// Tries to convert a representation of a number, contained in the specified read-only character span, to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
+    static member TryParse(s:ReadOnlySpan<char>, c, value:outref<BigDecimal>) : bool = 
+        match BigDecimal.DoParse (s) with
+        | Ok bd -> value <- BigDecimal.round bd c; true
+        | Error _ -> false
+
+    // Kept the following for backwards compatibility, don't really need now that we have spans.
+
+    /// Tries to convert a representation of a number, given as an array of characters, to its BigDecimal equivalent, and returns a value indicating if it succeeded.
     static member TryParse(a:char array, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (ReadOnlySpan(a)) with
         | Ok bd -> value <- bd; true
         | Error _ -> false
 
-    /// Tries to conver t a string representation of a number to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
+    /// Tries to convert a representation of a number, given as an array of characters, to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
     static member TryParse(a:char array, c, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (ReadOnlySpan(a)) with
         | Ok bd -> value <- BigDecimal.round bd c; true
         | Error _ -> false
 
-    /// Tries to conver t a string representation of a number to its BigDecimal equivalent, and returns a value indicating if it succeeded.
+    /// Tries to convert a representation of a number, given as a segment of an array of characters, to its BigDecimal equivalent, and returns a value indicating if it succeeded.
     static member TryParse(a:char array, offset:int, len:int, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (ReadOnlySpan(a,offset,len)) with
         | Ok bd -> value <- bd; true
         | Error _ -> false
 
-    /// Tries to conver t a string representation of a number to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
+    /// Tries to convert a representation of a number, given as a segment of an array of characters, to its BigDecimal equivalent (rounded per the given context), and returns a value indicating if it succeeded.
     static member TryParse(a:char array, offset:int, len:int, c, value:outref<BigDecimal>) : bool = 
         match BigDecimal.DoParse (ReadOnlySpan(a,offset,len)) with
         | Ok bd -> value <- BigDecimal.round bd c; true
@@ -540,34 +562,34 @@ type BigDecimal private (coeff, exp, precision) =
     /// Create a copy of BigDecimal -- rethink your priorities, BDs are immutable, so why?
     static member Create (bi:BigDecimal) = BigDecimal(bi.Coefficient,bi.Exponent,bi.RawPrecision)
 
-    /// Create a BigDecimal from given coefficient, exponent, and (optional) precision.
-    static member Create(coeff, exp, [<Optional; DefaultParameterValue( 0u )>]prec) = BigDecimal(coeff,exp,prec)
+    /// Create a BigDecimal from the given coefficient, exponent.
+    static member Create(coeff, exp) = BigDecimal(coeff,exp,0u)
 
-    /// Create a BigDecimal from an Int32.
+    /// Create a BigDecimal from an Int32 value.
     static member Create (v:int32) = BigDecimal(BigInteger(v),0,0u) 
 
-    /// Create a BigDecimal from an Int32, rounded per the given context.
+    /// Create a BigDecimal from an Int32 value, rounded per the given context.
     static member CreateC(v:int32,c) = BigDecimal.round (BigDecimal.Create(v)) c
  
-    /// Create a BigDecimal from an Int64.
+    /// Create a BigDecimal from an Int64 value.
     static member Create (v:int64) = BigDecimal(BigInteger(v),0,0u) 
 
-    /// Create a BigDecimal from an Int64, rounded per the given context.
+    /// Create a BigDecimal from an Int64 value, rounded per the given context.
     static member CreateC(v:int64,c) = BigDecimal.round (BigDecimal.Create(v)) c
 
-    /// Create a BigDecimal from a UInt64.
+    /// Create a BigDecimal from a UInt64 value.
     static member Create (v:uint64) = BigDecimal(BigInteger(v),0,0u) 
 
-    /// Create a BigDecimal from a UInt64, rounded per the given context.
+    /// Create a BigDecimal from a UInt64 value, rounded per the given context.
     static member CreateC(v:uint64,c) = BigDecimal.round (BigDecimal.Create(v)) c
 
-    /// Create a BigDecimal from a BigInteger.
+    /// Create a BigDecimal from a BigInteger value.
     static member Create (v:BigInteger) = BigDecimal(v,0,0u) 
 
-    /// Create a BigDecimal from a BigInteger, rounded per the given context.
+    /// Create a BigDecimal from a BigInteger value, rounded per the given context.
     static member CreateC(v:BigInteger,c) = BigDecimal.round (BigDecimal.Create(v)) c
 
-    /// Create a BigDecimal from a Decimal.
+    /// Create a BigDecimal from a Decimal value.
     static member Create (v:decimal) = 
         if v = 0m then BigDecimal.Zero
         else 
@@ -586,10 +608,10 @@ type BigDecimal private (coeff, exp, precision) =
             let coeff = if sign = -1 then -coeff else coeff     
             BigDecimal(coeff,-exp,0u)
 
-    /// Create a BigDecimal from a Decimal, rounded per the given context.
+    /// Create a BigDecimal from a Decimal value, rounded per the given context.
     static member CreateC(v:decimal, c) = BigDecimal.round (BigDecimal.Create(v)) c
 
-    /// Create a BigDecimal from a Double.
+    /// Create a BigDecimal from a Double value.
     static member Create (v:double) = 
         if Double.IsNaN(v) then invalidArg "value" "NaN is not supported in BigDecimal"
         if Double.IsInfinity(v) then invalidArg "value" "Infinity is not supported in BigDecimal"
@@ -617,14 +639,17 @@ type BigDecimal private (coeff, exp, precision) =
             BigDecimal(coeffToUse,expToUse,0u)
                                
 
-    /// Create a BigDecimal from a Double, rounded per the given context.
+    /// Create a BigDecimal from a Double value, rounded per the given context.
     static member CreateC(v:double, c) = BigDecimal.round (BigDecimal.Create(v)) c
 
-    /// Create a BigDecimal from a String
+    /// Create a BigDecimal from a string representation of the value.
     static member Create(v:String) = BigDecimal.Parse(v)
    
-    /// Create a BigDecimal from a String, rounded per the given context
+    /// Create a BigDecimal from a string representation of the value, rounded per the given context.
     static member Create(v:String, c) = BigDecimal.Parse(v,c)
+
+
+    // Kept the following for backwards compatibility.  Don't really need now that we have spans.
 
     /// Create a BigDecimal from a character array
     static member Create(v:char array) = BigDecimal.Parse(v)
@@ -692,11 +717,13 @@ type BigDecimal private (coeff, exp, precision) =
     //////////////////////////////////
 
     interface IComparable<BigDecimal> with
+        /// Compares this instance to a second BigDecimal instance and returns an integer indicating whether the value of this instance is less than, equal to, or greater than the value of the second instance.
         member x.CompareTo (y:BigDecimal) = 
             let x1, y1 = BigDecimal.align x y
             x1.Coefficient.CompareTo(y1.Coefficient)
     
     interface IComparable with
+        /// Compares this instance to a second BigDecimal instance and returns an integer indicating whether the value of this instance is less than, equal to, or greater than the value of the second instance.
         member x.CompareTo y = 
             match y with
             | null -> 1
@@ -704,14 +731,26 @@ type BigDecimal private (coeff, exp, precision) =
             | _ -> invalidArg "y" "Expected a BigDecimal to compare against"
 
     interface IEquatable<BigDecimal> with   
+        /// Returns a value that indicates if this instance and a second BigDecimal instance are equal in value.
         member x.Equals (y:BigDecimal) =
                 if x.Exponent <> y.Exponent then false else x.Coefficient.Equals(y.Coefficient)
 
+    /// Returns a value that indicates whether a BigDecimal instance is less than another BigDecimal instance.
     static member op_LessThan (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) < 0
+
+    /// Returns a value that indicates whether a BigDecimal instance is less than or equal to another BigDecimal instance.
     static member op_LessThanOrEqual (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) <= 0
+
+    /// Returns a value that indicates whether a BigDecimal instance is greater than another BigDecimal instance.
     static member op_GreaterThan (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) > 0
+
+    /// Returns a value that indicates whether a BigDecimal instance is great  than or equal to another BigDecimal instance.
     static member op_GreaterThanOrEqual (left:BigDecimal, right:BigDecimal) : bool = (left :> IComparable<BigDecimal>).CompareTo(right) >= 0 
+
+    /// Returns a value that indicates whether a BigDecimal instance is equal to another BigDecimal instance.
     static member op__Equality (left:BigDecimal, right:BigDecimal) : bool = (left :> IEquatable<BigDecimal>).Equals(right)
+
+    /// Returns a value that indicates whether a BigDecimal instance is not equal to another BigDecimal instance.
     static member op_Inequality (left:BigDecimal, right:BigDecimal) : bool = (left :> IEquatable<BigDecimal>).Equals(right)
 
     override x.Equals(obj) =
@@ -765,25 +804,39 @@ type BigDecimal private (coeff, exp, precision) =
 
     // Negation
 
+    /// Returns a BigDecimal whose value is the negation of this BigDecimal instance.
     member x.Negate() = if x.Coefficient.IsZero then x else BigDecimal(BigInteger.Negate(x.Coefficient),x.Exponent,x.RawPrecision)
+
+    /// Returns a BigDecimal whose value is the negation of this BigDecimal instance, rounded per the given context.
     member x.Negate(c) = BigDecimal.round (x.Negate()) c
+
+    /// Returns a BigDecimal whose value is the negation of the specified BigDecimal instance.
     static member Negate(x : BigDecimal) = x.Negate()
+
+    /// Returns a BigDecimal whose value is the negation of the specified BigDecimal instance, rounded per the given context.
     static member Negate(x:BigDecimal, c) = x.Negate(c)
 
     // Absolute value
 
+    /// Gets the absolute value of this BigDecimal instance.
     member x.Abs() = if x.Coefficient.Sign < 0 then x.Negate() else x
+
+   /// Gets the absolute value of this BigDecimal instance, rounded per the given context.
     member x.Abs(c) = if x.Coefficient.Sign < 0 then x.Negate(c) else BigDecimal.round x c
+
+    /// Gets the absolute value a BigDecimal value.
     static member Abs(x:BigDecimal) = x.Abs()
+
+    /// Gets the absolute value a BigDecimal value, rounded per the given context.
     static member Abs(x:BigDecimal, c) = x.Abs(c)
 
     //  Addition and subtraction
 
-    /// Compute the sum with y
+    /// Adds this BigDecimal instance to another.
     member x.Add (y:BigDecimal) = 
         let xa, ya = BigDecimal.align x y in BigDecimal(xa.Coefficient + ya.Coefficient,xa.Exponent,0u)
        
-    /// Compute the sum with y, result rounded by context
+    /// Adds this BigDecimal instance to another, result rounded by the given context.
     member x.Add(y:BigDecimal, c:Context) = 
         // TODO: Optimize for one arg or the other being zero.
         // TODO: Optimize for differences in exponent along with the desired precision is large enough that the add is irreleveant
@@ -791,20 +844,20 @@ type BigDecimal private (coeff, exp, precision) =
         let result = x.Add(y)
         if c.precision = 0u || c.roundingMode = RoundingMode.Unnecessary then result else BigDecimal.round result c
 
-    /// Compute x+y
+    /// Adds two BigDecimal instances
     static member Add(x:BigDecimal, y:BigDecimal) = x.Add(y)
 
-    /// Compute x+y, result rounded per the context
+    /// Adds two BigDecimal values, result rounded by the given context
     static member Add(x:BigDecimal, y:BigDecimal, c:Context) = x.Add(y,c)
     
-    /// Compute x+y
+    /// Adds two BigDecimal values
     static member (+) (x:BigDecimal, y:BigDecimal) = x.Add(y)
 
-    /// Compute the difference with y
+    /// Subtracts another BigDecimal instance from this instance.
     member x.Subtract (y:BigDecimal) = 
         let xa, ya = BigDecimal.align x y in BigDecimal(xa.Coefficient - ya.Coefficient,xa.Exponent,0u)
    
-    /// Compute the different with y, result rounded by context
+    /// Subtracts another BigDecimal instance from this instance, result rounded by the given context
     member x.Subtract(y:BigDecimal, c:Context) = 
         // TODO: Optimize for one arg or the other being zero.
         // TODO: Optimize for differences in exponent along with the desired precision is large enough that the add is irreleveant
@@ -812,34 +865,34 @@ type BigDecimal private (coeff, exp, precision) =
         let result = x.Subtract(y)
         if c.precision = 0u || c.roundingMode = RoundingMode.Unnecessary then result else BigDecimal.round result c
 
-    /// Compute x+y
+    /// Subtracts one BigDecimal value from another
     static member Subtract(x:BigDecimal, y:BigDecimal) = x.Subtract(y)
 
-    /// Compute x+y, result rounded per the context
+    //// Subtracts one BigDecimal value from another, result rounded per the given context
     static member Subtract(x:BigDecimal, y:BigDecimal, c:Context) = x.Subtract(y,c)
 
-    /// Compute x+y
+    /// Subtracts one BigDecimal value from another
     static member (-) (x:BigDecimal, y:BigDecimal) = x.Subtract(y)
 
-    /// Compute (-x)
+    /// Negates a BigDecimal value.
     static member (~-) (x:BigDecimal) = x.Negate()
     
 
     // Multipilcation
 
-    /// Compute the product with y
+    /// Returns the product of this BigDecimal instance and a second BigDecimal value.
     member x.Multiply (y:BigDecimal) = BigDecimal(x.Coefficient * y.Coefficient, x.Exponent+y.Exponent,0u)
 
-    /// Compute the product with y, result rounded by context
+    /// Returns the product of this BigDecimal instance and a second BigDecimal value, result rounded per the given context.
     member x.Multiply(y:BigDecimal, c:Context) = BigDecimal.round (x.Multiply(y)) c
 
-    /// Compute x*y
+    /// Returns the product of two BigDecimal values.
     static member Multiply(x:BigDecimal, y:BigDecimal) = x.Multiply(y)
 
-    /// Compute x*y, result rounded by context
+    /// Returns the product of two BigDecimal values, result rounded per the given context.
     static member Multiply(x:BigDecimal, y:BigDecimal, c:Context) = x.Multiply(y,c)
 
-    /// Compute x*y
+    /// Multiplies two BigDecimal values.
     static member (*) (x:BigDecimal, y:BigDecimal) = x.Multiply(y)
 
 
@@ -868,7 +921,7 @@ type BigDecimal private (coeff, exp, precision) =
         BigDecimal.stripZerosToMatchExponent x Int64.MaxValue
 
     
-    /// Computes this / y.
+    /// Divides this BigDecimal instance by another, rounded per the given context.
     member lhs.Divide(rhs:BigDecimal,c:Context) =
 
         (*
@@ -982,7 +1035,7 @@ type BigDecimal private (coeff, exp, precision) =
    
    
 
-    // Divide by y
+    /// Divides this BigDecimal instance by another, rounded per the given context.
     member dividend.Divide(divisor:BigDecimal) =
 
         // Throws an exception if the rounding mode is RoundingMode.UNNECESSARY and we have a repeating fraction.
@@ -1124,14 +1177,14 @@ type BigDecimal private (coeff, exp, precision) =
             // though that Math.Max looks like it alwasy taked precisionDiff because it is positive and the other expression is negative.
             // But that's what my old code comment had.
 
-    // returns the quotient and remainder of x divided by y
+    /// Returns the quotient of this BigDecimal instance divided by another, with the remainder returned in an output parameter.
     member x.DivRem( y:BigDecimal, remainder: outref<BigDecimal>) : BigDecimal =
         // x = q * y + r
         let q = x.DivideInteger(y)
         remainder <- x - q*y
         q
 
-    // returns the quotient and remainder of x divided by y, rounded by context
+    /// Returns the quotient of this BigDecimal instance divided by another (result roundered per the given context), with the remainder returned in an output parameter.
     member x.DivRem( y:BigDecimal, c:Context, remainder: outref<BigDecimal>) : BigDecimal =
         // x = q * y + r
         if c.roundingMode = RoundingMode.Unnecessary
@@ -1141,10 +1194,10 @@ type BigDecimal private (coeff, exp, precision) =
             remainder <- x - q*y
             q
 
-    // Compute x % y
+    // Compute this BigDecimal instance modulo a given BigDecimal value
     member x.Mod(y:BigDecimal) : BigDecimal = let _,r = x.DivRem(y) in r 
  
-     // Compute x % y, rounded by context
+    // Compute this BigDecimal instance modulo a given BigDecimal value, rounded per the given context
      member x.Mod(y:BigDecimal, c:Context) : BigDecimal = let _,r = x.DivRem(y,c) in r
  
    
@@ -1161,14 +1214,14 @@ type BigDecimal private (coeff, exp, precision) =
 
     // Exponentiation
 
-    // Computes x^n
+    /// Raises this BigDecimal instance to a specified integer power.
     member x.Power (n:int)  =
         if n < 0 || n > 999999999 then invalidArg "n" "Exponent must be between 0 and 999999999"
 
         let exp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) * (int64 n)) x.Coefficient.IsZero  
         BigDecimal(BigInteger.Pow(x.Coefficient,n),exp, 0u)
    
-    // Computes x^n, result rounded according to the context
+    /// Raises this BigDecimal instance to a specified integer power, rounded according to given context.
     member x.Power(n:int, c:Context) : BigDecimal =
         // Following the OpenJDK implementation.  
         // This is an implementation of the X3.274-1996 algorithm:
@@ -1218,22 +1271,27 @@ type BigDecimal private (coeff, exp, precision) =
             // round to final precision and strip zeros
             BigDecimal.round acc c
 
-    /// Compute x^n
+    /// Raises a BigDecimal value to a specified integer power.
     static member Power(x:BigDecimal, n:int) : BigDecimal = x.Power(n)
 
-    /// Compute x^n, result rounded according to context
+    /// Raises a BigDecimal value to a specified integer power.result rounded according to context
     static member Power(x:BigDecimal, n:int, c:Context) : BigDecimal = x.Power(n,c)     
      
 
      // Shift operations
 
+     /// Shifts this BigDeimal value a specified number of digits to the left.
      member x.MovePointRight(n:int)  : BigDecimal =
         let newExp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) + (int64 n)) x.Coefficient.IsZero
         BigDecimal(x.Coefficient,newExp,x.RawPrecision)
 
+    /// Shifts this BigDeimal value a specified number of digits to the right.
     member x.MovePointLeft(n:int)  : BigDecimal =
        let newExp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) - (int64 n)) x.Coefficient.IsZero
        BigDecimal(x.Coefficient,newExp,x.RawPrecision)
 
+    /// Shifts A BigDeimal value a specified number of digits to the left.
     static member (<<<) (x : BigDecimal, shift : int) : BigDecimal = x.MovePointLeft(shift)
+
+    /// Shifts A BigDeimal value a specified number of digits to the right.
     static member (>>>) (x : BigDecimal, shift : int) : BigDecimal = x.MovePointRight(shift)

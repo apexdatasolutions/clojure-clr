@@ -11,8 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ArithmeticHelpers.fs" />
     <Compile Include="BigDecimal.fsi" />
     <Compile Include="BigDecimal.fs" />
+    <Compile Include="BigRaional.fs" />
   </ItemGroup>
 
   <ItemGroup>

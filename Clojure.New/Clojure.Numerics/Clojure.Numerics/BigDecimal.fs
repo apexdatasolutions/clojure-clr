@@ -4,121 +4,12 @@ open System
 open System.Text
 open System.Numerics
 open System.Globalization
-open System.Runtime.InteropServices
-open System.Runtime.CompilerServices
 
 
-module private ArithmeticHelpers =
-
-    // BigInteger helpers
-
-    let biFive = BigInteger(5)
-    let biTen = BigInteger(10)
-
-    let getBIPrecision (bi : BigInteger) =  
-        if bi.IsZero then 1u 
-        else
-            let signFix = if bi.Sign < 0 then 1u else 0u
-            (bi.ToString().Length |> uint) - signFix
-           
-        // I would do this, but we end up with a one-off error on exact powers of 10 due to Log10 inexactness
-        //if bi.IsZero
-        //then 1u
-        //else
-        //    let log = BigInteger.Log10 (if bi.Sign <= 0 then -bi else bi) 
-        //    1u+((Math.Floor(log) |> uint32)   
-
-    let biPowersOfTen = 
-        [| 
-            BigInteger.One
-            BigInteger(10)
-            BigInteger(100)
-            BigInteger(1000)
-            BigInteger(10000)
-            BigInteger(100000)
-            BigInteger(1000000)
-            BigInteger(10000000)
-            BigInteger(100000000)
-            BigInteger(1000000000)
-            BigInteger(10000000000L)
-            BigInteger(100000000000L)
-        |]
-
-    let biPowerOfTen (n:uint) =
-        if n < uint biPowersOfTen.Length then biPowersOfTen.[(int n)]
-        else
-            let buf = Array.create ((int n)+1) '0'
-            buf.[0] <- '1'
-            BigInteger.Parse(String(buf))
 
 
-    // double representation
-
-    /// Exponent bias in the 64-bit floating point representation.
-    let doubleExponentBias = 1023
-
-    /// The size in bits of the significand in the 64-bit floating point representation.
-    let doubleSignificandBitLength = 52
-
-    /// How much to shift to accommodate the exponent and the binary digits of the significand.
-    let doubleShiftBias = doubleExponentBias + doubleSignificandBitLength
-    
-    /// Extract the sign bit from a byte-array representaition of a double.
-    let getDoubleSign (v:byte[]) = v.[7] &&& 0x80uy
-
-    /// Extract the significand (AKA mantissa, coefficient) from a byte-array representation of a double.
-    let getDoubleSignificand (v:byte[]) = 
-        let i1 = (uint v.[0]) ||| ((uint v.[1]) <<< 8) ||| ((uint v.[2]) <<< 16) ||| ((uint v.[3]) <<< 24)
-        let i2 = (uint v.[4]) ||| ((uint v.[5]) <<< 8) ||| ((uint (v.[6] &&& 0xFuy)) <<< 16)
-        uint64 i1 ||| ((uint64 i2) <<< 32)
-        
-    /// Extract the exponent from a byte-array representaition of a double.
-    let getDoubleBiasedExponent (v:byte[]) = ((uint16 (v.[7] &&& 0x7fuy)) <<< 4) ||| ((uint16 (v.[6] &&& 0xF0uy)) >>> 4)
 
 
-    // Exponent support
-
-    let checkExponent (candidate:int64) (isZero:bool) : int option =
-        match candidate with
-        | x when x <= (int64 Int32.MaxValue) && x >= (int64 Int32.MinValue) -> Some (int32 x)
-        | x when isZero && x < 0L -> Some Int32.MinValue
-        | x when isZero && x > 0L -> Some Int32.MaxValue
-        | _ -> None
-
-    let checkExponentE (candidate:int64) (isZero:bool) : int =
-        match checkExponent candidate isZero with
-        | Some e -> e
-        | None when candidate > 0L -> raise <| ArithmeticException("Overflow in scale")
-        | None -> raise <| ArithmeticException("Underflow in scale")
-
-
-    // Miscellaneous
-
-    let uintlogTable = 
-        [
-            0u;
-            9u;
-            99u;
-            999u;
-            9999u;
-            99999u;
-            999999u;
-            9999999u;
-            99999999u;
-            999999999u;
-            UInt32.MaxValue;
-        ]
-
-    /// Log base 10 of a uint
-    let uintPrecision v =
-        // Algorithm from Hacker's Delight, section 11-4
-        // except they use a for-loop, of course
-        match v with
-        | 0u -> 1u
-        | _ ->
-            uintlogTable
-            |> List.findIndex (fun x -> v <= x)
-            |> uint
 
 type RoundingMode =
     | Up
@@ -209,6 +100,22 @@ type BigDecimal private (coeff, exp, precision) =
     static member One = BigDecimal(BigInteger.One,0,1u)
     static member Ten =  BigDecimal(new BigInteger(10),0,2u);        
 
+    // Exponent support
+
+    static member checkExponent (candidate:int64) (isZero:bool) : int option =
+        match candidate with
+        | x when x <= (int64 Int32.MaxValue) && x >= (int64 Int32.MinValue) -> Some (int32 x)
+        | x when isZero && x < 0L -> Some Int32.MinValue
+        | x when isZero && x > 0L -> Some Int32.MaxValue
+        | _ -> None
+
+    static member checkExponentE (candidate:int64) (isZero:bool) : int =
+        match BigDecimal.checkExponent candidate isZero with
+        | Some e -> e
+        | None when candidate > 0L -> raise <| ArithmeticException("Overflow in scale")
+        | None -> raise <| ArithmeticException("Underflow in scale")
+
+
 
     // Rounding/quantize/rescale
 
@@ -240,7 +147,7 @@ type BigDecimal private (coeff, exp, precision) =
             let drop = vp - c.precision
             let divisor = ArithmeticHelpers.biPowerOfTen(drop)
             let rounded = BigDecimal.roundingDivide2 v.Coefficient divisor c.roundingMode
-            let exp = ArithmeticHelpers.checkExponentE ((int64 v.Exponent)+(int64 drop)) rounded.IsZero
+            let exp = BigDecimal.checkExponentE ((int64 v.Exponent)+(int64 drop)) rounded.IsZero
             let result = BigDecimal(rounded,exp,0u)
             if c.precision > 0u 
             then BigDecimal.round result c
@@ -270,7 +177,7 @@ type BigDecimal private (coeff, exp, precision) =
             let newPrec = oldPrec + (if oldPrec = 0u then 0u else delta)
             BigDecimal(newCoeff,newExponent,newPrec)    
 
-        let delta = ArithmeticHelpers.checkExponentE ((int64 lhs.Exponent) - (int64 newExponent)) false
+        let delta = BigDecimal.checkExponentE ((int64 lhs.Exponent) - (int64 newExponent)) false
         if delta = 0 then lhs
         elif lhs.Coefficient.IsZero then BigDecimal(BigInteger.Zero,newExponent,0u)
         elif delta < 0 then increaseExponent delta
@@ -389,7 +296,7 @@ type BigDecimal private (coeff, exp, precision) =
             match givenExponent data with
             | Ok 0 as v -> Ok indicatedExponent
             | Ok exp -> 
-                match ArithmeticHelpers.checkExponent ((int64 indicatedExponent) + (int64 exp)) isZero with
+                match BigDecimal.checkExponent ((int64 indicatedExponent) + (int64 exp)) isZero with
                 | Some e -> Ok e
                 | None -> Error "Invalid exponent"
             | Error msg as v -> Error msg
@@ -495,19 +402,7 @@ type BigDecimal private (coeff, exp, precision) =
     static member Create (v:decimal) = 
         if v = 0m then BigDecimal.Zero
         else 
-            let ints = Decimal.GetBits(v)
-            let sign = if v < 0m then -1 else 1
-            let exp = (ints.[3] &&& 0x00FF0000 ) >>> 16
-            let byteLength = Buffer.ByteLength(ints)-4
-            let bytes : byte array = Array.zeroCreate byteLength
-            Buffer.BlockCopy(ints,0,bytes,0,byteLength)
-            let isZero = ints.[0] = 0 && ints.[1] = 0 && ints.[2] = 0
-            let sign = if (ints.[3] &&& 0x80000000) = 0 then 1 else -1
-            let coeff =
-                if isZero
-                then BigInteger.Zero
-                else BigInteger(ReadOnlySpan(bytes),false,false)
-            let coeff = if sign = -1 then -coeff else coeff     
+            let coeff, exp = ArithmeticHelpers.deconstructDecimal v
             BigDecimal(coeff,-exp,0u)
 
     static member CreateC(v:decimal, c) = BigDecimal.round (BigDecimal.Create(v)) c
@@ -608,7 +503,7 @@ type BigDecimal private (coeff, exp, precision) =
             match y with
             | null -> 1
             | :? BigDecimal as bd -> (x :> IComparable<BigDecimal>).CompareTo(bd)
-            | _ -> invalidArg "y" "Expected a BigDecimal to compare against"
+            | _ -> invalidArg "y" "Argument must be of type BigDecimal"
 
     interface IEquatable<BigDecimal> with   
         member x.Equals (y:BigDecimal) =
@@ -740,7 +635,7 @@ type BigDecimal private (coeff, exp, precision) =
             let quo, rem = BigInteger.DivRem(bd.Coefficient,ArithmeticHelpers.biTen)
             if rem.IsZero
             then
-                let newExp = ArithmeticHelpers.checkExponentE ((int64 bd.Exponent) + 1L) quo.IsZero
+                let newExp = BigDecimal.checkExponentE ((int64 bd.Exponent) + 1L) quo.IsZero
                 let newPrec = if bd.RawPrecision > 0u then bd.RawPrecision-1u else bd.RawPrecision
                 BigDecimal.stripZerosToMatchExponent (BigDecimal(quo,newExp,newPrec)) preferredExp
             else bd
@@ -832,7 +727,7 @@ type BigDecimal private (coeff, exp, precision) =
                     else x, yAdjusted * ArithmeticHelpers.biPowerOfTen(-delta |> uint) 
 
                 let roundedInt = BigDecimal.roundingDivide2 xprime yprime c.roundingMode
-                let exp = ArithmeticHelpers.checkExponentE (preferredExp - (int64 delta) + (int64 adjust)) roundedInt.IsZero
+                let exp = BigDecimal.checkExponentE (preferredExp - (int64 delta) + (int64 adjust)) roundedInt.IsZero
 
                 let result = BigDecimal.round (BigDecimal(roundedInt,exp,0u)) c
 
@@ -1033,7 +928,7 @@ type BigDecimal private (coeff, exp, precision) =
     member x.Power (n:int)  =
         if n < 0 || n > 999999999 then invalidArg "n" "Exponent must be between 0 and 999999999"
 
-        let exp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) * (int64 n)) x.Coefficient.IsZero  
+        let exp = BigDecimal.checkExponentE ((int64 x.Exponent) * (int64 n)) x.Coefficient.IsZero  
         BigDecimal(BigInteger.Pow(x.Coefficient,n),exp, 0u)
    
     member x.Power(n:int, c:Context) : BigDecimal =
@@ -1092,11 +987,11 @@ type BigDecimal private (coeff, exp, precision) =
      // Shift operations
 
      member x.MovePointRight(n:int)  : BigDecimal =
-        let newExp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) + (int64 n)) x.Coefficient.IsZero
+        let newExp = BigDecimal.checkExponentE ((int64 x.Exponent) + (int64 n)) x.Coefficient.IsZero
         BigDecimal(x.Coefficient,newExp,x.RawPrecision)
 
     member x.MovePointLeft(n:int)  : BigDecimal =
-       let newExp = ArithmeticHelpers.checkExponentE ((int64 x.Exponent) - (int64 n)) x.Coefficient.IsZero
+       let newExp = BigDecimal.checkExponentE ((int64 x.Exponent) - (int64 n)) x.Coefficient.IsZero
        BigDecimal(x.Coefficient,newExp,x.RawPrecision)
 
     static member (<<<) (x : BigDecimal, shift : int) : BigDecimal = x.MovePointLeft(shift)

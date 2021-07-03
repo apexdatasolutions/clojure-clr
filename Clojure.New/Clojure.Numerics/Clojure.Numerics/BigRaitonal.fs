@@ -57,12 +57,6 @@ type BigRational(n:BigInteger,d:BigInteger) =
         BigRational(n,d)
 
 
-                
- 
-
-
-
-
     static member private normalize (n:BigInteger) (d:BigInteger)  = 
 
         let gcd = BigInteger.GreatestCommonDivisor(n,d)
@@ -144,6 +138,24 @@ type BigRational(n:BigInteger,d:BigInteger) =
     member x.IsNegative = x.Numerator.Sign < 0
     member x.Sign = x.Numerator.Sign
 
+    // Parsing
+
+    static member Parse(s:string) : BigRational = 
+        let parts = s.Split("/")
+        match Array.length parts with
+        | 0 -> invalidArg "s"  "No characters to parse"
+        | 1 -> BigRational(BigInteger.Parse(parts.[0]))
+        | 2 -> BigRational(BigInteger.Parse(parts.[0]),BigInteger.Parse(parts.[1]))
+        | _ -> invalidArg "s" "More than one /"
+
+    static member TryParse(s:String, value:outref<BigRational>) : bool = 
+        try 
+            value <- BigRational.Parse s
+            true
+        with
+            | ex -> false
+        
+        
 
     // Arithmetic operations
 

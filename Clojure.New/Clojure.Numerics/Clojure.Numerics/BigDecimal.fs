@@ -411,27 +411,52 @@ type BigDecimal private (coeff, exp, precision) =
         if Double.IsNaN(v) then invalidArg "value" "NaN is not supported in BigDecimal"
         if Double.IsInfinity(v) then invalidArg "value" "Infinity is not supported in BigDecimal"
 
-        let dbytes = BitConverter.GetBytes(v)
-        let signficand = ArithmeticHelpers.getDoubleSignificand dbytes
-        let biasedExp = ArithmeticHelpers.getDoubleBiasedExponent dbytes
-        let leftShift = (int biasedExp) - ArithmeticHelpers.doubleShiftBias;
-        if signficand = 0UL && biasedExp = 0us then BigDecimal(BigInteger.Zero,0,1u)
-        else
-            let ( coeff, leftShift ) =
-                if ( signficand = 0UL) 
-                then ( ( if v < 0.0 then BigInteger.MinusOne else BigInteger.One),
-                       (int biasedExp) - ArithmeticHelpers.doubleExponentBias )
-                else 
-                    let unadjustedCoeff = BigInteger(signficand ||| 0x10000000000000UL)
-                    ( (if v < 0.0 then BigInteger.Negate(unadjustedCoeff) else unadjustedCoeff),
-                      leftShift)
-            let (coeffToUse, expToUse) =
+        //let dbytes = BitConverter.GetBytes(v)
+        //let signficand = ArithmeticHelpers.getDoubleSignificand dbytes
+        //let biasedExp = ArithmeticHelpers.getDoubleBiasedExponent dbytes
+        //let leftShift = (int biasedExp) - ArithmeticHelpers.doubleShiftBias;
+        //if signficand = 0UL && biasedExp = 0us then BigDecimal(BigInteger.Zero,0,1u)
+        //else
+        //    let ( coeff, leftShift ) =
+        //        if ( signficand = 0UL) 
+        //        then ( ( if v < 0.0 then BigInteger.MinusOne else BigInteger.One),
+        //               (int biasedExp) - ArithmeticHelpers.doubleExponentBias )
+        //        else 
+        //            let unadjustedCoeff = BigInteger(signficand ||| 0x10000000000000UL)
+        //            ( (if v < 0.0 then BigInteger.Negate(unadjustedCoeff) else unadjustedCoeff),
+        //              leftShift)
+        //    let (coeffToUse, expToUse) =
+        //        if leftShift < 0
+        //            then ( coeff*BigInteger.Pow(ArithmeticHelpers.biFive,-leftShift), leftShift)
+        //        elif leftShift > 0
+        //            then ( coeff <<< leftShift , 0 )
+        //        else ( coeff, 0 )
+        //    BigDecimal(coeffToUse,expToUse,0u)
+
+
+        match ArithmeticHelpers.deconstructDouble v with
+        | ArithmeticHelpers.DoubleData.Zero(_) -> 
+            BigDecimal(BigInteger.Zero,0,1u)
+        | ArithmeticHelpers.DoubleData.Denormalized(isPositive=p;fraction=f;exponent=e) -> 
+            invalidArg "a" "a"
+        | ArithmeticHelpers.DoubleData.Infinity(_) | ArithmeticHelpers.DoubleData.NaN(_) -> 
+            raise <| InvalidOperationException("Should not reach this case (Infinity")
+        | ArithmeticHelpers.DoubleData.Standard(isPositive=p;mantissa=m;exponent=e;isSignificandZero=z) ->
+            let coeff, leftShift =
+                if z 
+                then (if p then BigInteger.One else BigInteger.MinusOne), e
+                else (if p then BigInteger(m) else BigInteger.Negate(BigInteger(m))), e-ArithmeticHelpers.doubleSignificandBitLength
+            let coeffToUse, expToUse =
                 if leftShift < 0
                     then ( coeff*BigInteger.Pow(ArithmeticHelpers.biFive,-leftShift), leftShift)
                 elif leftShift > 0
                     then ( coeff <<< leftShift , 0 )
                 else ( coeff, 0 )
             BigDecimal(coeffToUse,expToUse,0u)
+
+            
+            
+
                                
     static member CreateC(v:double, c) = BigDecimal.round (BigDecimal.Create(v)) c
     static member Create(v:String) = BigDecimal.Parse(v)   

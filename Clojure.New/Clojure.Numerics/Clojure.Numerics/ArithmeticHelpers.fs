@@ -62,14 +62,43 @@ module internal ArithmeticHelpers =
     /// Extract the sign bit from a byte-array representaition of a double.
     let getDoubleSign (v:byte[]) = v.[7] &&& 0x80uy
 
-    /// Extract the significand (AKA mantissa, coefficient) from a byte-array representation of a double.
+    /// Extract the significand (AKA mantissa, coefficient without the implied 52nd digit 1) from a byte-array representation of a double.
     let getDoubleSignificand (v:byte[]) = 
         let i1 = (uint v.[0]) ||| ((uint v.[1]) <<< 8) ||| ((uint v.[2]) <<< 16) ||| ((uint v.[3]) <<< 24)
         let i2 = (uint v.[4]) ||| ((uint v.[5]) <<< 8) ||| ((uint (v.[6] &&& 0xFuy)) <<< 16)
         uint64 i1 ||| ((uint64 i2) <<< 32)
         
-    /// Extract the exponent from a byte-array representaition of a double.
+    /// Extract the (baised) exponent from a byte-array representation of a double.
     let getDoubleBiasedExponent (v:byte[]) = ((uint16 (v.[7] &&& 0x7fuy)) <<< 4) ||| ((uint16 (v.[6] &&& 0xF0uy)) >>> 4)
+
+    type DoubleData =
+        | Zero of isPositive: bool                                                      // +/- 0
+        | Denormalized of  isPositive : bool * fraction : uint64 * exponent : int       // Denormalized  +/- 2^-1022 x 0.fraction  -1022 passed in exponent
+        | Infinity of isPositive : bool                                                 // =/1 infinity
+        | NaN of significand : uint64                                                   // NaN
+        | Standard of isPositive : bool *  mantissa : uint64 * exponent : int  * isSignificandZero : bool 
+                                                                                        // +/- 2^exponent * mantissa
+                                                                                        // isSigificandZero implies mantissa = 1000....00
+                                                                                        // allows special case of 1 << some power
+
+    let deconstructDouble (v:double) : DoubleData  =
+        let dbytes = BitConverter.GetBytes(v)
+        let significand = getDoubleSignificand dbytes
+        let biasedExp = getDoubleBiasedExponent dbytes
+        let isPositive = getDoubleSign dbytes = 0uy
+        let setBit52 s = s ||| 0x10000000000000UL
+        match biasedExp with
+        | 0us  when significand = 0UL -> Zero(isPositive)
+        | 0us -> Denormalized(isPositive=isPositive, fraction=significand, exponent=(-doubleExponentBias+1))
+        | 0x7ffus when significand = 0UL ->  Infinity(isPositive)
+        | 0x7ffus -> NaN(significand=significand)
+        | _ -> Standard(isPositive=isPositive, 
+                              mantissa = setBit52 significand, 
+                              exponent = (int biasedExp)-doubleExponentBias, 
+                              isSignificandZero = (significand=0UL))
+       
+
+        
 
     /// Given a Decimal value, return a BigInteger with the mantissa and the exponent.
     let deconstructDecimal  (v:decimal) : BigInteger * int =

@@ -26,7 +26,7 @@
 /// ------------------------------------------------------------------------
 /// </code>
 /// </remarks>
-module Tests
+module BigDecimalTests
 
 open Expecto
 open Clojure.Numerics

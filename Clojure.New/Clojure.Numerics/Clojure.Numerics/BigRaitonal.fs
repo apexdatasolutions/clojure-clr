@@ -24,7 +24,7 @@ type BigRational(n:BigInteger,d:BigInteger) =
     
     // integer constructors
     
-    new(v:BigInteger) = BigRational(v,BigInteger.One)
+    new(x:BigInteger) = BigRational(x,BigInteger.One)
     new(x:int32) = BigRational(BigInteger(x),BigInteger.One)
     new(x:int64) = BigRational(BigInteger(x),BigInteger.One)
     new(x:uint32) = BigRational(BigInteger(x),BigInteger.One)
@@ -33,7 +33,33 @@ type BigRational(n:BigInteger,d:BigInteger) =
     
     // non-integer numeric constructors
     
-    //new(x:decimal) = 
+    new(x:decimal) =
+        let coeff, exp = ArithmeticHelpers.deconstructDecimal x
+        BigRational(coeff,BigInteger.Pow(ArithmeticHelpers.biTen,exp))
+            
+
+    new(x:double) =
+        let n,d  =
+            match ArithmeticHelpers.deconstructDouble x with
+            | ArithmeticHelpers.DoubleData.Zero(_) -> BigInteger.Zero, BigInteger.One
+            | ArithmeticHelpers.DoubleData.Infinity(_) -> invalidArg "x" "Argument is infinite"
+            | ArithmeticHelpers.DoubleData.NaN(_) -> invalidArg "x" "Argument is not a number"
+            | ArithmeticHelpers.DoubleData.Denormalized(isPositive=p;fraction=f;exponent=e)    
+            | ArithmeticHelpers.DoubleData.Standard(isPositive=p;mantissa=f;exponent=e) -> 
+                let n = BigInteger(f)
+                let d = BigInteger(1<<<ArithmeticHelpers.doubleSignificandBitLength)
+                let n, d = 
+                    if e > 0 then BigInteger.Pow(n,e), d
+                    elif e < 0 then n, BigInteger.Pow(d,-e)
+                    else n, d
+                let n = if p then n else BigInteger.Negate(n)
+                n,d                
+        BigRational(n,d)
+
+
+                
+ 
+
 
 
 
@@ -186,9 +212,4 @@ type BigRational(n:BigInteger,d:BigInteger) =
     // LCD( a/b, c/d ) = (bd) / GCD(b,d)
     static member LeastCommonDenominator(x:BigRational, y:BigRational) = 
         (x.Denominator * y.Denominator) / BigInteger.GreatestCommonDivisor(x.Denominator,y.Denominator)
-
-
-
-
-
    

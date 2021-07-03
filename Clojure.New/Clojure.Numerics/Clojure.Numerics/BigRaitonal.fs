@@ -161,15 +161,18 @@ type BigRational(n:BigInteger,d:BigInteger) =
 
     // -(c/d) = (-c)/d
     member x.Negate() = if x.IsZero then x else BigRational(-x.Numerator,x.Denominator)
+    static member Negate(x:BigRational) = x.Negate()
     static member (~-) (x:BigRational) = x.Negate()
     static member (~+) (x:BigRational) = x
 
+    // abs (a/b) = abs(a)/b
+    member x.Abs() = if x.Numerator.Sign < 0 then BigRational(BigInteger.Abs(x.Numerator),x.Denominator) else x
+    static member Abs(x:BigRational) = x.Abs()
 
     // a/b + c/d = (ad+bc)/bd
     member x.Add(y:BigRational) =  BigRational(x.Numerator * y.Denominator + x.Denominator*y.Numerator,x.Denominator*y.Denominator) 
     static member Add(x:BigRational, y:BigRational) = x.Add(y)
     static member (+) (x:BigRational, y:BigRational) = x.Add(y)
-
 
     // a/b - c/d = (ad-bc)/bd
     member x.Subtract(y:BigRational) =  BigRational(x.Numerator * y.Denominator - x.Denominator*y.Numerator,x.Denominator*y.Denominator) 

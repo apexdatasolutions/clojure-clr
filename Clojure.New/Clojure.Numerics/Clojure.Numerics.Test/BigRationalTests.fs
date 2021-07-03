@@ -145,4 +145,138 @@ let basicParseTests =
 
 [<Tests>]
 let basicParserTestList = ftestList "basic parsing"  (createParseTests basicParseTests)
+
+
+// Negate
+
+let simpleNegateTest (inStr:string) (outStr:string) =
+    let r = BigRational.Parse(inStr).Negate()
+    Expect.equal (r.ToString()) outStr "representation should match"
+
+let createNegateTests data =
+    data
+    |> List.map (fun (inStr, outStr) ->
+            testCase (sprintf "parsing %s as %s" inStr outStr)   <| fun _ -> 
+                simpleNegateTest inStr outStr
+            )
         
+let basicNegateTests = 
+    [ 
+        ("0", "0/1");
+        ("1", "-1/1");
+        ("2", "-2/1");
+        ("-1", "1/1");
+        ("-2", "2/1");
+
+        ("1/7", "-1/7");
+        ("2/7", "-2/7");
+        ("-3/7", "3/7");
+        ("2/4", "-1/2");
+        ("60/630", "-2/21");
+    ]
+
+[<Tests>]
+let basicNegateTestList = ftestList "basic negation"  (createNegateTests basicNegateTests)
+      
+// Abs
+
+let simpleAbsTest (inStr:string) (outStr:string) =
+    let r = BigRational.Parse(inStr).Abs()
+    Expect.equal (r.ToString()) outStr "representation should match"
+
+let createAbsTests data =
+    data
+    |> List.map (fun (inStr, outStr) ->
+            testCase (sprintf "parsing %s as %s" inStr outStr)   <| fun _ -> 
+                simpleAbsTest inStr outStr
+            )
+        
+let basicAbsTests = 
+    [ 
+        ("0", "0/1");
+        ("1", "1/1");
+        ("2", "2/1");
+        ("-1", "1/1");
+        ("-2", "2/1");
+
+        ("1/7", "1/7");
+        ("2/7", "2/7");
+        ("-3/7", "3/7");
+        ("2/4", "1/2");
+        ("60/630", "2/21");
+    ]
+
+[<Tests>]
+let basicAbsTestList = ftestList "basic absolute value"  (createAbsTests basicAbsTests)
+
+
+// Add
+
+let simpleAddTest (lhs:string) (rhs:string) (result:string) =
+    let r1 = BigRational.Parse(lhs)
+    let r2 = BigRational.Parse(rhs)
+    let r = r1 + r2
+    Expect.equal (r.ToString()) result "sum should match"
+
+let createAddTests data =
+    data
+    |> List.map (fun (lhs, rhs, result) ->
+            testCase (sprintf "Adding %s to %s" lhs rhs)   <| fun _ -> 
+                simpleAddTest lhs rhs result
+
+            )
+        
+let basicAddTests = 
+    [ 
+        ("0", "1/2", "1/2");
+        ("1/2", "0", "1/2");
+        ("1/2", "1/2", "1/1")
+        ("1/2", "1/4", "3/4")
+        ("5/2", "2/3", "19/6")
+        ("7/6", "9/4", "41/12" )
+        ("0", "-1/2", "-1/2");
+        ("-1/2", "0", "-1/2");
+        ("1/2", "-1/2", "0/1")
+        ("-1/2", "1/4", "-1/4")
+        ("-5/2", "-2/3", "-19/6")
+        ("7/6", "-9/4", "-13/12" )
+    ]
+
+[<Tests>]
+let basicAddTestList = ftestList "basic addition"  (createAddTests basicAddTests)
+      
+      
+// Sub
+
+let simpleSubTest (lhs:string) (rhs:string) (result:string) =
+    let r1 = BigRational.Parse(lhs)
+    let r2 = BigRational.Parse(rhs)
+    let r = r1 - r2
+    Expect.equal (r.ToString()) result "difference should match"
+
+let createSubTests data =
+    data
+    |> List.map (fun (lhs, rhs, result) ->
+            testCase (sprintf "subtracting %s from %s" rhs lhs)   <| fun _ -> 
+                simpleSubTest lhs rhs result
+
+            )
+        
+let basicSubTests = 
+    [ 
+        ("0", "1/2", "-1/2");
+        ("1/2", "0", "1/2");
+        ("1/2", "1/2", "0/1")
+        ("1/2", "1/4", "1/4")
+        ("5/2", "2/3", "11/6")
+        ("7/6", "9/4", "-13/12" )
+        ("0", "-1/2", "1/2");
+        ("-1/2", "0", "-1/2");
+        ("1/2", "-1/2", "1/1")
+        ("-1/2", "1/4", "-3/4")
+        ("-5/2", "-2/3", "-11/6")
+        ("7/6", "-9/4", "41/12" )
+    ]
+
+[<Tests>]
+let basicSubTestList = ftestList "basic subtration"  (createSubTests basicSubTests)

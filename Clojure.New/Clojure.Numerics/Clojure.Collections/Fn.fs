@@ -3,7 +3,10 @@
 open System
 open Clojure.Collections
 
+
 // In ClojureJVM, this would also implemetn Callable and Runnable -- no exact equivalent here
+
+[<AllowNullLiteral>]
 type IFn =
     abstract invoke : unit -> obj
     abstract invoke : arg1: obj -> obj
@@ -44,6 +47,39 @@ type AFn() =
     interface IFnArity with
         member _.hasArity (arity:int) : bool = false
 
+    // The following are duplicates of Helpers.getBoundedLength, seqLength, seqToArray
+    // We copy it here so that we don't have to deal with some really nasty circularity
+    // TODO: place in their own module early on, use here, then reference in Helpers?
+
+    
+    static member boundedLength(list:ISeq, limit:int) : int =
+        let mutable i = 0
+        let mutable c = list
+        while c <> null && i <= limit do
+            c <- c.next()
+            i <- i+1
+        i
+
+    static member seqLength (list:ISeq) : int =
+        let mutable i = 0
+        let mutable c = list
+        while c <> null && c <> null do
+            c <- c.next()
+            i <- i+1
+        i
+
+    static member seqToArray<'a> (xs:ISeq) : 'a array =
+        if xs = null then Array.zeroCreate(0)
+        else    
+            let a = Array.zeroCreate<'a>(AFn.seqLength xs)
+            let mutable i = 0
+            let mutable s = xs
+
+            while s <> null do
+                a.[i] <- downcast s.first() 
+                s <- s.next()
+                i <- i+1
+            a
 
     member x.WrongArityException (reqArity:int) : ArityException = ArityException(reqArity,x.GetType().FullName)
 
@@ -78,7 +114,7 @@ type AFn() =
         let mutable al = argList
         let n() = al <- al.next(); al
 
-        match Helpers.boundedLength(argList, 20) with
+        match AFn.boundedLength(argList, 20) with
         | 0 -> fn.invoke()
         | 1 -> fn.invoke(al.first())
         | 2 -> fn.invoke(al.first(),al.next().first())
@@ -100,7 +136,7 @@ type AFn() =
         | 18 -> fn.invoke(al.first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first())
         | 19 -> fn.invoke(al.first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first())
         | 20 -> fn.invoke(al.first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first())
-        | _ ->  fn.invoke(al.first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),Helpers.seqToArray(al.next()))
+        | _ ->  fn.invoke(al.first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),n().first(),AFn.seqToArray(al.next()))
         
 
     abstract member applyTo : arglist: ISeq -> obj 

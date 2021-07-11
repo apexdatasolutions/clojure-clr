@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="BigRationalTests.fs" />
     <Compile Include="BigDecimalTests.fs" />
+    <Compile Include="BigRationalTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

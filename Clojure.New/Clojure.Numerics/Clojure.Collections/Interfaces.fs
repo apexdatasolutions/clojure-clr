@@ -1,25 +1,13 @@
 ﻿namespace Clojure.Collections
 
 open System.Collections.Generic
+open System
+open Clojure.Fn
 
 
-type [<AllowNullLiteral>] Seqable =
-    abstract seq : unit -> ISeq
 
-and [<AllowNullLiteral>] IPersistentCollection = 
-    inherit Seqable
-    abstract count : unit -> int
-    abstract cons: obj -> IPersistentCollection
-    abstract empty: unit -> IPersistentCollection
-    abstract equiv: obj -> bool
 
-and [<AllowNullLiteral>] ISeq =
-    inherit IPersistentCollection
-    abstract first : unit -> obj
-    abstract next : unit -> ISeq
-    abstract more : unit -> ISeq
-    abstract cons : obj -> ISeq
-
+[<AllowNullLiteral>]
 type ILookup = 
     abstract valAt : key:obj -> obj
     abstract valAt : key: obj * notFound: obj -> obj
@@ -28,6 +16,7 @@ type IMapEntry =
     abstract key : unit -> obj
     abstract value : unit -> obj
 
+[<AllowNullLiteral>]
 type Associative = 
     inherit IPersistentCollection
     inherit ILookup
@@ -35,19 +24,24 @@ type Associative =
     abstract entryAt : key: obj -> IMapEntry
     abstract assoc : key: obj * value: obj -> Associative
 
+[<AllowNullLiteral>]
 type Sequential = interface end
 
+[<AllowNullLiteral>]
 type Counted =
     abstract count : unit -> int
 
+[<AllowNullLiteral>]
 type Indexed =
     inherit Counted
     abstract nth : i: int -> obj
     abstract nth : i: int * notFound: obj -> obj
 
+[<AllowNullLiteral>]
 type Reversible = 
     abstract rseq: unit -> ISeq
 
+[<AllowNullLiteral>]
 type IPersistentMap =
     inherit Associative
     inherit IEnumerable<IMapEntry>
@@ -66,6 +60,7 @@ type IPersistentSet =
     abstract get: key: obj -> obj
     abstract count: unit -> int    // do we need this?
 
+[<AllowNullLiteral>]
 type IPersistentStack =
     inherit IPersistentCollection
     abstract peek : unit -> obj
@@ -75,6 +70,7 @@ type IPersistentList =
     inherit Sequential
     inherit IPersistentStack
 
+[<AllowNullLiteral>]
 type IPersistentVector =
     inherit Associative
     inherit Sequential
@@ -86,11 +82,46 @@ type IPersistentVector =
     abstract cons : o: obj -> IPersistentVector
     abstract count : unit -> int
 
+type IHashEq =
+    abstract hasheq : unit -> int
 
+[<AllowNullLiteral>]
 type IMeta =
     abstract meta : unit -> IPersistentMap
 
+[<AllowNullLiteral>]
 type IObj =
     inherit IMeta
-    abstract withMeta : meta: IPersistentVector -> IObj
+    abstract withMeta : meta: IPersistentMap -> IObj
 
+[<AbstractClass>][<AllowNullLiteral>]
+type Obj(m:IPersistentMap) =
+
+    let mm = m
+    new() = Obj(null)
+
+    interface IMeta with
+        member x.meta() = mm
+
+    interface IObj with 
+        member x.withMeta(m:IPersistentMap) = raise <| NotImplementedException("Needs to be implemented in derived class")
+        // I do not know how to indicate that Obj implements the IObj interface without providing an actual implementation.
+        // Alternative -- if you base from Obj, remember to implement IObj.
+
+
+type IDeref =
+    abstract deref : unit -> obj
+
+type IReduceInit =
+    abstract reduce : IFn * obj -> obj
+
+type IReduce =
+    inherit IReduceInit
+    abstract reduce : IFn -> obj
+
+
+type Named =
+    abstract getNamespace : unit -> string
+    abstract getName : unit -> string
+
+    

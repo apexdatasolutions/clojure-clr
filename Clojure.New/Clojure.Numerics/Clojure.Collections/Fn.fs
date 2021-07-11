@@ -4,7 +4,7 @@ open System
 open Clojure.Collections
 
 
-// In ClojureJVM, this would also implemetn Callable and Runnable -- no exact equivalent here
+// In ClojureJVM, this would also implement Callable and Runnable -- no exact equivalent here -- shoule we look at Func<>? ThreadDelegate?
 
 [<AllowNullLiteral>]
 type IFn =
@@ -47,65 +47,57 @@ type AFn() =
     interface IFnArity with
         member _.hasArity (arity:int) : bool = false
 
-    // The following are duplicates of Helpers.getBoundedLength, seqLength, seqToArray
-    // We copy it here so that we don't have to deal with some really nasty circularity
-    // TODO: place in their own module early on, use here, then reference in Helpers?
-
-    
+    // This was in RT.  But only used in AFn and RestFn, so moving to here.
     static member boundedLength(list:ISeq, limit:int) : int =
-        let mutable i = 0
-        let mutable c = list
-        while c <> null && i <= limit do
-            c <- c.next()
-            i <- i+1
-        i
+        let rec step (c:ISeq) i = if c <> null && i <= limit then step (c.next()) (i+1) else i
+        step list 0
 
+
+    // This was in RT.  Should be in Helpers.  TODO: Maybe split Helpers?  It is used in a few other places in the code
     static member seqLength (list:ISeq) : int =
-        let mutable i = 0
-        let mutable c = list
-        while c <> null && c <> null do
-            c <- c.next()
-            i <- i+1
-        i
-
+        let rec step (c:ISeq) i = if c <> null then step (c.next()) (i+1) else i
+        step list 0
+        
+    
+    // This was in RT.  But only used in RestFn, so moving to here.
     static member seqToArray<'a> (xs:ISeq) : 'a array =
         if xs = null then Array.zeroCreate(0)
         else    
             let a = Array.zeroCreate<'a>(AFn.seqLength xs)
-            let mutable i = 0
-            let mutable s = xs
-
-            while s <> null do
-                a.[i] <- downcast s.first() 
-                s <- s.next()
-                i <- i+1
+            let rec step (s:ISeq) i =
+                if s <> null 
+                then
+                    a.[i] <- downcast s.first()
+                    step (s.next()) (i+1)
+                else ()
+            step xs 0                   
             a
 
     member x.WrongArityException (reqArity:int) : ArityException = ArityException(reqArity,x.GetType().FullName)
 
     interface IFn with  
         member x.invoke () = raise <| x.WrongArityException(0)
-        member x. invoke(a1) =  raise <| x.WrongArityException(1)
-        member x. invoke(a1,a2) =  raise <| x.WrongArityException(2)
-        member x. invoke(a1,a2,a3) =  raise <| x.WrongArityException(3)
-        member x. invoke(a1,a2,a3,a4) =  raise <| x.WrongArityException(4)
-        member x. invoke(a1,a2,a3,a4,a5) =  raise <| x.WrongArityException(5)
-        member x. invoke(a1,a2,a3,a4,a5,a6) =  raise <| x.WrongArityException(6)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7) =  raise <| x.WrongArityException(7)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8) =  raise <| x.WrongArityException(8)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9) =  raise <| x.WrongArityException(9)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =  raise <| x.WrongArityException(10)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11) =  raise <| x.WrongArityException(11)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12) =  raise <| x.WrongArityException(12)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13) =  raise <| x.WrongArityException(13)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14) =  raise <| x.WrongArityException(14)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15) =  raise <| x.WrongArityException(15)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16) =  raise <| x.WrongArityException(16)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17) =  raise <| x.WrongArityException(17)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18) =  raise <| x.WrongArityException(18)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19) =  raise <| x.WrongArityException(19)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20) =  raise <| x.WrongArityException(20)
-        member x. invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,[<ParamArray>]args) =  raise <| x.WrongArityException(21)
+        member x.invoke(a1) =  raise <| x.WrongArityException(1)
+        member x.invoke(a1,a2) =  raise <| x.WrongArityException(2)
+        member x.invoke(a1,a2,a3) =  raise <| x.WrongArityException(3)
+        member x.invoke(a1,a2,a3,a4) =  raise <| x.WrongArityException(4)
+        member x.invoke(a1,a2,a3,a4,a5) =  raise <| x.WrongArityException(5)
+        member x.invoke(a1,a2,a3,a4,a5,a6) =  raise <| x.WrongArityException(6)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7) =  raise <| x.WrongArityException(7)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8) =  raise <| x.WrongArityException(8)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9) =  raise <| x.WrongArityException(9)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =  raise <| x.WrongArityException(10)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11) =  raise <| x.WrongArityException(11)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12) =  raise <| x.WrongArityException(12)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13) =  raise <| x.WrongArityException(13)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14) =  raise <| x.WrongArityException(14)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15) =  raise <| x.WrongArityException(15)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16) =  raise <| x.WrongArityException(16)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17) =  raise <| x.WrongArityException(17)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18) =  raise <| x.WrongArityException(18)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19) =  raise <| x.WrongArityException(19)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20) =  raise <| x.WrongArityException(20)
+        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,[<ParamArray>]args) =  raise <| x.WrongArityException(21)
 
     // TODO: Check to see if the original use of Util1.Ret is necessary.
 

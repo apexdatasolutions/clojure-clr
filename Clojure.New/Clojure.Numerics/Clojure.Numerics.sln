@@ -17,6 +17,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Clojure.Collections", "Cloj
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fsharp.Benchmarks", "Fsharp.Benchmarks\Fsharp.Benchmarks.fsproj", "{BA7151D3-5F47-4E9E-954E-8633F9F9FA2A}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Clojure.Collections.Test", "Clojure.Collections.Test\Clojure.Collections.Test.fsproj", "{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{BA7151D3-5F47-4E9E-954E-8633F9F9FA2A}.Release|x64.Build.0 = Release|Any CPU
 		{BA7151D3-5F47-4E9E-954E-8633F9F9FA2A}.Release|x86.ActiveCfg = Release|Any CPU
 		{BA7151D3-5F47-4E9E-954E-8633F9F9FA2A}.Release|x86.Build.0 = Release|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Debug|x64.Build.0 = Debug|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Debug|x86.Build.0 = Debug|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Release|x64.ActiveCfg = Release|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Release|x64.Build.0 = Release|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Release|x86.ActiveCfg = Release|Any CPU
+		{ED635888-CDF8-4B55-ABA3-48CE024BB9DD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -235,15 +235,49 @@ let boundedLengthTests =
 
         testCase "boundedLength on range, seq end hit" <| fun _ ->
             let r = SimpleRange(0,9) :> ISeq
-            let n = r.count()
-            let m = AFn.boundedLength(r,20)
             Expect.equal (AFn.boundedLength(r,20)) (r.count()) "under limit on range should be seq count"
 
         testCase "boundedLength on conses, seq end hit" <| fun _ ->
             let c = makeConsSeq 2
-            let n = c.count()
-            let m = AFn.boundedLength(c,20)
+ 
             Expect.equal (AFn.boundedLength(c,20)) (c.count()) "under limit on conses should be seq count"    
+
+        testCase "boundedLength on null should be 0" <| fun _ ->
+            Expect.equal (AFn.boundedLength(null,20)) 0 "under limit on range should be seq count"
+    
+    ]
+
+
+[<Tests>]
+let seqLengthTests = 
+    testList "seqLength" [
+
+        testCase "seqLength on range" <| fun _ ->
+            let r = SimpleRange(0,9) :> ISeq
+            Expect.equal (AFn.seqLength r) 10 "seqLength should compute actual length"
+
+        testCase "seqLength on conses" <| fun _ ->
+            let c = makeConsSeq 9 
+            Expect.equal (AFn.seqLength c) 9 "seqLength should compute actual length"
+
+
+        testCase "seqLength on null should be 0" <| fun _ ->
+            Expect.equal (AFn.seqLength null) 0 "seqLength should be 0 on null"
+    ]
+
+[<Tests>]
+let seqToArrayTests =
+    testList "seqToArray" [
+    
+        testCase "seqToArray on null returns 0-length array" <| fun _ ->
+            Expect.equal (null |>  AFn.seqToArray<obj> |>  Array.length) 0 "Length should be 0"
+
+        testCase "seqToArray on cons should return array with proper elements" <| fun _ ->
+            let a = makeConsSeq 3 |> AFn.seqToArray<int>
+            Expect.equal (Array.length a) 3 "Should have proper number of elements"
+            Expect.equal a.[0] 0 "0-th element should be 0"
+            Expect.equal a.[1] 1 "1-th element should be 1"
+            Expect.equal a.[2] 2 "2-th element should be 2"
     
     
     ]

@@ -281,3 +281,51 @@ let seqToArrayTests =
     
     
     ]
+
+
+type TestFn() =
+    inherit AFn()
+
+    interface IFn with
+        override x.invoke() = upcast "Zero"
+        override x.invoke(arg1) = (unbox arg1) + 1 :> obj
+        override x.invoke(arg1,arg2) = (unbox arg1) + (unbox arg2) :> obj
+    
+    interface IFnArity with
+        override x.hasArity(n:int) =
+            match n with
+            | 0 | 1 | 2 -> true
+            | _ -> false
+
+let tf = TestFn()
+
+[<Tests>]
+let basicAFnTests = 
+    testList "AFn tests" [
+
+        testCase "call invoke()" <| fun _ ->
+            let result : string  =  downcast (tf:>IFn).invoke()
+            Expect.equal  result "Zero" "Call with no args"
+
+        testCase "call invoke(a)" <| fun _ ->
+            let i = 12
+            let result: int = downcast (tf:>IFn).invoke(i)
+            Expect.equal result (i+1) "call with one arg should add 1"
+
+        testCase "call invoke(a,b)" <| fun _ ->
+            let i = 12
+            let j = 30
+            let result: int = downcast (tf:>IFn).invoke(i,j)
+            Expect.equal result (i+j) "call with two args should add them"
+
+        testCase "call invoke with too many args fails" <| fun _ ->
+            let f () = (tf:>IFn).invoke(1,2,3,4) |> ignore
+            Expect.throwsT<ArityException>  f "Does not accept four arguments"         
+
+        testCase "check hasArity" <| fun _ ->
+            Expect.isFalse ((tf:>IFnArity).hasArity 3) "Does not have this arity"
+            Expect.isTrue ((tf:>IFnArity).hasArity 0) "has this arity"
+            Expect.isTrue ((tf:>IFnArity).hasArity 1) "has this arity"
+            Expect.isTrue ((tf:>IFnArity).hasArity 2) "has this arity"        
+    ]
+

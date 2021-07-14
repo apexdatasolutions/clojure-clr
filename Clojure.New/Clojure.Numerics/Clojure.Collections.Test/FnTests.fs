@@ -327,5 +327,18 @@ let basicAFnTests =
             Expect.isTrue ((tf:>IFnArity).hasArity 0) "has this arity"
             Expect.isTrue ((tf:>IFnArity).hasArity 1) "has this arity"
             Expect.isTrue ((tf:>IFnArity).hasArity 2) "has this arity"        
+
+        testCase "applyToHelper works with null" <| fun _ -> 
+            let result : string  =  downcast AFn.applyToHelper(tf,null)
+            Expect.equal result "Zero"  "call with no args"
+        
+        testCase "applyToHelper works with non-empty sequence" <| fun _ -> 
+            let result : int  =  downcast AFn.applyToHelper(tf,SimpleRange(10,11))
+            Expect.equal result 21  "call with no args"
+        
+        testCase "applyToHelper throws with too-long sequence" <| fun _ -> 
+            let f() = AFn.applyToHelper(tf,SimpleRange(1,5)) |> ignore
+            Expect.throwsT<ArityException> f "too many args should throw"
+
     ]
 

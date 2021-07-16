@@ -1,5 +1,320 @@
 ﻿namespace Clojure.Collections
 
+open System
+open System.Collections
+open System.Collections.Generic
+
+
+[<AbstractClass>][<AllowNullLiteral>]
+type ASeq(m) =
+    inherit Obj(m)
+    let mutable hash = 0
+    let mutable hasheq = 0
+    new() = ASeq(null)
+  
+    override x.ToString() = Helpers.printString(x)
+
+    override x.Equals(o) = 
+        if obj.ReferenceEquals(x,o) then true
+        else
+            match o with
+            | :? Sequential | :? IList -> 
+                let rec step (s1:ISeq) (s2:ISeq) =
+                    match s1, s2 with
+                    | null, null -> true
+                    | _, null -> false
+                    | null, _ -> false
+                    | _ -> Helpers.equals(s1.first(),s2.first()) && step (s1.next()) (s2.next())  // Util.equals
+                step x Helpers.seq(o)                                                             // = RT.seq
+            | _ -> false
+
+    override x.GetHashCode() =
+        if hash = 0 then hash <- Helpers.computeHashCode x
+        hash
+
+
+    static member doCount (s:ISeq) =
+        let rec step (s:ISeq) cnt = 
+            match s with
+            | null -> cnt
+            | :? Counted as c -> cnt + c.count()
+            | _ -> step (s.next()) (cnt+1)
+        step s 0
+
+    interface ISeq with
+        member x.more() =
+            let s = (x:>ISeq).next()
+            if s = null then EmptyList.Empty else s
+        member x.cons(o) = Cons(o,x)    
+
+    interface IPersistentCollection with
+        member x.cons(o) = (x:>ISeq).const(o)
+        member x.count() = 1 + doCount (x:>ISeq).next()
+        member x.empty() = EmptyList.Empty
+        member x.equiv(o) = 
+            match o with
+            | :? Sequential | :? IList -> 
+                let rec step (s1:ISeq) (s2:ISeq) =
+                    match s1, s2 with
+                    | null, null -> true
+                    | _, null -> false
+                    | null, _ -> false
+                    | _ -> Helpers.equiv(s1.first(),s2.first()) && step (s1.next()) (s2.next())  // Util.equiv
+                step x Helpers.seq(o)                                                             // = RT.seq
+            | _ -> false
+
+    interface Seqable with
+        member x.seq() = x :> ISeq
+
+    interface IList<obj> with
+        //member _.Add(_) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+        member _.Insert(i,v) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+        //member _.Remove(v) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+        member _.RemoveAt(i) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+
+
+    interface IList with
+        member _.Add(_) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+        member _.Clear() = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+        member _.Insert(i,v) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+        member _.Remove(v) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
+        member _.RemoveAt(i) = raise <| InvalidOperationException("Cannot modify an immutable sequence")    
+        member _.IsFixedSize = true
+        member _.IsReadOnly = true
+        member x.Item 
+            //Java has this: return RT.nth(this, index);
+            // THis causes an infinite loop in my code.    TODO:  SEE IF THIS IS STILL TRUE, OR FIND A WORKAROUND?
+            // When this was introduces, a change was made in RT.nth that changed the List test in its type dispatch to RandomAccess.
+            // CLR does not have the equivalent notion, so I just left it at IList.  BOOM!
+            // So, I have to do a sequential search, duplicating some of the code in RT.nth.
+            with get index = 
+                let rec step i (s:ISeq) = 
+                    if i = index then s.first()
+                    elif s = null then raise <| ArgumentOutOfRangeException("index")
+                    else step (i+1) (s.next())
+                step 0 x                                            // TODO: See IndexOf. Should this be called on x or x.seq() ??  Check original Java code.
+            and set _ _ = raise <| InvalidOperationException("Cannot modify an immutable sequence")  
+        member x.IndexOf(v) =
+            let rec step i (s:ISeq) = 
+                if s == null then -1
+                else if Helpers.equiv(s.first(), v) then i
+                else step (i+1) (s.next())
+            step 0 ((x:>ISeq).seq())
+
+               
+
+
+    interface IEnumerable with
+        member x.GetEnumerator() = SeqEnumerator(x)
+
+    interface ICollection with
+        // this was in old code -- maybe a mistake??  TODO: Get rid of this if we get everything working
+        //member x.CopyTo(arr : obj array,idx) =
+        //    if arr = null then raise <| ArgumentNullException("array")
+        //    if arr.Rank() <> 1 then raise <| ArgumentException("Array must be 1-dimensional")
+        //    if idx < 0 then raise <| ArgumentOutOfRangeException("arrayIndex","must be non-negative")
+        //    if arr.Length - idx < (x:>IPersistentCollection).count() then raise <| InvalidOperationException("The number of elements in source is greater than the available space in the array.")
+        //    let rec step (i:int) (s:ISeq) =
+        //        if i < arr.Length && s <> null 
+        //        then 
+        //            arr.SetValue(s.first(),i)
+        //            step (i+1) (s.next())
+        //    step 0 (x:>ISeq)                   
+        member x.CopyTo(arr : Array,idx) =
+            if arr = null then raise <| ArgumentNullException("array")
+            if arr.Rank <> 1 then raise <| ArgumentException("Array must be 1-dimensional")
+            if idx < 0 then raise <| ArgumentOutOfRangeException("arrayIndex","must be non-negative")
+            if arr.Length - idx < (x:>IPersistentCollection).count() then raise <| InvalidOperationException("The number of elements in source is greater than the available space in the array.")
+            let rec step (i:int) (s:ISeq) =
+                if i < arr.Length && s <> null 
+                then 
+                    arr.SetValue(s.first(),i)
+                    step (i+1) (s.next())
+            step 0 (x:>ISeq)
+
+
+
+
+
+
+
+//       /// <summary>
+//       /// Gets the number of elements in the sequence.
+//       /// </summary>
+//       public int Count
+//       {
+//           get { return count(); }
+//       }
+
+//       /// <summary>
+//       /// Gets a value indicating whether access to the collection is thread-safe.
+//       /// </summary>
+//       public bool IsSynchronized
+//       {
+//           get { return true; }
+//       }
+
+//       public object SyncRoot
+//       {
+//           get { return this; }
+//       }
+
+//       #region IHashEq
+
+//       public int hasheq()
+//       {
+//           if (_hasheq == 0)
+//           {
+//               //int hash = 1;
+//               //for (ISeq s = seq(); s != null; s = s.next())
+//               //    hash = 31 * hash + Util.hasheq(s.first());
+
+//               //_hasheq = hash;
+//               _hasheq = Murmur3.HashOrdered(this);
+//           }
+//           return _hasheq;
+//       }
+
+//       #endregion
+
+//   }
+//}
+
+
+
+//**
+//*   Copyright (c) Rich Hickey. All rights reserved.
+//*   The use and distribution terms for this software are covered by the
+//*   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+//*   which can be found in the file epl-v10.html at the root of this distribution.
+//*   By using this software in any fashion, you are agreeing to be bound by
+//* 	 the terms of this license.
+//*   You must not remove this notice, or any other, from this software.
+//**/
+
+///**
+//*   Author: David Miller
+//**/
+
+//using System;
+
+//namespace clojure.lang
+//{
+//   /// <summary>
+//   /// Implements an immutable cons cell.
+//   /// </summary>
+//   [Serializable]
+//   public sealed class Cons: ASeq
+//   {
+//       // Any reason not to seal this class?
+
+//       #region Data
+
+//       /// <summary>
+//       /// Holds the first value.  (= CAR)
+//       /// </summary>
+//       private readonly object _first;
+
+//       /// <summary>
+//       /// Holds the rest value. (= CDR)
+//       /// </summary>
+//       private readonly ISeq _more;
+
+//       #endregion
+
+//       #region C-tors
+
+//       /// <summary>
+//       /// Initializes a <see cref="Cons">Cons</see> with the given metadata and first/rest.
+//       /// </summary>
+//       /// <param name="meta">The metadata to attach.</param>
+//       /// <param name="first">The first value.</param>
+//       /// <param name="more">The rest of the sequence.</param>
+//       public Cons(IPersistentMap meta, object first, ISeq more)
+//           : base(meta)
+//       {
+//           _first = first;
+//           _more = more;
+//       }
+
+//       /// <summary>
+//       /// Initializes a <see cref="Cons">Cons</see> with null metadata and given first/rest.
+//       /// </summary>
+//       /// <param name="first">The first value.</param>
+//       /// <param name="more">The rest of the sequence.</param>
+//       public Cons(object first, ISeq more)
+//       {
+//           _first = first;
+//           _more = more;
+//       }
+
+//       #endregion
+
+//       #region IObj members
+
+//       /// <summary>
+//       /// Create a copy with new metadata.
+//       /// </summary>
+//       /// <param name="meta">The new metadata.</param>
+//       /// <returns>A copy of the object with new metadata attached.</returns>
+//       public override IObj withMeta(IPersistentMap meta)
+//       {
+//           return (meta == _meta)
+//               ? this
+//               : new Cons(meta, _first, _more);
+//       }
+
+//       #endregion
+
+//       #region ISeq members
+
+//       /// <summary>
+//       /// Gets the first item.
+//       /// </summary>
+//       /// <returns>The first item.</returns>
+//        public override Object first()
+//       {
+//           return _first;
+//       }
+
+
+//        /// <summary>
+//        /// Return a seq of the items after the first.  Calls <c>seq</c> on its argument.  If there are no more items, returns nil."
+//        /// </summary>
+//        /// <returns>A seq of the items after the first, or <c>nil</c> if there are no more items.</returns>
+//        public override ISeq next()
+//        {
+//            return more().seq();
+//        }
+
+
+//        public override ISeq more()
+//       {
+//           return _more ?? PersistentList.EMPTY;
+//       }
+
+//       #endregion
+
+//       #region IPersistentCollection members
+
+//        /// <summary>
+//        /// Gets the number of items in the collection.
+//        /// </summary>
+//        /// <returns>The number of items in the collection.</returns>
+//        public override int count()
+//        {
+//            return 1 + RT.count(_more);
+//        }
+
+//       #endregion
+//   }
+//}
+
+
+
+//////////////////////////////////////////
+
+
 //open Clojure.Fn
 //open System
 //open System.Collections

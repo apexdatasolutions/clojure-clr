@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Collections
 
 
 
@@ -57,6 +58,60 @@ module RT =
     let seqLength (list:ISeq) : int =
         let rec step (s:ISeq) cnt = if s = null then cnt else step (s.next()) (cnt+1)
         step list 0
+
+    // This was in Util before
+    let nameForType (t:Type) =
+        //| null -> "<null>"  // prior version printed a message
+        if t.IsNested
+        then
+            let fullName = t.FullName
+            let index = fullName.LastIndexOf('.')
+            fullName.Substring(index+1)
+        else t.Name
+
+    // TODO: Prime candidate for protocols
+    let count (o:obj) : int =
+        match o with
+        | null -> 0
+        | :? Counted as c -> c.count()
+        | :? IPersistentCollection as c ->
+            let rec step (s:ISeq) cnt = 
+                match s with
+                | null -> cnt
+                | :? Counted as c -> cnt + c.count()
+                | _ -> step (s.next()) (cnt+1)
+            step (seq c) 0
+        | :? String as s -> s.Length
+        | :? ICollection as c -> c.Count
+        | :? DictionaryEntry -> 2
+        | :? Array as a -> a.GetLength(0)
+        | _ when o.GetType().IsGenericType && o.GetType().Name = "KeyValuePair`2" -> 2
+        | _ -> raise <| InvalidOperationException("count not supported on this type: " + nameForType(o.GetType()))
+
+            
+  
+
+      //           if (o is string str)
+      //               return str.Length;
+
+      //           if (o is ICollection c)
+      //               return c.Count;
+
+      //           if (o is IDictionary d)
+      //               return d.Count;
+
+      //           if (o is DictionaryEntry)
+      //               return 2;
+
+      //           if (o.GetType().IsGenericType && o.GetType().Name == "KeyValuePair`2")
+      //               return 2;
+
+      //           if (o is Array a)
+      //               return a.GetLength(0);
+
+      //           throw new InvalidOperationException("count not supported on this type: " + Util.NameForType(o.GetType()));
+      //       }
+
 
     // the real printer to use in Clojure requires a lot of Clojure infrastructure.
     // We provide a base printer that can be used as a default case later.
@@ -294,7 +349,91 @@ module Util =
                 | _, (:? IPersistentCollection as pc2) -> pc2.equiv(k1) 
                 | _ -> k1.Equals(k2)
 
-  
+    
+//public static int hasheq(object x)
+//{
+//    Type xc = x.GetType();
+
+//    if (xc == typeof(long))
+//    {
+//        long lpart = Util.ConvertToLong(x);
+//        //return (int)(lpart ^ (lpart >> 32));
+//        return Murmur3.HashLong(lpart);
+//    }
+//    if (xc == typeof(double))
+//    {
+//        if (x.Equals(-0.0))
+//            return 0;  // match 0.0
+//        return x.GetHashCode();
+//    }
+
+//    return hasheqFrom(x, xc);
+//}
+    // Another function to be set up in the Clojure environment -- TODO
+
+    // This will give us an initial value.
+    // Not handled: BigDecimal, BigInteger, BigRational, BigInt
+
+    let baseHashNumber (o:obj) : int =
+        match o with
+        | :? uint64 as n -> Murmur3.HashLongU n |> int
+        | :? uint32 as n -> Murmur3.HashLongU (uint64 n) |> int
+        | :? uint16 as n -> Murmur3.HashLongU (uint64 n) |> int
+        | :? byte as n -> Murmur3.HashLongU (uint64 n) |> int
+        | :? int64 as n -> Murmur3.HashLong n |> int
+        | :? int32 as n -> Murmur3.HashLong (int64 n) |> int
+        | :? int16 as n -> Murmur3.HashLong (int64 n) |> int
+        | :? sbyte as n -> Murmur3.HashLong (int64 n) |> int   
+        | :? float as n when n = -0.0 -> (0.0).GetHashCode() // make neg zero match pos zero
+        | :? float as n -> n.GetHashCode()
+        | :? float32 as n when n = -0.0f -> (0.0f).GetHashCode() // make neg zero match pos zero
+        | :? float32 as n -> n.GetHashCode()
+        | _ -> o.GetHashCode()
+
+    let mutable hashNumber : obj -> int = baseHashNumber
+
+
+
+    let hasheq (o:obj) : int =
+        match o with 
+        | null -> 0
+        | :? IHashEq as he -> he.hasheq()
+        | :? String as s -> Murmur3.HashInt(s.GetHashCode())
+        | _ when isNumeric o -> hashNumber o
+        | _ -> o.GetHashCode()
+
+
+
+    // These functions originally were in my Murmur3 package.
+    // Moved them here because: 
+    //   (1) they would have made mutual references between Util and Murmur3
+    //   (2) they would have made Murmur3 dependent on Clojure interfaces.
+    //       Might want to move Murmur3 to be independent, so leaving them there would have prevented that.
+
+        
+    let hashOrderedU (xs:IEnumerable) : uint =
+        let mutable n = 0
+        let mutable hash = 1u
+
+        for x in xs do
+            hash <- 31u*hash + (hasheq x |> uint)
+            n <- n+1
+
+        Murmur3.finalizeCollHash hash n
+
+    let hashUnorderedU (xs:IEnumerable) : uint =
+        let mutable n = 0
+        let mutable hash = 0u
+
+        for x in xs do
+            hash <- hash + (hasheq x |> uint)
+            n <- n+1
+
+        Murmur3.finalizeCollHash hash n
+
+    let hashOrdered(xs:IEnumerable) : int = hashOrderedU xs |> int
+    let hashUnordered(xs:IEnumerable) : int = hashUnorderedU xs |> int
+        
 
 
 ////open System
@@ -307,47 +446,6 @@ module Util =
 
 
 
-
-
-
-//////       #region IReduce Members
-
-//////       /// <summary>
-//////       /// Reduce the collection using a function.
-//////       /// </summary>
-//////       /// <param name="f">The function to apply.</param>
-//////       /// <returns>The reduced value</returns>
-//////       public object reduce(IFn f)
-//////       {
-//////           object ret = first();
-//////           for (ISeq s = next(); s != null; s = s.next()) { 
-//////               ret = f.invoke(ret, s.first());
-//////               if (RT.isReduced(ret))
-//////                   return ((IDeref)ret).deref();
-//////           }
-//////           return ret;
-//////       }
-
-//////       /// <summary>
-//////       /// Reduce the collection using a function.
-//////       /// </summary>
-//////       /// <param name="f">The function to apply.</param>
-//////       /// <param name="start">An initial value to get started.</param>
-//////       /// <returns>The reduced value</returns>
-//////       public object reduce(IFn f, object start)
-//////       {
-//////           object ret = f.invoke(start, first());
-//////           for (ISeq s = next(); s != null; s = s.next()) {
-//////               if (RT.isReduced(ret))
-//////                   return ((IDeref)ret).deref(); 
-//////               ret = f.invoke(ret, s.first());
-//////           }
-//////           if (RT.isReduced(ret))
-//////               return ((IDeref)ret).deref();
-//////           return ret;
-//////       }
-
-//////       #endregion
 
 
 

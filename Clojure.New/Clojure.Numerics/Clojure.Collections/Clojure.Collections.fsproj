@@ -8,13 +8,12 @@
 
   <ItemGroup>
     <None Include="GenerateRestFnSource.fsx" />
+    <Compile Include="Murmur3.fs" />
     <Compile Include="Interfaces.fs" />
     <Compile Include="Fn.fs" />
     <Compile Include="SymKey.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Sequences.fs" />
   </ItemGroup>
-
-  <ItemGroup />
 
 </Project>

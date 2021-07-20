@@ -4,6 +4,7 @@ open System
 open System.Collections
 open System.Collections.Generic
 open Clojure.Collections.RT
+open System.Linq
 
 
 type TypedSeqEnumerator<'T  when 'T :not struct>(s:ISeq) =
@@ -37,6 +38,7 @@ type TypedSeqEnumerator<'T  when 'T :not struct>(s:ISeq) =
                 else 
                     next <- RT.next(next)
                 next <> null
+        member x.Current = (x:>IEnumerator<'T>).Current :> obj
     
     member x.Dispose disposing =
         if disposing then
@@ -113,6 +115,8 @@ type ASeq(m) =
         step s 0
 
     interface ISeq with
+        member x.first() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.first()")
+        member x.next() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.next()")
         member x.more() =
             let s = (x:>ISeq).next()
             if s = null then EmptyList.Empty :> ISeq else s
@@ -131,7 +135,8 @@ type ASeq(m) =
                     | _, null -> false
                     | null, _ -> false
                     | _ -> Util.equiv(s1.first(),s2.first()) && step (s1.next()) (s2.next())
-                step x (RT.seq(o))                                                     
+                step x (RT.seq(o))    
+            | _ -> false
 
     interface Seqable with
         member x.seq() = x :> ISeq
@@ -162,13 +167,13 @@ type ASeq(m) =
             and set _ _ = raise <| InvalidOperationException("Cannot modify an immutable sequence")  
         member x.IndexOf(v) =
             let rec step i (s:ISeq) = 
-                if s == null then -1
+                if isNull s then -1
                 else if Util.equiv(s.first(), v) then i
                 else step (i+1) (s.next())
             step 0 ((x:>ISeq).seq())
         member x.Contains(v) = 
             let rec step (s:ISeq) = 
-                if s == null then false
+                if isNull s then false
                 else if Util.equiv(s.first(), v) then true
                 else step (s.next())
             step ((x:>ISeq).seq())
@@ -208,7 +213,7 @@ type ASeq(m) =
 
     interface IHashEq with
         member x.hasheq() = 
-            if hasheq = 0 then hasheq <- Murmur3.HashOrdered(x)
+            if hasheq = 0 then hasheq <- Util.hashOrdered(x)
             hasheq
 
 and [<Sealed>] Cons(meta,f:obj,m:ISeq) =
@@ -239,7 +244,7 @@ and [<Sealed>] EmptyList(m) =
 
     new() = EmptyList(null)
 
-    static member hasheq = Murmur3.HashOrdered(Enumerable.Empty<Object>())
+    static member hasheq = Util.hashOrdered(Enumerable.Empty<Object>())
     static member Empty : EmptyList = EmptyList()
 
     override x.GetHashCode() = 1
@@ -262,6 +267,9 @@ and [<Sealed>] EmptyList(m) =
         member x.cons(o) = (x:>ISeq).cons(o) :> IPersistentCollection
         member x.empty() = x :> IPersistentCollection
         member x.equiv(o) = x.Equals(o)
+
+    interface Seqable with
+        member x.seq() = null
 
     interface IPersistentStack with
         member x.peek() = null

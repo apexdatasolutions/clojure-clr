@@ -1,36 +1,10 @@
-﻿namespace Clojure.Fn
+﻿namespace Clojure.Collections
 
 open System
-open Clojure.Collections
+
 
 
 // In ClojureJVM, this would also implement Callable and Runnable -- no exact equivalent here -- shoule we look at Func<>? ThreadDelegate?
-
-[<AllowNullLiteral>]
-type IFn =
-    abstract invoke : unit -> obj
-    abstract invoke : arg1: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj  -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj  -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj  -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj * arg19: obj  -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj * arg19: obj * arg20: obj -> obj
-    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj * arg19: obj * arg20: obj * [<ParamArray>] args: obj array-> obj
-
 type IFnArity =
     abstract hasArity : arity: int -> bool
 

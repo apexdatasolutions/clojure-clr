@@ -2,7 +2,27 @@
 
 open System.Collections.Generic
 open System
-open Clojure.Fn
+
+
+// The mutually recursive triple that underlies most of the following interfaces.
+
+type [<AllowNullLiteral>] Seqable =
+    abstract seq : unit -> ISeq
+
+and [<AllowNullLiteral>] IPersistentCollection = 
+    inherit Seqable
+    abstract count : unit -> int
+    abstract cons: obj -> IPersistentCollection
+    abstract empty: unit -> IPersistentCollection
+    abstract equiv: obj -> bool
+
+and [<AllowNullLiteral>] ISeq =
+    inherit IPersistentCollection
+    abstract first : unit -> obj
+    abstract next : unit -> ISeq
+    abstract more : unit -> ISeq
+    abstract cons : obj -> ISeq
+
 
 
 
@@ -66,6 +86,7 @@ type IPersistentStack =
     abstract peek : unit -> obj
     abstract pop : unit -> IPersistentStack
 
+[<AllowNullLiteral>]
 type IPersistentList =
     inherit Sequential
     inherit IPersistentStack
@@ -82,6 +103,7 @@ type IPersistentVector =
     abstract cons : o: obj -> IPersistentVector
     abstract count : unit -> int
 
+[<AllowNullLiteral>]
 type IHashEq =
     abstract hasheq : unit -> int
 
@@ -94,7 +116,8 @@ type IObj =
     inherit IMeta
     abstract withMeta : meta: IPersistentMap -> IObj
 
-[<AbstractClass>][<AllowNullLiteral>]
+[<AbstractClass>]
+[<AllowNullLiteral>]
 type Obj(m:IPersistentMap) =
 
     let mm = m
@@ -103,7 +126,7 @@ type Obj(m:IPersistentMap) =
     interface IMeta with
         member x.meta() = mm
 
-    interface IObj with 
+    interface IObj with
         member x.withMeta(m:IPersistentMap) = raise <| NotImplementedException("Needs to be implemented in derived class")
         // I do not know how to indicate that Obj implements the IObj interface without providing an actual implementation.
         // Alternative -- if you base from Obj, remember to implement IObj.
@@ -112,9 +135,39 @@ type Obj(m:IPersistentMap) =
 type IDeref =
     abstract deref : unit -> obj
 
+
+[<AllowNullLiteral>]
+type IFn =
+    abstract invoke : unit -> obj
+    abstract invoke : arg1: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj  -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj  -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj  -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj * arg19: obj  -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj * arg19: obj * arg20: obj -> obj
+    abstract invoke : arg1: obj * arg2: obj * arg3: obj * arg4: obj * arg5: obj * arg6: obj * arg7: obj * arg8: obj * arg9: obj * arg10: obj * arg11: obj * arg12: obj * arg13: obj * arg14: obj * arg15: obj * arg16: obj * arg17: obj * arg18: obj * arg19: obj * arg20: obj * [<ParamArray>] args: obj array-> obj
+
+
+
+[<AllowNullLiteral>]
 type IReduceInit =
     abstract reduce : IFn * obj -> obj
 
+[<AllowNullLiteral>]
 type IReduce =
     inherit IReduceInit
     abstract reduce : IFn -> obj

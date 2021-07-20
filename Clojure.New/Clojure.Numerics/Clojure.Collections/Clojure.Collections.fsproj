@@ -8,9 +8,8 @@
 
   <ItemGroup>
     <None Include="GenerateRestFnSource.fsx" />
-    <Compile Include="BaseInterfaces.fs" />
-    <Compile Include="Fn.fs" />
     <Compile Include="Interfaces.fs" />
+    <Compile Include="Fn.fs" />
     <Compile Include="SymKey.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Sequences.fs" />

@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ConsTests.fs" />
     <Compile Include="SimpleCollections.fs" />
     <Compile Include="SimpleCollectionsTests.fs" />
+    <Compile Include="ConsTests.fs" />
     <Compile Include="FnTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
@@ -19,6 +19,9 @@
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.*" />
     <ProjectReference Include="..\Clojure.Collections\Clojure.Collections.fsproj" />
-    <PackageReference Update="FSharp.Core" Version="4.*" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.2-beta.21102.10" />
+  </ItemGroup>
+
 </Project>

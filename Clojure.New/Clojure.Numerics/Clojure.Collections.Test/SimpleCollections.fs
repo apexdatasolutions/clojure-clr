@@ -150,7 +150,8 @@ type SimpleMap(ks,vs) =
 
     static member mapCompare(m1:IPersistentMap,o:obj) : bool =
         if obj.ReferenceEquals(m1,o) then true
-        else match o with
+        else 
+            match o with
             | :? IPersistentMap as m2 ->
                 if m1.count() <> m2.count() then false
                 else 

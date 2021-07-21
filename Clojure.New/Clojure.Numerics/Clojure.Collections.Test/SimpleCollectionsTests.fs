@@ -152,18 +152,5 @@ let simpleMapTests =
             Expect.isFalse ((sm5a:>IPersistentCollection).equiv(sm0)) "Non-empty should not be equiv to empty"            
             Expect.isFalse ((sm0:>IPersistentCollection).equiv(sm5a)) "Empty should not be equiv to non-empty"    
             Expect.isTrue ((sm0:>IPersistentCollection).equiv(sm0))  "SEmpty ould be equiv to itself"
-
-
-
-                
-
-            
-
-
-
-  
-    
-    
-    
     
     ]

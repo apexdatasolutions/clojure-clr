@@ -66,7 +66,6 @@ namespace BigIntegerBenchmarks
         private static readonly string digits = "999999999999999999999999999999999999999999";
         private static readonly SNBI largesnbi = SNBI.Parse(digits);
         private static readonly CLBI largeclbi = CLBI.Parse(digits);
-        private const int numIters = 10;
 
         [Benchmark(Baseline = true)]
         public SNBI PowSNBI()
@@ -96,7 +95,7 @@ namespace BigIntegerBenchmarks
         {
             SNBI bi = largesnbi;
             for (int i = 0; i < numIters; i++)
-                bi = System.Numerics.BigInteger.DivRem(bi, snbiDivisor, out SNBI rem);
+                bi = System.Numerics.BigInteger.DivRem(bi, snbiDivisor, out SNBI _);
             return bi;
         }
 
@@ -105,7 +104,7 @@ namespace BigIntegerBenchmarks
         {
             CLBI bi = largeclbi;
             for (int i = 0; i < numIters; i++)
-                bi = clojure.lang.BigInteger.DivRem(bi, clbiDivisor, out CLBI rem);
+                bi = clojure.lang.BigInteger.DivRem(bi, clbiDivisor, out CLBI _);
             return bi;
         }
 
@@ -185,8 +184,6 @@ namespace BigIntegerBenchmarks
     public class ToStringBM
     {
         private static readonly string digits = "999999999999999999999999999999999999999999";
-        private const int numIters = 10;
-        private static readonly string[] inputs = new string[numIters];
         private static readonly SNBI largesnbi = SNBI.Parse(digits);
         private static readonly CLBI largeclbi = CLBI.Parse(digits);
 

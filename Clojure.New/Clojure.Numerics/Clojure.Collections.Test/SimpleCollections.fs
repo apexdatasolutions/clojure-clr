@@ -155,13 +155,14 @@ type SimpleMap(ks,vs) =
                 if m1.count() <> m2.count() then false
                 else 
                     let rec step (s:ISeq) =
-                        if isNull s then false
+                        if isNull s then true
                         else 
                             let me : IMapEntry = downcast s.first()
-                            if m2.containsKey me.key && m2.valAt(me.key).Equals(me.value)
+                            if m2.containsKey (me.key()) && m2.valAt(me.key()).Equals(me.value())
                             then step (s.next())
                             else false
                     step (m1.seq())
+            | _ -> false
         
 
     interface IPersistentCollection with
@@ -172,7 +173,7 @@ type SimpleMap(ks,vs) =
         member x.equiv(o) = SimpleMap.mapCompare(x,o)
 
     interface Seqable with 
-        member x.seq() = invalidOp "implement"
+        member x.seq() = upcast SimpleMapSeq(keys,vals)
 
     interface ILookup with
         member x.valAt(key) =
@@ -229,6 +230,35 @@ type SimpleMap(ks,vs) =
         let keys = seq { for c in 'a' .. 'z' -> box c } |> Seq.take n |> Seq.toList
         let vals = seq { for c in 'A' .. 'Z' -> box c } |> Seq.take n |> Seq.toList
         SimpleMap(keys,vals)
+
+and SimpleMapSeq(ks,vs) =
+    let keys : obj list  = ks
+    let vals : obj list= vs
+
+    interface Seqable with
+        member x.seq() = upcast x
+
+    interface IPersistentCollection with
+        member x.count() = List.length ks 
+        member x.cons(o) = upcast SimpleCons(o,x)
+        member x.empty() = upcast SimpleEmptySeq()
+        member x.equiv(o) = 
+            match o with
+            | :? Seqable as s -> Util.seqEquiv x (s.seq())
+            | _ -> false
+
+    interface ISeq with
+        member x.first() = upcast SimpleMapEntry(keys.Head,vals.Head)
+        member x.next() = if keys.Length <= 1 then null else upcast SimpleMapSeq(keys.Tail,vals.Tail)
+        member x.more() = 
+            match (x:>ISeq).next() with
+            | null -> upcast SimpleEmptySeq()
+            | _ as s -> s
+        member x.cons(o) = upcast SimpleCons(o,x)
+        
+    interface Sequential
+
+
 
 
         

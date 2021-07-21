@@ -32,6 +32,7 @@ type ILookup =
     abstract valAt : key:obj -> obj
     abstract valAt : key: obj * notFound: obj -> obj
 
+[<AllowNullLiteral>]
 type IMapEntry =
     abstract key : unit -> obj
     abstract value : unit -> obj

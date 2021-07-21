@@ -7,6 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ConsTests.fs" />
+    <Compile Include="SimpleCollections.fs" />
+    <Compile Include="SimpleCollectionsTests.fs" />
     <Compile Include="FnTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

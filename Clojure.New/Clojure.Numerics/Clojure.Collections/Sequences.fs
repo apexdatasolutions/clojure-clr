@@ -31,7 +31,7 @@ type TypedSeqEnumerator<'T  when 'T :not struct>(s:ISeq) =
             if next = null then false
             else
                 curr <- None
-                if isRealized
+                if not isRealized
                 then 
                     isRealized <- true
                     next <- RT.seq(next)
@@ -196,7 +196,7 @@ type ASeq(m) =
                 then 
                     arr.SetValue(s.first(),i)
                     step (i+1) (s.next())
-            step 0 (x:>ISeq)
+            step idx (x:>ISeq)
 
         // this was in old code -- maybe a mistake??  TODO: Get rid of this if we get everything working
         //member x.CopyTo(arr : obj array,idx) =

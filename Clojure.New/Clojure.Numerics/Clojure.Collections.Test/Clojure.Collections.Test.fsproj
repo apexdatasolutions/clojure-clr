@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="SimpleCollections.fs" />
+    <Compile Include="TestHelpers.fs" />
     <Compile Include="SimpleCollectionsTests.fs" />
     <Compile Include="ConsTests.fs" />
     <Compile Include="FnTests.fs" />

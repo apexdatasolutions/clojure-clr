@@ -11,6 +11,7 @@
     <Compile Include="TestHelpers.fs" />
     <Compile Include="SimpleCollectionsTests.fs" />
     <Compile Include="ConsTests.fs" />
+    <Compile Include="PersistentListTests.fs" />
     <Compile Include="FnTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

@@ -173,6 +173,9 @@ type IReduce =
     inherit IReduceInit
     abstract reduce : IFn -> obj
 
+[<AllowNullLiteral>]
+type IPending = 
+    abstract isRealized : unit -> bool
 
 type Named =
     abstract getNamespace : unit -> string

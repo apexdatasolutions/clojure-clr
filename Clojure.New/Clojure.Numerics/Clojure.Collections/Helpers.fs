@@ -86,31 +86,11 @@ module RT =
         | :? DictionaryEntry -> 2
         | :? Array as a -> a.GetLength(0)
         | _ when o.GetType().IsGenericType && o.GetType().Name = "KeyValuePair`2" -> 2
-        | _ -> raise <| InvalidOperationException("count not supported on this type: " + nameForType(o.GetType()))
-
-            
+        | _ -> raise <| InvalidOperationException("count not supported on this type: " + nameForType(o.GetType()))       
   
 
-      //           if (o is string str)
-      //               return str.Length;
+     
 
-      //           if (o is ICollection c)
-      //               return c.Count;
-
-      //           if (o is IDictionary d)
-      //               return d.Count;
-
-      //           if (o is DictionaryEntry)
-      //               return 2;
-
-      //           if (o.GetType().IsGenericType && o.GetType().Name == "KeyValuePair`2")
-      //               return 2;
-
-      //           if (o is Array a)
-      //               return a.GetLength(0);
-
-      //           throw new InvalidOperationException("count not supported on this type: " + Util.NameForType(o.GetType()));
-      //       }
 
 
     // the real printer to use in Clojure requires a lot of Clojure infrastructure.

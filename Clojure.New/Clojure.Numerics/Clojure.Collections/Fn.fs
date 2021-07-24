@@ -5,6 +5,7 @@ open System
 
 
 // In ClojureJVM, this would also implement Callable and Runnable -- no exact equivalent here -- shoule we look at Func<>? ThreadDelegate?
+[<AllowNullLiteral>]
 type IFnArity =
     abstract hasArity : arity: int -> bool
 
@@ -17,6 +18,7 @@ type ArityException(actual0: int, name0: string, cause0: Exception) =
 
 
 [<AbstractClass>]
+[<AllowNullLiteral>]
 type AFn() =
     interface IFnArity with
         member _.hasArity (arity:int) : bool = false

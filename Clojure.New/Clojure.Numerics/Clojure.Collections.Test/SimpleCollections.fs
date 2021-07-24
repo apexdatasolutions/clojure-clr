@@ -10,7 +10,7 @@ open System
 
 module Util = 
 
-    let checkEquals o1 o2 = obj.ReferenceEquals(o1,o2) || o1 <> null && o1.Equals(o2)
+    let checkEquals o1 o2 = obj.ReferenceEquals(o1,o2) || not (isNull o1) && o1.Equals(o2)
     let rec seqEquals (s1:ISeq) (s2:ISeq) =
         match s1, s2 with   
         | null, null -> true
@@ -19,11 +19,11 @@ module Util =
         | _ ->  checkEquals (s1.first()) (s2.first()) && seqEquals (s1.next()) (s2.next())
     let seqEquiv s1 s2 = seqEquals s1 s2
     let seqCount (s:ISeq) = 
-        let rec step (s:ISeq) cnt = if s = null then cnt else step (s.next()) (cnt+1)
+        let rec step (s:ISeq) cnt = if isNull s then cnt else step (s.next()) (cnt+1)
         step s 0
     let getHashCode (s:ISeq) = 
-        let combine hc x = 31*hc + if x = null then 0 else x.GetHashCode()
-        let rec step (s:ISeq) hc = if s = null then hc else step (s.next()) (combine hc (s.first()))
+        let combine hc x = 31*hc + if isNull x then 0 else x.GetHashCode()
+        let rec step (s:ISeq) hc = if isNull s then hc else step (s.next()) (combine hc (s.first()))
         step s 1
     let rec seqToString (s:ISeq) = 
         let itemToString (o:obj) =
@@ -31,8 +31,8 @@ module Util =
             | :? Seqable as s -> seqToString (s.seq())
             | _ -> o.ToString()
         let rec itemsToString (s:ISeq) =
-            if s = null then "" else (itemToString (s.first())) + (itemsToString (s.next()))  
-        if s = null then "nil" else "(" + (itemsToString s) + ")"        
+            if isNull s then "" else (itemToString (s.first())) + (itemsToString (s.next()))  
+        if isNull s then "nil" else "(" + (itemsToString s) + ")"        
 
 type SimpleCons(h,t) =
     let head : obj = h      // I had to restrain myself from calling these car & cdr
@@ -41,20 +41,20 @@ type SimpleCons(h,t) =
     interface ISeq with
         member x.first() = head
         member x.next() = (x:>ISeq).more().seq()
-        member x.more() =  if tail <> null then tail else (SimpleEmptySeq() :> ISeq)
-        member x.cons(o) = SimpleCons(o,x) :> ISeq
+        member x.more() =  if isNull tail then upcast SimpleEmptySeq() else tail 
+        member x.cons(o) = upcast SimpleCons(o,x)
 
     interface IPersistentCollection with
         member x.count() = 1 + Util.seqCount tail
-        member x.cons(o) = (x:>ISeq).cons(o) :> IPersistentCollection
-        member _.empty() = SimpleEmptySeq() :> IPersistentCollection
+        member x.cons(o) = upcast (x:>ISeq).cons(o)
+        member _.empty() = upcast SimpleEmptySeq() 
         member x.equiv(o) =
             match o with
             | :? Seqable as s -> Util.seqEquiv (x:>ISeq) (s.seq())
             | _ -> false
 
     interface Seqable with
-        member x.seq() = (x:>ISeq)
+        member x.seq() = upcast x
 
     override x.Equals(o) = 
         match o with
@@ -66,7 +66,7 @@ type SimpleCons(h,t) =
     override x.ToString() = Util.seqToString x
 
     static member makeConsSeq (n:int) =
-        let mutable (c:ISeq) = SimpleEmptySeq() :> ISeq
+        let mutable (c:ISeq) = upcast SimpleEmptySeq()
         for i = n-1 downto 0 do
             c <- c.cons(i)
         c
@@ -78,13 +78,13 @@ and  SimpleEmptySeq() =
     interface ISeq with 
         member _.first() = null
         member _.next() = null
-        member x.more() = x :> ISeq
-        member x.cons(o) = SimpleCons(o,x) :> ISeq 
+        member x.more() = upcast x
+        member x.cons(o) = upcast SimpleCons(o,x)
 
     interface IPersistentCollection with
         member _.count() = 0
-        member x.cons(o) = (x:>ISeq).cons(o) :> IPersistentCollection
-        member x.empty() = x:>IPersistentCollection
+        member x.cons(o) = upcast (x:>ISeq).cons(o)
+        member x.empty() = upcast x
         member x.equiv(o) = x.Equals(o)
 
     interface Seqable with
@@ -92,7 +92,7 @@ and  SimpleEmptySeq() =
 
     override x.Equals(o) = 
         match o with
-        | :? Seqable as s -> s.seq() = null
+        | :? Seqable as s ->  s.seq() |> isNull
         | _ -> false
 
     override x.GetHashCode() = 1
@@ -108,13 +108,13 @@ type SimpleRange(s,e) =
     interface ISeq with
         member x.first() = upcast startVal 
         member x.next() = (x:>ISeq).more().seq()
-        member x.more() = if startVal = endVal then SimpleEmptySeq() :> ISeq else SimpleRange(startVal+1,endVal) :> ISeq
+        member x.more() = if startVal = endVal then upcast SimpleEmptySeq() else upcast SimpleRange(startVal+1,endVal)
         member x.cons(o) = SimpleCons(o,(x:>ISeq)) :> ISeq
 
     interface IPersistentCollection with
         member _.count() = endVal-startVal+1
-        member x.cons(o) =  (x:>ISeq).cons(o) :> IPersistentCollection
-        member _.empty() = SimpleEmptySeq() :> IPersistentCollection
+        member x.cons(o) = upcast (x:>ISeq).cons(o) 
+        member _.empty() = upcast SimpleEmptySeq()
         member x.equiv(o) = 
             match o with
             | :? Seqable as s -> Util.seqEquiv (x:>ISeq) (s.seq())

@@ -1,7 +1,9 @@
 ﻿namespace Clojure.Collections
 
-open System.Collections.Generic
 open System
+open System.Collections
+open System.Collections.Generic
+
 
 
 // The mutually recursive triple that underlies most of the following interfaces.
@@ -65,7 +67,7 @@ type Reversible =
 [<AllowNullLiteral>]
 type IPersistentMap =
     inherit Associative
-    inherit IEnumerable<IMapEntry>
+    inherit IEnumerable<IMapEntry>            // do we really need this?
     inherit Counted
     abstract assoc : key: obj * value: obj -> IPersistentMap
     abstract assocEx : key: obj * value: obj -> IPersistentMap
@@ -127,10 +129,9 @@ type Obj(m:IPersistentMap) =
     interface IMeta with
         member x.meta() = mm
 
-    interface IObj with
-        member x.withMeta(m:IPersistentMap) = raise <| NotImplementedException("Needs to be implemented in derived class")
-        // I do not know how to indicate that Obj implements the IObj interface without providing an actual implementation.
-        // Alternative -- if you base from Obj, remember to implement IObj.
+    interface IObj with 
+        member x.withMeta(m) = raise <| NotImplementedException("You must implement withMeta in derived classes")
+
 
 
 type IDeref =
@@ -180,5 +181,13 @@ type IPending =
 type Named =
     abstract getNamespace : unit -> string
     abstract getName : unit -> string
+
+
+type MapEquivalence = interface end
+
+type IMapEnumerable =
+    abstract keyEnumerator : unit -> IEnumerator
+    abstract valEnumerator : unit -> IEnumerator
+
 
     

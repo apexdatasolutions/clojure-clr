@@ -114,6 +114,11 @@ type ASeq(m) =
             | _ -> step (s.next()) (cnt+1)
         step s 0
 
+    // This is a little bit of stupidity so we can access GetEnumerator through base in derived classes
+    // I've been unable to find a better was
+
+    member  x.GetMyEnumerator() = (x:>IEnumerable).GetEnumerator()
+
     interface ISeq with
         member x.first() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.first()")
         member x.next() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.next()")

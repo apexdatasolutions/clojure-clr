@@ -14,6 +14,7 @@
     <Compile Include="SymKey.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Sequences.fs" />
+    <Compile Include="Maps.fs" />
   </ItemGroup>
   
   <ItemGroup>

@@ -190,4 +190,40 @@ type IMapEnumerable =
     abstract valEnumerator : unit -> IEnumerator
 
 
-    
+ // The transients
+ 
+ type ITransientCollection =
+    abstract conj : obj -> ITransientCollection
+    abstract persistent : unit -> IPersistentCollection
+
+type ITransientAssociative =
+    inherit ITransientCollection
+    inherit ILookup
+    abstract assoc : (obj*obj) -> ITransientAssociative
+
+type ITransientAssociative2 =
+    inherit ITransientAssociative
+    abstract containsKey : obj -> bool
+    abstract entryAt : obj -> IMapEntry
+
+type ITransientMap =
+    inherit ITransientAssociative
+    inherit Counted
+    abstract assoc (obj*obj) -> ITransientMap
+    abstract without obj -> ITransientMap
+    abstract persistent : unit -> IPersistentMap
+
+type ITransientSet =
+    inherit ITransientCollection
+    inherit Counted
+    abstract disjoin : obj -> ITransientSet
+    abstract contains : obj -> bool
+    abstract get : obj -> obj
+
+type ITransientVector =
+    inherit ITransientAssociative
+    inherit Indexed
+    abstract assocN : (int*obj) -> ITransientVector
+    abstract pop : unit -> ITransientVector
+
+

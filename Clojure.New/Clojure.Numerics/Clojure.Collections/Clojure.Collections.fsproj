@@ -11,9 +11,10 @@
     <Compile Include="Murmur3.fs" />
     <Compile Include="Interfaces.fs" />
     <Compile Include="Fn.fs" />
-    <Compile Include="SymKey.fs" />
+    <Compile Include="RTEnv.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Sequences.fs" />
+    <Compile Include="SymKey.fs" />
     <Compile Include="Maps.fs" />
   </ItemGroup>
   

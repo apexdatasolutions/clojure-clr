@@ -178,6 +178,7 @@ type IReduce =
 type IPending = 
     abstract isRealized : unit -> bool
 
+[<AllowNullLiteral>]
 type Named =
     abstract getNamespace : unit -> string
     abstract getName : unit -> string
@@ -209,8 +210,8 @@ type ITransientAssociative2 =
 type ITransientMap =
     inherit ITransientAssociative
     inherit Counted
-    abstract assoc (obj*obj) -> ITransientMap
-    abstract without obj -> ITransientMap
+    abstract assoc : (obj*obj) -> ITransientMap
+    abstract without : obj -> ITransientMap
     abstract persistent : unit -> IPersistentMap
 
 type ITransientSet =

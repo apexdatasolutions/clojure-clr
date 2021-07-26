@@ -1,8 +1,11 @@
-﻿namespace Clojure.Collections
+﻿namespace  rec Clojure.Collections
 
 open System
 open System.IO
 open System.Collections
+open System.Text.RegularExpressions
+open System.Reflection
+open System.Globalization
 
 
 
@@ -59,16 +62,6 @@ module RT =
         let rec step (s:ISeq) cnt = if s = null then cnt else step (s.next()) (cnt+1)
         step list 0
 
-    // This was in Util before
-    let nameForType (t:Type) =
-        //| null -> "<null>"  // prior version printed a message
-        if t.IsNested
-        then
-            let fullName = t.FullName
-            let index = fullName.LastIndexOf('.')
-            fullName.Substring(index+1)
-        else t.Name
-
     // TODO: Prime candidate for protocols
     let count (o:obj) : int =
         match o with
@@ -86,35 +79,95 @@ module RT =
         | :? DictionaryEntry -> 2
         | :? Array as a -> a.GetLength(0)
         | _ when o.GetType().IsGenericType && o.GetType().Name = "KeyValuePair`2" -> 2
-        | _ -> raise <| InvalidOperationException("count not supported on this type: " + nameForType(o.GetType()))       
+        | _ -> raise <| InvalidOperationException("count not supported on this type: " + Util.nameForType(o.GetType()))       
   
+    // TODO:Prime candidate for protocols
+    let nth(coll:obj, n:int) : obj =
+        if n < 0 then raise <| ArgumentOutOfRangeException("n","index must be non-negative")
+        match coll with
+        | null -> null
+        | :? Indexed as idx -> idx.nth(n)
+        | :? string as s -> box s.[n]
+        | _ when coll.GetType().IsArray -> 
+            // JVM has a call to Reflector.prepRet here, which is a no-op for us.
+            // TODO: don't forget to look at this when we get to codegen
+            // TODO: This was in my C# code -- verify that we can alwyas do this cast.
+            (coll:?>Array).GetValue(n)
+        | :? IList as il -> il.[n]
+        //| :? JReMatcher as jrem -> jrem.group(n)  // TODO: uncomment when we have JReMatcher
+        | :? Match as m -> upcast m.Groups.[n]
+        | :? IMapEntry as me ->
+            match n with
+            | 0 -> me.key()
+            | 1 -> me.value()
+            | _ -> raise <| ArgumentOutOfRangeException("n","index out of bounds for IMapEntry, must be 0,1")
+        | :? DictionaryEntry as de ->
+            match n with
+            | 0 -> de.Key
+            | 1 -> de.Value
+            | _ -> raise <| ArgumentOutOfRangeException("n","index out of bounds for DictionaryEntry, must be 0,1")
+        | _ when coll.GetType().IsGenericType && coll.GetType().Name.Equals("KeyValuePair`2") ->
+            match n with
+            | 0 -> coll.GetType().InvokeMember("Key",BindingFlags.GetProperty,null,coll,null)
+            | 1 -> coll.GetType().InvokeMember("Value",BindingFlags.GetProperty,null,coll,null)
+            | _ -> raise <| ArgumentOutOfRangeException("n","index out of bounds for KeyValuePair, must be 0,1")
+        | :? Sequential as sql ->
+            let rec step (s:ISeq) (i:int) =
+                if i = n then s.first()
+                elif isNull s then raise <| ArgumentOutOfRangeException("n","past end of collection")
+                else step (s.next()) (i+1)
+            step (RT.seq(coll)) 0
+        | _ -> raise <| InvalidOperationException("nth not supported on type" + Util.nameForType(coll.GetType()))
+
+
+
+
+    // TODO: Prime candidate for protocols
+    let get(coll:obj, key:obj) : obj =
+
+        let getByNth coll key =
+            let n = Util.convertToInt(key)
+            if n >= 0 && n < RT.count(coll) 
+            then RT.nth(coll,n)
+            else null
+
+        match coll with
+        | null -> null
+        | :? ILookup as il -> il.valAt(key)
+        | :? IDictionary as d -> d.[key]
+        | :? IPersistentSet as s -> s.get(key)
+        | :? string as s when Util.isNumeric(key) -> getByNth s key
+        | _ when coll.GetType().IsArray -> getByNth coll key
+        | :? ITransientSet as tset -> tset.get(key)
+        | _ -> null
+
+    // TODO: Prime candidate for protocols
+    // This was called get -- but we can't have overloads in modules!
+    let get3(coll:obj, key:obj, notFound:obj) : obj =
+
+        let getByNth coll key =
+            let n = Util.convertToInt(key)
+            if n >= 0 && n < RT.count(coll) 
+            then RT.nth(coll,n)
+            else notFound
+
+        match coll with
+        | null -> null
+        | :? ILookup as il -> il.valAt(key,notFound)
+        | :? IDictionary as d -> if  d.Contains(key) then  d.[key] else notFound
+        | :? IPersistentSet as s -> if s.contains(key) then s.get(key) else notFound
+        | :? string as s when Util.isNumeric(key) -> getByNth s key
+        | _ when coll.GetType().IsArray -> getByNth coll key
+        | :? ITransientSet as tset -> if tset.contains(key) then tset.get(key) else notFound
+        | _ -> notFound
+
+
 
      
 
 
-
-    // the real printer to use in Clojure requires a lot of Clojure infrastructure.
-    // We provide a base printer that can be used as a default case later.
-    // For now, we install the base printer as
-    // The initialization of the Clojure environment will have to install its own printer.
-
-
     // Note that our default printer cannot call ToString on the collections -- those methods will be calling this.  Circularity city.
     // However, it can call ToString on items in a collection.
-
-    // 
-
-
-    type PrintFnType = (obj * TextWriter) -> unit
-
-    let dummyPrinter : PrintFnType = raise <| NotImplementedException("Call to dummyPrinter -- initialization error")
-        
-
-    let mutable private metaPrinterFn : PrintFnType = dummyPrinter
-    let setMetaPrintFn (prfn: PrintFnType)  : unit = metaPrinterFn <- prfn
-
-    let mutable private printFn : PrintFnType = dummyPrinter
-    let setPrintFn (prfn: PrintFnType)  : unit = printFn <- prfn
 
 
     // TODO: figure out how to properly incorporate 'readably' into this interface.
@@ -168,7 +221,7 @@ module RT =
                     )
                 w.Write('"');
 
-        metaPrinterFn(x,w)
+        RTEnv.metaPrinterFn(x,w)
         match x with
         | null -> w.Write("nil")
         | :? ISeq 
@@ -261,10 +314,11 @@ module RT =
         //}
 
                
-    and print(x:obj, w:TextWriter ) : unit = printFn(x, w)
+    and print(x:obj, w:TextWriter ) : unit = RTEnv.printFn(x, w)
 
-    setPrintFn (fun (x,w) -> basePrinter(true,x,w))
-    setMetaPrintFn metaPrinterFn
+    do
+        RTEnv.setPrintFn (fun (x,w) -> basePrinter(true,x,w))
+        RTEnv.setMetaPrintFn baseMetaPrinter
 
     let printString(x:obj) =
         use sw = new StringWriter()
@@ -278,32 +332,27 @@ module Util =
         match x with
         | null -> 0
         | _ -> x.GetHashCode()
+
+     //a la boost
+    let hashCombine(seed:int,hash:int) = seed ^^^ (hash + 0x9e3779b9 + (seed <<< 6) + (seed >>> 2))
     
     let equals(x,y) =
         Object.ReferenceEquals(x,y) || x <> null && x.Equals(y)
     
     let private isNullableType (t:Type) = t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Nullable<_>>
 
-    let private getNonNullabelType (t:Type) = if isNullableType t then t.GetGenericArguments().[0] else t
+    let private getNonNullableType (t:Type) = if isNullableType t then t.GetGenericArguments().[0] else t
 
 
-    // The Clojure initialization will have to add the types System.Numeric.BigInteger, Clojure.Numerics.BigDecimal, Clojure.Numerics.BigRational, Clojure.BigInt
-    let mutable private extraNumericTypes : Type list = List.empty
 
-    let addExtraNumericTypes (ts:Type seq) = extraNumericTypes <- extraNumericTypes |> List.append (Seq.toList(ts))
-    let removeExtraNumericType (ts:Type seq) = extraNumericTypes <- extraNumericTypes |> List.except ts 
-    let isExtraNumericType (t:Type) = extraNumericTypes |> List.contains t
 
-    // Similarly, we need to provide a method for comparing numeric types for equality
-    let dummyNumericEquality(x:obj,y:obj) : bool = raise <| NotImplementedException("Called dummy numeric equality function -- initialization error")
- 
-    let mutable private numericEqualityFn : (obj*obj) -> bool = dummyNumericEquality
-    let setNumericEqualityFn (neFn:((obj*obj) -> bool)) = numericEqualityFn <- neFn
+
+   
         
 
 
     let private isNumericType (t:Type) = 
-        let t = getNonNullabelType(t)
+        let t = getNonNullableType(t)
         if t.IsEnum then false
         else
             match Type.GetTypeCode(t)  with
@@ -312,22 +361,49 @@ module Util =
             | TypeCode.Int32 | TypeCode.UInt32
             | TypeCode.Int64 | TypeCode.UInt64
             | TypeCode.Single | TypeCode.Double -> true
-            | _ when isExtraNumericType t -> true
+            | _ when RTEnv.isExtraNumericType t -> true
             | _ -> false
 
-    let private isNumeric (o:obj) = o <> null && isNumericType (o.GetType())
+    let isNumeric (o:obj) = o <> null && isNumericType (o.GetType())
 
+    let numericEquals(x:obj,y:obj) = RTEnv.numericEqualityFn(x,y)
+
+    let baseNumericEqualityFn(x,y) = x.Equals(y)
+
+    do 
+        RTEnv.setNumericEqualityFn baseNumericEqualityFn
+
+    let pcequiv(k1:obj,k2:obj) =
+        match k1, k2 with
+        | :? IPersistentCollection as pc1, _ -> pc1.equiv(k2)
+        | _, (:? IPersistentCollection as pc2) -> pc2.equiv(k1) 
+        | _ -> k1.Equals(k2)
 
     let equiv(k1:obj, k2:obj) =
         if Object.ReferenceEquals(k1,k2) then true
         elif isNull k1 then false
         else 
-            if isNumeric k1 && isNumeric k2 then numericEqualityFn(k1,k2)
-            else
-                match k1, k2 with
-                | :? IPersistentCollection as pc1, _ -> pc1.equiv(k2)
-                | _, (:? IPersistentCollection as pc2) -> pc2.equiv(k1) 
-                | _ -> k1.Equals(k2)
+            if isNumeric k1 && isNumeric k2 then RTEnv.numericEqualityFn(k1,k2)
+            else pcequiv(k1,k2)
+
+    // TODO: Benchmark this against alternative implementations: just use Convert, or match on TypeCode.
+    let convertToInt(o:obj) :int =
+        match o with
+        | :? Byte as x -> (int x)
+        | :? Char as x -> (int x)
+        | :? Decimal as x -> (int x)
+        | :? Double as x -> (int x)
+        | :? Int16 as x -> (int x)
+        | :? Int32 as x -> (int x)
+        | :? Int64 as x -> (int x)
+        | :? SByte as x -> (int x)
+        | :? Single as x -> (int x)
+        | :? UInt16 as x -> (int x)
+        | :? UInt32 as x -> (int x)
+        | :? UInt64 as x -> (int x)
+        | _ -> Convert.ToInt32(o,CultureInfo.InvariantCulture)
+
+
 
     
 //public static int hasheq(object x)
@@ -370,7 +446,7 @@ module Util =
         | :? float32 as n -> n.GetHashCode()
         | _ -> o.GetHashCode()
 
-    let mutable hashNumber : obj -> int = baseHashNumber
+    let hashNumber (o:obj) : int = RTEnv.hashNumberFn o
 
 
 
@@ -414,7 +490,14 @@ module Util =
     let hashOrdered(xs:IEnumerable) : int = hashOrderedU xs |> int
     let hashUnordered(xs:IEnumerable) : int = hashUnorderedU xs |> int
         
-
+    let nameForType (t:Type) =
+        //| null -> "<null>"  // prior version printed a message
+        if t.IsNested
+        then
+            let fullName = t.FullName
+            let index = fullName.LastIndexOf('.')
+            fullName.Substring(index+1)
+        else t.Name
 
 ////open System
 ////open System.Collections

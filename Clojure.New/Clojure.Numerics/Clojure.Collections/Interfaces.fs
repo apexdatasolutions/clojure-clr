@@ -194,37 +194,38 @@ type IMapEnumerable =
  // The transients
  
  type ITransientCollection =
-    abstract conj : obj -> ITransientCollection
+    abstract conj : o:obj -> ITransientCollection
     abstract persistent : unit -> IPersistentCollection
 
 type ITransientAssociative =
     inherit ITransientCollection
     inherit ILookup
-    abstract assoc : (obj*obj) -> ITransientAssociative
+    abstract assoc : key:obj * value:obj -> ITransientAssociative
 
 type ITransientAssociative2 =
     inherit ITransientAssociative
-    abstract containsKey : obj -> bool
-    abstract entryAt : obj -> IMapEntry
+    abstract containsKey : key:obj -> bool
+    abstract entryAt : key:obj -> IMapEntry
 
 type ITransientMap =
     inherit ITransientAssociative
     inherit Counted
-    abstract assoc : (obj*obj) -> ITransientMap
-    abstract without : obj -> ITransientMap
+    abstract assoc : key:obj * value:obj -> ITransientMap
+    abstract without : key:obj -> ITransientMap
     abstract persistent : unit -> IPersistentMap
 
 type ITransientSet =
     inherit ITransientCollection
     inherit Counted
-    abstract disjoin : obj -> ITransientSet
-    abstract contains : obj -> bool
-    abstract get : obj -> obj
+    abstract disjoin : key:obj -> ITransientSet
+    abstract contains : key:obj -> bool
+    abstract get : key:obj -> obj
 
 type ITransientVector =
     inherit ITransientAssociative
     inherit Indexed
-    abstract assocN : (int*obj) -> ITransientVector
+    abstract assocN : idx:int * value: obj -> ITransientVector
     abstract pop : unit -> ITransientVector
 
-
+type IEditableCollection =
+    abstract asTransient: unit -> ITransientCollection

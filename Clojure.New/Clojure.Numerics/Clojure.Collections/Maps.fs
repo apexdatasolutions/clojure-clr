@@ -129,6 +129,24 @@ type ValSeq(meta, s,e) =
             | :? IMapEnumerable as imi -> imi.keyEnumerator()
             | _ -> ValSeq.keyIterator(ienum)
 
+
+// TODO: Need to finish this.
+// should be MapEntry -> AMapEntry -> APersistetntVector, so we need to get that in here ahead  APersistentVector is 1140+ SLOC.  AMapEntry is over 250.
+// We don't need all this just to get APersistentMap going
+
+[<AllowNullLiteral>]
+type MapEntry(k,v) =
+    let key : obj = k
+    let value : obj = v
+
+    static member create(k,v) = MapEntry(k,v)  // not sure why we need this, but here it is
+
+    interface IMapEntry with
+        member x.key() = key
+        member x.value() = value
+
+
+
 [<AbstractClass>]
 [<AllowNullLiteral>]
 type APersistentMap() =
@@ -234,9 +252,6 @@ type APersistentMap() =
         member x.assoc(k,v) = upcast (x:>IPersistentMap).assoc(k,v)
         member x.containsKey(k) = raise <| NotImplementedException("You must implement containsKey in derived classes")
         member x.entryAt(k) = raise <| NotImplementedException("You must implement entryAt in derived classes")
-
-
-
 
 
     // TODO: conversion to an IMapEntry could be a protocol. Would simplify code in a lot of places
@@ -364,7 +379,79 @@ type APersistentMap() =
             and set _ _ = raise <| InvalidOperationException("Cannot modify an immutable map") 
         member x.GetEnumerator() = upcast new MapEnumerator(x)
        
+[<AbstractClass>]
+type ATransientMap() =
+    inherit AFn()
 
+    abstract ensureEditable : unit -> unit
+    abstract doAssoc : (obj * obj) -> ITransientMap
+    abstract doWithout : key:obj -> ITransientMap
+    abstract doValAt : (obj * obj) -> obj
+    abstract doCount : unit -> int
+    abstract doPersistent : unit -> IPersistentMap
+
+    interface ITransientCollection with
+        member x.persistent() = upcast (x:>ITransientMap).persistent()
+        member x.conj(o) = upcast x.conj(o)
+
+    member x.conj(value:obj) : ITransientMap =
+        x.ensureEditable()
+        
+        // TODO: add KeyValuePair?  (also not in C# version)
+        // TODO: find general method for handling heys
+        match value with
+        | :? IMapEntry as e -> downcast (x:>ITransientAssociative).assoc(e.key(),e.value())
+        | :? DictionaryEntry as e -> downcast (x:>ITransientAssociative).assoc(e.Key,e.Value)
+        | :? IPersistentVector as v ->
+            if v.count() <> 2 then raise <| ArgumentException("value","vector arg to map conj must be a pair")
+            downcast (x:>ITransientAssociative).assoc(v.nth(0),v.nth(1))
+        | _ ->
+            let mutable ret : ITransientMap = upcast x
+            let mutable es : ISeq = RT.seq(value)
+            while not (isNull es) do
+                let e : IMapEntry = downcast es.first()
+                ret <- ret.assoc(e.key(),e.value())
+            ret
+
+    static  member private NotFound:obj = obj()
+
+    interface ILookup with
+        member x.valAt(key:obj) = (x:>ILookup).valAt(key,null)
+        member x.valAt(key:obj, notFound:obj) =
+            x.ensureEditable()
+            x.doValAt(key,notFound)    
+
+    interface ITransientAssociative with
+        member x.assoc(k,v) = upcast (x:>ITransientMap).assoc(k,v)
+
+    interface ITransientAssociative2 with
+        member x.containsKey(key:obj) = (x:>ILookup).valAt(key,ATransientMap.NotFound) <> ATransientMap.NotFound
+        member x.entryAt(key:obj) = 
+            let v = (x:>ILookup).valAt(key,ATransientMap.NotFound)
+            if v = ATransientMap.NotFound then null
+            else upcast MapEntry.create(key,v)
+
+    interface ITransientMap with    
+        member x.assoc(key,value) =
+            x.ensureEditable()
+            x.doAssoc(key,value)
+        member x.without(key) =
+            x.ensureEditable()
+            x.doWithout(key)
+        member x.persistent() =
+            x.ensureEditable()
+            x.doPersistent()
+
+    interface Counted with
+        member x.count() =
+            x.ensureEditable()
+            x.doCount()
+
+    interface IFn with
+        override x.invoke(arg1) = (x:>ILookup).valAt(arg1)
+        override x.invoke(arg1,arg2) = (x:>ILookup).valAt(arg1,arg2)
+
+       
 
 // Util.EquivPred
 // This was originally a delegate in the C#:
@@ -391,6 +478,7 @@ module EquivPredLib =
         | _ -> equivEquals
 
 open EquivPredLib
+open System.Threading
 
 
 type PersistentArrayMap(m,a) =
@@ -400,6 +488,8 @@ type PersistentArrayMap(m,a) =
     
     new() = PersistentArrayMap(null,Array.zeroCreate 0)
     new(a) = PersistentArrayMap(null,a)
+
+    member x.create(init: obj[]) = PersistentArrayMap((x:>IMeta).meta(),init) 
 
     static member private hashtableThreshold = 16
     static member Empty = PersistentArrayMap()
@@ -434,335 +524,106 @@ type PersistentArrayMap(m,a) =
         | :? Keyword as kw -> x.indexOfOKeyword(kw)
         | _ -> x.indexOfObject key
 
-            
+    static member equalKey(k1:obj,k2:obj) =
+        match k1 with
+        | :? Keyword -> Object.ReferenceEquals(k1,k2)
+        | _ -> Util.equiv(k1,k2)
+
+
+    interface Seqable with
+        override x.seq() = if kvs.Length = 0 then null else upcast ArrayMapSeq(kvs,0)
+
+    interface IPersistentCollection with    
+        override x.count() = kvs.Length / 2
+        override x.empty() = (PersistentArrayMap.Empty:>IObj).withMeta(meta) :?> IPersistentCollection
+
+
+
+    interface ILookup with
+        member x.valAt(k) = (x:>ILookup).valAt(x,null)
+        member x.valAt(k,notFound) = 
+            let i = x.indexOfKey(k)
+            if i < 0 then notFound
+            else kvs.[i+1]
+
+
+    interface Associative with 
+        member x.containsKey(k) = x.indexOfKey(k) >= 0
+        member x.entryAt(k) =
+            let i = x.indexOfKey(k)
+            if i < 0 then null  
+            else upcast MapEntry.create(kvs.[i],kvs.[i+1])
+        
+
+    interface IPersistentMap with
+        member x.assoc(k,v) = 
+            let i = x.indexOfKey(k)
+            if i >= 0 && Object.ReferenceEquals(kvs.[i+1],v) 
+            then upcast x   // no change, no-op
+            elif i < 0 && kvs.Length >= PersistentArrayMap.hashtableThreshold 
+            then createHT(kvs).assoc(k,v)
+            else
+                // we will create a new PersistentArrayMap
+                let newArray =
+                    if i >= 0 
+                    then
+                        let na : obj[] = downcast kvs.Clone()
+                        na.[i+1] <- v
+                        na
+                    else
+                        let na = Array.zeroCreate<obj>(kvs.Length + 2)
+                        Array.Copy(kvs,0,na,0,kvs.Length)
+                        na.[Array.length(na)-2] <- k
+                        na.[Array.length(na)-1] <- v
+                        na
+                upcast x.create(newArray)
+        member x.assocEx(k,v) = 
+            let i = x.indexOfKey(k)
+            if i >= 0 then raise <| InvalidOperationException("Key already present")
+            (x:>IPersistentMap).assoc(k,v)
+        member x.without(k) =
+            let i = x.indexOfKey(k)
+            let newLen = kvs.Length-2
+            if i < 0 then upcast x  // key does note exist, no-op
+            elif newLen = 0 then downcast (x:>IPersistentCollection).empty()
+            else 
+                let newArray = Array.zeroCreate newLen
+                Array.Copy(kvs,0,newArray,0,i)
+                Array.Copy(kvs,i+1,newArray,i,newLen-i)
+                upcast x.create(newArray)
+
+
+    interface IEditableCollection with
+        member x.asTransient()  = upcast TransientArrayMap(kvs)
+
+
+and TransientArrayMap(a) = 
+    inherit ATransientMap()
+    [<VolatileField>] 
+    let mutable len : int = Math.Max(hashtableThreshold,a.Length)
+    let kvs : obj[] = Array.zeroCreate len
+    [<NonSerialized>][<VolatileField>] 
+    let mutable owner : Thread = Thread.CurrentThread
+
+    do 
+        Array.Copy(a,kvs,a.Length)
+
+
+
+    
+
+
+                
+
 
 
 
 // public class PersistentArrayMap : APersistentMap, IObj, IEditableCollection, IMapEnumerable, IMapEnumerableTyped<Object,Object>, IEnumerable, IEnumerable<IMapEntry>, IKVReduce
 
-
-//       /// <summary>
-//       /// Compare two keys for equality.
-//       /// </summary>
-//       /// <param name="k1">The first key to compare.</param>
-//       /// <param name="k2">The second key to compare.</param>
-//       /// <returns></returns>
-//       /// <remarks>Handles nulls properly.</remarks>
-//       static bool EqualKey(object k1, object k2)
-//       {
-//           if (k1 is Keyword)
-//               return k1 == k2;
-//           return Util.equiv(k1, k2);
-//       }
-
-//       /// <summary>
-//       /// Test if the map contains a key.
-//       /// </summary>
-//       /// <param name="key">The key to test for membership</param>
-//       /// <returns>True if the key is in this map.</returns>
-//       public override bool containsKey(object key)
-//       {
-//           return IndexOfKey(key) >= 0;
-//       }
-
-//       /// <summary>
-//       /// Returns the key/value pair for this key.
-//       /// </summary>
-//       /// <param name="key">The key to retrieve</param>
-//       /// <returns>The key/value pair for the key, or null if the key is not in the map.</returns>
-//       public override IMapEntry entryAt(object key)
-//       {
-//           int i = IndexOfKey(key);
-//           return i >= 0
-//               ? (IMapEntry)MapEntry.create(_array[i], _array[i + 1])
-//               : null;
-//       }
-
-//       /// <summary>
-//       /// Gets the value associated with a key.
-//       /// </summary>
-//       /// <param name="key">The key to look up.</param>
-//       /// <returns>The associated value. (Throws an exception if key is not present.)</returns>
-//       public override object valAt(object key)
-//       {
-//           return valAt(key, null);
-//       }
-
-//       /// <summary>
-//       /// Gets the value associated with a key.
-//       /// </summary>
-//       /// <param name="key">The key to look up.</param>
-//       /// <param name="notFound">The value to return if the key is not present.</param>
-//       /// <returns>The associated value (or <c>notFound</c> if the key is not present.</returns>
-//       public override object valAt(object key, object notFound)
-//       {
-//           int i = IndexOfKey(key);
-//           return i >= 0
-//               ? _array[i + 1]
-//               : notFound;
-//       }
-
-//       #endregion
-
-//       #region IPersistentCollection members
-
-//       /// <summary>
-//       /// Gets the number of items in the collection.
-//       /// </summary>
-//       /// <returns>The number of items in the collection.</returns>
-//       public override int count()
-//       {
-//           return _array.Length / 2;
-//       }
-
-//       /// <summary>
-//       /// Gets an ISeq to allow first/rest iteration through the collection.
-//       /// </summary>
-//       /// <returns>An ISeq for iteration.</returns>
-//       public override ISeq seq()
-//       {
-//           return _array.Length > 0
-//               ? new Seq(_array, 0)
-//               : null;
-//       }
-
-//       /// <summary>
-//       /// Gets an empty collection of the same type.
-//       /// </summary>
-//       /// <returns>An emtpy collection.</returns>
-//       public override IPersistentCollection empty()
-//       {
-//           return (IPersistentCollection)EMPTY.withMeta(meta());
-//       }
-
-//       #endregion
-
-//       #region IPersistentMap members
-
-//       /// <summary>
-//       /// Add a new key/value pair.
-//       /// </summary>
-//       /// <param name="key">The key</param>
-//       /// <param name="val">The value</param>
-//       /// <returns>A new map with key+value added.</returns>
-//       /// <remarks>Overwrites an exising value for the <paramref name="key"/>, if present.</remarks>
-//       public override IPersistentMap assoc(object key, object val)
-//       {
-//           int i = IndexOfKey(key);
-//           object[] newArray;
-//           if (i >= 0)
-//           {
-//               // already have key, same sized replacement
-//               if (_array[i + 1] == val) // no change, no-op
-//                   return this;
-//               newArray = (object[]) _array.Clone();
-//               newArray[i + 1] = val;
-//           }
-//           else
-//           {
-//               // new key, grow
-//               if (_array.Length >= HashtableThreshold)
-//                   return createHT(_array).assoc(key, val);
-//               newArray = new object[_array.Length + 2];
-//               if (_array.Length > 0)
-//                   Array.Copy(_array, 0, newArray, 0, _array.Length);
-//               newArray[newArray.Length-2] = key;
-//               newArray[newArray.Length - 1] = val;
-//           }
-//           return create(newArray);
-//       }
-
-//       /// <summary>
-//       /// Create an <see cref="IPersistentMap">IPersistentMap</see> to hold the data when 
-//       /// an operation causes the threshhold size to be exceeded.
-//       /// </summary>
-//       /// <param name="init">The array of key/value pairs.</param>
-//       /// <returns>A new <see cref="IPersistentMap">IPersistentMap</see>.</returns>
-//       [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
-//       private IPersistentMap createHT(object[] init)
-//       {
-//           return PersistentHashMap.create(meta(), init);
-//       }
-
-//       /// <summary>
-//       /// Add a new key/value pair.
-//       /// </summary>
-//       /// <param name="key">The key</param>
-//       /// <param name="val">The value</param>
-//       /// <returns>A new map with key+value added.</returns>
-//       /// <remarks>Throws an exception if <paramref name="key"/> has a value already.</remarks>
-//       public override IPersistentMap assocEx(object key, object val)
-//       {
-//           int i = IndexOfKey(key);
-//           if (i >= 0)
-//               throw new InvalidOperationException("Key already present.");
-//           return assoc(key, val);
-//       }
-
-//       /// <summary>
-//       /// Remove a key entry.
-//       /// </summary>
-//       /// <param name="key">The key to remove</param>
-//       /// <returns>A new map with the key removed (or the same map if the key is not contained).</returns>
-//       public override IPersistentMap without(object key)
-//       {
-//           int i = IndexOfKey(key);
-//           if (i >= 0)
-//           {
-//               // key exists, remove
-//               int newlen = _array.Length - 2;
-//               if (newlen == 0)
-//                   return (IPersistentMap)empty();
-//               object[] newArray = new object[newlen];
-//               Array.Copy(_array, 0, newArray, 0, i);
-//               Array.Copy(_array,i+2,newArray,i,newlen-i);
-//               return create(newArray);
-//           }
-//           else
-//               return this;             
-//       }
-
-//       #endregion
-
-      
-//       /// <summary>
-//       /// Internal class providing an <see cref="ISeq">ISeq</see> 
-//       /// for <see cref="PersistentArrayMap">PersistentArrayMap</see>s.
-//       /// </summary>
-//       [Serializable]
-//       protected sealed class Seq : ASeq, Counted
-//       {
-//           #region Data
-
-//           /// <summary>
-//           /// The array to iterate over.
-//           /// </summary>
-//           private readonly object[] _array;
-
-//           /// <summary>
-//           /// Current index position in the array.
-//           /// </summary>
-//           private readonly int _i;
-
-//           #endregion
-
-//           #region C-tors & factory methods
-
-//           /// <summary>
-//           /// Initialize the sequence to a given array and index.
-//           /// </summary>
-//           /// <param name="array">The array being sequenced over.</param>
-//           /// <param name="i">The current index.</param>
-//           public Seq(object[] array, int i)
-//           {
-//               _array = array;
-//               _i = i;
-//           }
-
-//           /// <summary>
-//           /// Initialize the sequence with given metatdata and array/index.
-//           /// </summary>
-//           /// <param name="meta">The metadata to attach.</param>
-//           /// <param name="array">The array being sequenced over.</param>
-//           /// <param name="i">The current index.</param>
-//           public Seq(IPersistentMap meta, object[] array, int i)
-//               : base(meta)
-//           {
-//               _array = array;
-//               _i = i;
-//           }
-
-//           #endregion
-
-//           #region ISeq members
-
-//           /// <summary>
-//           /// Gets the first item.
-//           /// </summary>
-//           /// <returns>The first item.</returns>
-//           public override object first()
-//           {
-//               return MapEntry.create(_array[_i], _array[_i + 1]);
-//           }
-
-//           /// <summary>
-//           /// Return a seq of the items after the first.  Calls <c>seq</c> on its argument.  If there are no more items, returns nil."
-//           /// </summary>
-//           /// <returns>A seq of the items after the first, or <c>nil</c> if there are no more items.</returns>
-//           public override ISeq next()
-//           {
-//               return _i + 2 < _array.Length
-//                   ? new Seq(_array, _i + 2)
-//                   : null;
-//           }
-
-//           #endregion
-
-//           #region IPersistentCollection members
-//           /// <summary>
-//           /// Gets the number of items in the collection.
-//           /// </summary>
-//           /// <returns>The number of items in the collection.</returns>
-//           public override int count()
-//           {
-//               return (_array.Length - _i) / 2;
-//           }
-
-//           #endregion
-
-//           #region IObj members
-
-//           /// <summary>
-//           /// Create a copy with new metadata.
-//           /// </summary>
-//           /// <param name="meta">The new metadata.</param>
-//           /// <returns>A copy of the object with new metadata attached.</returns>
-//           public override IObj withMeta(IPersistentMap meta)
-//           {
-//               if (_meta == meta)
-//                   return this;
-
-//               return new Seq(meta, _array, _i);
-//           }
-
-//           #endregion
-
-//       }
-
-//       #region IEditableCollection Members
-
-//       public ITransientCollection asTransient()
-//       {
-//           return new TransientArrayMap(_array);
-//       }
-
-//       #endregion
-
 //       #region TransientArrayMap class
 
 //       sealed class TransientArrayMap : ATransientMap
 //       {
-//           #region Data
-
-//           volatile int _len;
-//           readonly object[] _array;
-           
-//           [NonSerialized] volatile Thread _owner;
-
-//           #endregion
-
-//           #region Ctors
-
-
-//           public TransientArrayMap(object[] array)
-//           {
-//               _owner = Thread.CurrentThread;
-//               _array = new object[Math.Max(HashtableThreshold, array.Length)];
-//               Array.Copy(array, _array, array.Length);
-//               _len = array.Length;
-//           }
-
-//           #endregion
 
 //           #region
 
@@ -1018,3 +879,39 @@ type PersistentArrayMap(m,a) =
 //           return new PersistentArrayMap(init);
 //       }
 
+//       /// <summary>
+//       /// Create an <see cref="IPersistentMap">IPersistentMap</see> to hold the data when 
+//       /// an operation causes the threshhold size to be exceeded.
+//       /// </summary>
+//       /// <param name="init">The array of key/value pairs.</param>
+//       /// <returns>A new <see cref="IPersistentMap">IPersistentMap</see>.</returns>
+//       [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
+//       private IPersistentMap createHT(object[] init)
+//       {
+//           return PersistentHashMap.create(meta(), init);
+//       }
+
+
+and [<Sealed>] ArrayMapSeq(m,a,i) =
+    inherit ASeq(m)
+    let kvs : obj[] = a
+    let idx : int = i
+    new(a,i) = ArrayMapSeq(null,a,i)
+
+    interface IPersistentCollection with
+        override x.count() = (kvs.Length - i) / 2
+
+    interface ISeq with
+        override x.first() = upcast MapEntry.create(kvs.[i],kvs.[i+1])
+        override x.next() =
+            let nextIdx = idx+2
+            if nextIdx < kvs.Length then upcast ArrayMapSeq(kvs,nextIdx)
+            else null
+
+    interface IObj with
+        override x.withMeta(m) = 
+            if Object.ReferenceEquals(m,(x:>IMeta).meta()) then upcast x 
+            else upcast ArrayMapSeq((x:>IMeta).meta(),kvs,idx)
+
+    interface Counted with
+        member x.count() = (x:>IPersistentCollection).count()

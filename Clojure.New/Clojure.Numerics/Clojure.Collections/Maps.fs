@@ -384,9 +384,9 @@ type ATransientMap() =
     inherit AFn()
 
     abstract ensureEditable : unit -> unit
-    abstract doAssoc : (obj * obj) -> ITransientMap
+    abstract doAssoc : obj * obj -> ITransientMap
     abstract doWithout : key:obj -> ITransientMap
-    abstract doValAt : (obj * obj) -> obj
+    abstract doValAt : obj * obj -> obj
     abstract doCount : unit -> int
     abstract doPersistent : unit -> IPersistentMap
 
@@ -491,7 +491,7 @@ type PersistentArrayMap(m,a) =
 
     member x.create(init: obj[]) = PersistentArrayMap((x:>IMeta).meta(),init) 
 
-    static member private hashtableThreshold = 16
+    static member internal hashtableThreshold = 16
     static member Empty = PersistentArrayMap()
     
     interface IMeta with    
@@ -597,219 +597,65 @@ type PersistentArrayMap(m,a) =
         member x.asTransient()  = upcast TransientArrayMap(kvs)
 
 
-and TransientArrayMap(a) = 
-    inherit ATransientMap()
-    [<VolatileField>] 
-    let mutable len : int = Math.Max(hashtableThreshold,a.Length)
-    let kvs : obj[] = Array.zeroCreate len
-    [<NonSerialized>][<VolatileField>] 
-    let mutable owner : Thread = Thread.CurrentThread
-
-    do 
-        Array.Copy(a,kvs,a.Length)
-
-
-
-    
+    interface IKVReduce with    
+        member x.kvreduce(f,init) =
+            let rec step (i:int) (value:obj) =
+                if i >= kvs.Length then value   
+                else 
+                    let v = f.invoke(value,kvs.[i],kvs.[i+1])
+                    match v with  // in original, call to RT.isReduced
+                    | :? Reduced as r -> (r:>IDeref).deref()
+                    | _ -> step (i+2) v
+            step 0 init
 
 
-                
+    interface IMapEnumerable with
+        member x.keyEnumerator() = 
+            let s = 
+                seq {
+                        for i in 0 .. 2 .. (kvs.Length-1) do    
+                            yield kvs.[i]
+                    }
+            upcast s.GetEnumerator()
 
+        member x.valEnumerator() =
+            let s = 
+                seq {
+                        for i in 0 .. 2 .. (kvs.Length-1) do    
+                            yield kvs.[i+1]
+                    }
+            upcast s.GetEnumerator()
 
+    interface IEnumerable<IMapEntry> with
+        member x.GetEnumerator() : IEnumerator<IMapEntry> =
+            let s = 
+                seq {
+                        for i in 0 .. 2 .. (kvs.Length-1) do    
+                            yield MapEntry.create(kvs.[i],kvs.[i+1]) :> IMapEntry
+                    }
+            s.GetEnumerator()
+        member x.GetEnumerator() : IEnumerator = upcast (x:>IEnumerable<IMapEntry>).GetEnumerator()
+
+    static member create (other:IDictionary) : IPersistentMap =
+        let mutable ret : ITransientMap = (PersistentArrayMap.Empty:>IEditableCollection).asTransient() :?> ITransientMap
+        for o in other do  
+            let de = o:?> DictionaryEntry
+            ret <- ret.assoc(de.Key,de.Value)
+        ret.persistent()
+
+    // if you pass an array to this, this map must become the owner or immutability is screwed
+    member x.create([<ParamArray>] init : obj[]) : PersistentArrayMap = PersistentArrayMap((x:>IMeta).meta(),init)
+
+    static member createWithCheck(init:obj[]) : PersistentArrayMap =
+        for i in 0 .. 2 .. init.Length-1 do
+            for j in i+2 .. 2 .. init.Length-1 do   
+                if PersistentArrayMap.equalKey(init.[i],init.[j]) then raise <| ArgumentException("init","Duplicate key " + (init.[i].ToString())) 
+        PersistentArrayMap(init)
 
 
 // public class PersistentArrayMap : APersistentMap, IObj, IEditableCollection, IMapEnumerable, IMapEnumerableTyped<Object,Object>, IEnumerable, IEnumerable<IMapEntry>, IKVReduce
 
-//       #region TransientArrayMap class
 
-//       sealed class TransientArrayMap : ATransientMap
-//       {
-
-//           #region
-
-//           /// <summary>
-//           /// Gets the index of the key in the array.
-//           /// </summary>
-//           /// <param name="key">The key to search for.</param>
-//           /// <returns>The index of the key if found; -1 otherwise.</returns>
-//           private int IndexOfKey(object key)
-//           {
-//               for (int i = 0; i < _len; i += 2)
-//                   if (EqualKey(_array[i], key))
-//                       return i;
-//               return -1;
-//           }
-
-//           protected override void EnsureEditable()
-//           {
-//               if (_owner == null )
-//                   throw new InvalidOperationException("Transient used after persistent! call");
-//           }
-
-//           protected override ITransientMap doAssoc(object key, object val)
-//           {
-//               int i = IndexOfKey(key);
-//               if (i >= 0) //already have key,
-//               {
-//                   if (_array[i + 1] != val) //no change, no op
-//                       _array[i + 1] = val;
-//               }
-//               else //didn't have key, grow
-//               {
-//                   if (_len >= _array.Length)
-//                       return ((ITransientMap)PersistentHashMap.create(_array).asTransient()).assoc(key, val);
-//                   _array[_len++] = key;
-//                   _array[_len++] = val;
-//               }
-//               return this;
-//           }
-
-
-//           protected override ITransientMap doWithout(object key)
-//           {
-//               int i = IndexOfKey(key);
-//               if (i >= 0) //have key, will remove
-//               {
-//                   if (_len >= 2)
-//                   {
-//                       _array[i] = _array[_len - 2];
-//                       _array[i + 1] = _array[_len - 1];
-//                   }
-//                   _len -= 2;
-//               }
-//               return this;
-//           }
-
-//           protected override object doValAt(object key, object notFound)
-//           {
-//               int i = IndexOfKey(key);
-//               if (i >= 0)
-//                   return _array[i + 1];
-//               return notFound;
-//           }
-
-//           protected override int doCount()
-//           {
-//               return _len / 2;
-//           }
-
-//           protected override IPersistentMap doPersistent()
-//           {
-//               EnsureEditable();
-//               _owner = null;
-//               object[] a = new object[_len];
-//               Array.Copy(_array, a, _len);
-//               return new PersistentArrayMap(a);
-//           }
-
-//           #endregion
-//       }
-
-//       #endregion
-
-//       #region kvreduce
-
-//       public object kvreduce(IFn f, object init)
-//       {
-//           for (int i = 0; i < _array.Length; i += 2)
-//           {
-//               init = f.invoke(init, _array[i], _array[i + 1]);
-//               if (RT.isReduced(init))
-//                   return ((IDeref)init).deref();
-//           }
-//           return init;
-//       }
-
-//       #endregion
-
-//       #region IMapEnumerable, IMapEnumerableTyped, IEnumerable ...
-
-//       public IEnumerator keyEnumerator()
-//       {
-//           return tkeyEnumerator();
-//       }
-
-//       public IEnumerator valEnumerator()
-//       {
-//           return tvalEnumerator();
-//       }
-
-//       public IEnumerator<object> tkeyEnumerator()
-//       {
-//           for (int i = 0; i < _array.Length; i += 2)
-//               yield return _array[i];
-//       }
-
-//       public IEnumerator<object> tvalEnumerator()
-//       {
-//           for (int i = 0; i < _array.Length; i += 2)
-//               yield return _array[i + 1];
-//       }
-
-
-//       public override IEnumerator<KeyValuePair<object, object>> GetEnumerator()
-//       {
-//           for (int i = 0; i < _array.Length; i += 2)
-//               yield return new KeyValuePair<object, object>(_array[i], _array[i + 1]);
-//       }
-
-//       IEnumerator IEnumerable.GetEnumerator()
-//       {
-//           return ((IEnumerable<IMapEntry>)this).GetEnumerator();
-//       }
-
-//       IEnumerator<IMapEntry> IEnumerable<IMapEntry>.GetEnumerator()
-//       {
-//           for (int i = 0; i < _array.Length; i += 2)
-//               yield return (IMapEntry)MapEntry.create(_array[i], _array[i + 1]);
-//       }
-
-//       #endregion
-
-//   }
-//}
-
-//       /// <summary>
-//       /// Create a <see cref="PersistentArrayMap">PersistentArrayMap</see> (if small enough, else create a <see cref="PersistentHashMap">PersistentHashMap</see>.
-//       /// </summary>
-//       /// <param name="other">The BCL map to initialize from</param>
-//       /// <returns>A new persistent map.</returns>
-//       [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
-//       public static IPersistentMap create(IDictionary other)
-//       {
-//           ITransientMap ret = (ITransientMap)EMPTY.asTransient();
-//           foreach (DictionaryEntry de in other)
-//               ret = ret.assoc(de.Key, de.Value);
-//           return ret.persistent();
-
-//       }
-
-//       /// <summary>
-//       /// Create a <see cref="PersistentArrayMap">PersistentArrayMap</see> with new data but same metadata as the current object.
-//       /// </summary>
-//       /// <param name="init">The new key/value array</param>
-//       /// <returns>A new <see cref="PersistentArrayMap">PersistentArrayMap</see>.</returns>
-//       /// <remarks>The array is used directly.  Do not modify externally or immutability is sacrificed.</remarks>
-//       [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
-//       PersistentArrayMap create(params object[] init)
-//       {
-//           return new PersistentArrayMap(meta(), init);
-//       }
-
-
-//       [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
-//       public static PersistentArrayMap createWithCheck(Object[] init)
-//       {
-//           for (int i = 0; i < init.Length; i += 2)
-//           {
-//               for (int j = i + 2; j < init.Length; j += 2)
-//               {
-//                   if (EqualKey(init[i], init[j]))
-//                       throw new ArgumentException("Duplicate key: " + init[i]);
-//               }
-//           }
-//           return new PersistentArrayMap(init);
-//       }
 
 
 //       [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
@@ -915,3 +761,72 @@ and [<Sealed>] ArrayMapSeq(m,a,i) =
 
     interface Counted with
         member x.count() = (x:>IPersistentCollection).count()
+
+and TransientArrayMap(a) = 
+    inherit ATransientMap()
+    [<VolatileField>] 
+    let mutable len : int = Math.Max(PersistentArrayMap.hashtableThreshold,a.Length)
+    let kvs : obj[] = Array.zeroCreate len
+    [<NonSerialized>][<VolatileField>] 
+    let mutable owner : Thread = Thread.CurrentThread
+
+    do 
+        Array.Copy(a,kvs,a.Length)
+
+
+    member private x.indexOfKey(key:obj) =
+        let rec step (idx:int) =
+            if idx >= len then -1
+            elif PersistentArrayMap.equalKey(kvs.[idx],key) then idx
+            else step (idx+2)
+        step 0
+
+    override x.ensureEditable() = if isNull owner then raise <| InvalidOperationException("Transient used after persistent! call")
+
+    override x.doAssoc(k,v) = 
+        let i = x.indexOfKey(k)
+        if i >= 0
+        then  // exists, overwrite value
+            if kvs.[i+1] <> v then   kvs.[i+1] <- v
+            upcast x
+        elif len < kvs.Length
+        then    // we have room to add
+            kvs.[len] <- k
+            kvs.[len+1] <- v
+            len <- len+2
+            upcast x
+        else 
+            (PersistentHashMap.create(kvs).asTransient():>ITransientMap).assoc(k,v)
+
+    override x.doWithout(k) =
+        let i = x.indexOfKey(k)
+        if  i >= 0
+        then  // exists, must remove
+            if len >= 2
+            then // move end pair
+                kvs.[i] <- kvs.[kvs.Length-2]
+                kvs.[i+1] <- kvs.[kvs.Length-1]
+            len <- len-2
+        upcast x
+
+    override x.doValAt(k,nf) =
+        let i = x.indexOfKey(k)
+        if i >= 0 then kvs.[i+1] else nf
+
+    override x.doCount() = len / 2
+
+    override x.doPersistent() =
+        x.ensureEditable()
+        owner <- null
+        let a = Array.zeroCreate len
+        Array.Copy(kvs,a,len)
+        upcast PersistentArrayMap(a)
+
+
+   
+
+
+
+
+                
+

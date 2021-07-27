@@ -175,6 +175,10 @@ type IReduce =
     abstract reduce : IFn -> obj
 
 [<AllowNullLiteral>]
+type IKVReduce =
+    abstract kvreduce : f:IFn * inti:obj -> obj
+
+[<AllowNullLiteral>]
 type IPending = 
     abstract isRealized : unit -> bool
 

@@ -161,8 +161,12 @@ module RT =
         | :? ITransientSet as tset -> if tset.contains(key) then tset.get(key) else notFound
         | _ -> notFound
 
+    // need to move defn of Reduced to before Helpers (currently in Sequences)
 
-
+    //let isReduced(x:obj) : bool =
+    //    match x with
+    //    | :? Reduced -> true
+    //    | _ -> false
      
 
 
@@ -498,6 +502,27 @@ module Util =
             let index = fullName.LastIndexOf('.')
             fullName.Substring(index+1)
         else t.Name
+
+
+    let mask(hash,shift) = (hash >>> shift) &&& 0x01f
+
+    let bitCount(x) =
+        let x = x-((x >>> 1) &&& 0x55555555);
+        let x = (((x >>> 2) &&& 0x33333333) + (x &&& 0x33333333))
+        let x = (((x >>> 4) + x) &&& 0x0f0f0f0f)
+        (x * 0x01010101) >>> 24
+
+    // A variant of the above that avoids multiplying
+    // This algo is in a lot of places.
+    // See, for example, http://aggregate.org/MAGIC/#Population%20Count%20(Ones%20Count)
+    let bitCountU(x:uint) = 
+        let x = x-((x >>> 1) &&& 0x55555555u);
+        let x = (((x >>> 2) &&& 0x33333333u) + (x &&& 0x33333333u))
+        let x = (((x >>> 4) + x) &&& 0x0f0f0f0fu)
+        let x = x + (x >>> 8);
+        let x = x + (x >>> 16);
+        x &&& 0x0000003fu
+
 
 ////open System
 ////open System.Collections

@@ -190,6 +190,7 @@ type Named =
 
 type MapEquivalence = interface end
 
+[<AllowNullLiteral>]
 type IMapEnumerable =
     abstract keyEnumerator : unit -> IEnumerator
     abstract valEnumerator : unit -> IEnumerator
@@ -197,20 +198,24 @@ type IMapEnumerable =
 
  // The transients
  
+[<AllowNullLiteral>]
  type ITransientCollection =
     abstract conj : o:obj -> ITransientCollection
     abstract persistent : unit -> IPersistentCollection
 
+[<AllowNullLiteral>]
 type ITransientAssociative =
     inherit ITransientCollection
     inherit ILookup
     abstract assoc : key:obj * value:obj -> ITransientAssociative
 
+[<AllowNullLiteral>]
 type ITransientAssociative2 =
     inherit ITransientAssociative
     abstract containsKey : key:obj -> bool
     abstract entryAt : key:obj -> IMapEntry
 
+[<AllowNullLiteral>]
 type ITransientMap =
     inherit ITransientAssociative
     inherit Counted
@@ -218,6 +223,7 @@ type ITransientMap =
     abstract without : key:obj -> ITransientMap
     abstract persistent : unit -> IPersistentMap
 
+[<AllowNullLiteral>]
 type ITransientSet =
     inherit ITransientCollection
     inherit Counted
@@ -225,11 +231,13 @@ type ITransientSet =
     abstract contains : key:obj -> bool
     abstract get : key:obj -> obj
 
+[<AllowNullLiteral>]
 type ITransientVector =
     inherit ITransientAssociative
     inherit Indexed
     abstract assocN : idx:int * value: obj -> ITransientVector
     abstract pop : unit -> ITransientVector
 
+[<AllowNullLiteral>]
 type IEditableCollection =
     abstract asTransient: unit -> ITransientCollection

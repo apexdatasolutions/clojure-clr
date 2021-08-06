@@ -119,21 +119,6 @@ type IObj =
     inherit IMeta
     abstract withMeta : meta: IPersistentMap -> IObj
 
-[<AbstractClass>]
-[<AllowNullLiteral>]
-type Obj(m:IPersistentMap) =
-
-    let mm = m
-    new() = Obj(null)
-
-    interface IMeta with
-        member x.meta() = mm
-
-    interface IObj with 
-        member x.withMeta(m) = raise <| NotImplementedException("You must implement withMeta in derived classes")
-
-
-
 type IDeref =
     abstract deref : unit -> obj
 

@@ -56,13 +56,6 @@ type SeqEnumerator(s:ISeq) =
 type IMapEntrySeqEnumerator(s:ISeq) =
     inherit TypedSeqEnumerator<IMapEntry>(s)
 
-[<Sealed>]
-type Reduced(v) = 
-    let value = v
-
-    interface IDeref with
-        member x.deref() = value
-
 
 [<AbstractClass>]
 [<AllowNullLiteral>]

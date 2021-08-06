@@ -163,10 +163,10 @@ module RT =
 
     // need to move defn of Reduced to before Helpers (currently in Sequences)
 
-    //let isReduced(x:obj) : bool =
-    //    match x with
-    //    | :? Reduced -> true
-    //    | _ -> false
+    let isReduced(x:obj) : bool =
+        match x with
+        | :? Reduced -> true
+        | _ -> false
      
 
 

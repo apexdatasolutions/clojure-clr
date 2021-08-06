@@ -205,7 +205,7 @@ type PersistentHashMap private (meta, count, root, hasNull, nullValue) =
                     upcast PersistentHashMap(meta, (if hasNull then count else count+1), root, true, v)
             else 
                 let addedLeaf = SillyBox()
-                let rootToUse = if isNull root then BitmapIndexedNode.Empty else root
+                let rootToUse : INode = if isNull root then upcast BitmapIndexedNode.Empty else root
                 let newRoot = rootToUse.assoc(0,hash(k),k,v,addedLeaf)
                 if newRoot = root then 
                     upcast x 
@@ -311,8 +311,25 @@ type PersistentHashMap private (meta, count, root, hasNull, nullValue) =
             else
                 ret ))
         fjinvoke.invoke(top)
+ 
+    static member internal createNode(shift:int, key1:obj, val1: obj, key2hash:int, key2:obj, val2:obj) : INode =
+        let key1hash = hash(key1)
+        if key1hash = key2hash then
+            upcast HashCollisionNode(null,key1hash, 2, [| key1; val1; key2; val2 |])
+        else
+            let box = SillyBox()
+            let edit = AtomicReference<Thread>()
+            (BitmapIndexedNode.Empty :> INode).assoc(edit,shift,key1hash,key1,val1,box).assoc(edit,shift,key2hash,key2,val2,box)
 
-
+    static member internal createNode(edit:AtomicReference<Thread>, shift:int, key1:obj, val1: obj, key2hash:int, key2:obj, val2:obj) : INode =
+        let key1hash = hash(key1)
+        if key1hash = key2hash then
+            upcast HashCollisionNode(null,key1hash, 2, [| key1; val1; key2; val2 |])
+        else
+            let box = SillyBox()
+            (BitmapIndexedNode.Empty :> INode).assoc(edit,shift,key1hash,key1,val1,box).assoc(edit,shift,key2hash,key2,val2,box)
+           
+        
 
 
 
@@ -337,7 +354,7 @@ and private TransientHashMap(e,r,c,hn,nv) =
                 hasNull <- true
         else
             leafFlag.reset()
-            let n = (if isNull root then BitmapIndexedNode.Empty else root).assoc(edit,0,hash(k),k,v,leafFlag)
+            let n = (if isNull root then (BitmapIndexedNode.Empty :> INode) else root).assoc(edit,0,hash(k),k,v,leafFlag)
             if n <> root then root <- n
             if leafFlag.isSet then count <- count+1
         upcast x
@@ -383,7 +400,7 @@ and [<Sealed>] private ArrayNode(e,c,a) =
     member private x.decrementCount() = count <- count-1
 
     // TODO: Do this with some sequence functions?
-    member x.pack(edit,idx) : INode =
+    member x.pack(edit:AtomicReference<Thread>,idx) : INode =
         let newArray : obj[] = Array.zeroCreate <| 2*(count-1)
         let mutable j = 1
         let mutable bitmap = 0
@@ -414,7 +431,7 @@ and [<Sealed>] private ArrayNode(e,c,a) =
             let idx = Util.mask(hash,shift)
             let node = array.[idx]
             if isNull node then
-                upcast ArrayNode(null,count+1,cloneAndSet(array,idx,BitmapIndexedNode.Empty.assoc(shift+5,hash,key, value,addedLeaf)))
+                upcast ArrayNode(null,count+1,cloneAndSet(array,idx,(BitmapIndexedNode.Empty :> INode).assoc(shift+5,hash,key, value,addedLeaf)))
             else
                 let n = node.assoc(shift+5,hash,key,value,addedLeaf)
                 if n = node then upcast x else upcast ArrayNode(null,count,cloneAndSet(array,idx,n))
@@ -456,7 +473,7 @@ and [<Sealed>] private ArrayNode(e,c,a) =
             let idx =  Util.mask(hash,shift)
             let node = array.[idx]
             if isNull node then 
-                let editable = x.editAndSet(edit,idx,BitmapIndexedNode.Empty.assoc(e,shift+5,hash,key,value,addedLeaf))
+                let editable = x.editAndSet(edit,idx,(BitmapIndexedNode.Empty :> INode).assoc(e,shift+5,hash,key,value,addedLeaf))
                 editable.incrementCount()
                 upcast editable
             else
@@ -501,6 +518,29 @@ and [<Sealed>] private ArrayNode(e,c,a) =
                 |> Array.map (fun node -> Func<obj>((fun () -> node.fold(combinef,reducef,fjtask,fjfork,fjjoin))))
             ArrayNode.foldTasks(tasks,combinef,fjtask,fjfork,fjjoin)
 
+        member x.iterator(d) = 
+            let s = 
+                seq {
+                    for node in array do
+                        if not (isNull node) then 
+                            let ie = node.iterator(d) 
+                            while ie.MoveNext() do
+                                yield ie.Current
+                    }
+            s.GetEnumerator() :> IEnumerator
+
+        member x.iteratorT(d) = 
+            let s = 
+                seq {
+                    for node in array do
+                        if not (isNull node) then 
+                            let ie = node.iteratorT(d) 
+                            while ie.MoveNext() do
+                                yield ie.Current
+                    }
+            s.GetEnumerator() 
+
+
     static member foldTasks(tasks: Func<obj>[], combinef:IFn, fjtask:IFn ,fjfork: IFn,fjjoin:IFn) =
         match tasks.Length with
         | 0 -> combinef.invoke()
@@ -524,16 +564,16 @@ and private ArrayNodeSeq(m,ns,i,s) =
         | null -> 
             let result = 
                 nodes
-                |> Seq.skip (i-1)
                 |> Seq.indexed
+                |> Seq.skip (i-1)
                 |> Seq.filter (fun (j,node) -> not (isNull node))
-
                 |> Seq.tryPick (fun (j,node) -> 
                     let ns = node.getNodeSeq()  
                     if (isNull ns) then None else ArrayNodeSeq(meta,nodes,j+1,ns) |> Some )
             match result with
             | Some s -> upcast s
             | None -> null
+        | _ -> upcast ArrayNodeSeq(meta,nodes,i,s)
 
     interface IObj with
         override x.withMeta(m) = 
@@ -543,44 +583,332 @@ and private ArrayNodeSeq(m,ns,i,s) =
         member x.first() = s.first()
         member x.next() = ArrayNodeSeq.create(null,nodes,i,s.next())
 
-
-
-
-
-
-         
-
-        | _ -> upcast ArrayNodeSeq(meta,nodes,i,s)
-
     static member create(nodes : INode[]) = ArrayNodeSeq.create(null,nodes,0,null)
 
 
+and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
 
-
-
-            
-        
-
-            
-
-
-
-
-
-
-
-
-
-
-and [<Sealed>] internal BitmapIndexedNode(e:AtomicReference<Thread>,b,a) =
+    [<NonSerialized>]
     let edit : AtomicReference<Thread> = e
-    let bitmap : int = b
-    let array : obj[] = a
+    let mutable bitmap : int = b
+    let mutable array : obj[] = a
 
-    static member Empty = upcast BitmapIndexedNode(null,0,Array.empty)
+    static member Empty : BitmapIndexedNode = BitmapIndexedNode(null,0,Array.empty<obj>)
+
+    member x.index(bit:int) : int = Util.bitCount(bitmap &&& (bit-1))
+
+    member private x.Bitmap 
+        with get() = bitmap
+        and set (v) = bitmap <- v
+
+    member private x.setArrayVal(i,v) = array.[i] <- v
+    member private x.Array = array
+
 
     interface INode with
-        member x.assoc(shift,hsh,key,value,addedLeaf) = invalidOp "Not implemented"
+        member x.assoc(shift,hash,key,value,addedLeaf) = 
+            let bit = bitPos(hash,shift)
+            let idx = x.index(bit)
+            if bitmap &&& bit = 0 then
+                let n = Util.bitCount(bitmap)
+                if n >= 16 then
+                    let nodes : INode[] = Array.zeroCreate 32
+                    let jdx = Util.mask(hash,shift)
+                    nodes.[jdx] <- (BitmapIndexedNode.Empty :> INode).assoc(shift+5,hash,key,value,addedLeaf)
+                    let mutable j = 1
+                    for i = 0 to 31 do
+                        if ((bitmap >>> i) &&& 1 ) <> 0 then
+                            nodes.[i] <-
+                                if isNull array.[j] then 
+                                    array.[j+1] :?> INode
+                                else
+                                    (BitmapIndexedNode.Empty :> INode).assoc(shift+5,Util.hash(array.[j]),array.[j],array.[j+1],addedLeaf)
+                    upcast ArrayNode(null,n+1,nodes)
+                else
+                    let newArray : obj[] = 2*(n+1) |> Array.zeroCreate
+                    Array.Copy(array,0,newArray,0,2*idx)
+                    newArray.[2*idx] <- key
+                    addedLeaf.set()
+                    newArray.[2*idx+1] <- value
+                    Array.Copy(array,2*idx,newArray, 2*(idx+1),2*(n-idx))
+                    upcast BitmapIndexedNode(null,(bitmap ||| bit), newArray)
+
+
+            else
+                let keyOrNull = array.[2*idx]
+                let valOrNode = array.[2*idx+1]
+                if isNull keyOrNull then
+                    let n = (valOrNode:?>INode).assoc(shift+5,hash,key,value,addedLeaf)
+                    if n = (valOrNode:?>INode) then
+                        upcast x
+                    else 
+                        upcast BitmapIndexedNode(null,bitmap,cloneAndSet(array,2*idx+1,upcast n))
+                elif Util.equiv(key,keyOrNull) then
+                    if value = valOrNode then
+                        upcast x
+                    else
+                        upcast BitmapIndexedNode(null,bitmap,cloneAndSet(array,2*idx+1,value))
+                else
+                    addedLeaf.set()
+                    upcast BitmapIndexedNode(
+                        null,
+                        bitmap,
+                        cloneAndSet2(array,2*idx,null,2*idx+1,upcast PersistentHashMap.createNode(shift+5,keyOrNull,valOrNode,hash,key,value)))
+
+        member x.without(shift,hash,key) =
+            let bit = bitPos(hash,shift)
+            if (bitmap &&& bit) = 0 then    
+                upcast x
+            else
+                let idx = x.index(bit)
+                let keyOrNull = array.[2*idx]
+                let valOrNode = array.[2*idx+1]
+                if isNull keyOrNull then
+                    let n = (valOrNode:?>INode).without(shift+5,hash,key)
+                    if n = (valOrNode:?>INode) then   
+                        upcast x
+                    elif not (isNull n) then
+                        upcast BitmapIndexedNode(null,bitmap,cloneAndSet(array,2*idx+1,upcast n))
+                    elif bitmap = bit then  
+                        null
+                    else 
+                        upcast BitmapIndexedNode(null,bitmap^^^bit,removePair(array,idx))
+                elif Util.equiv(key,keyOrNull) then
+                    if bitmap = bit then
+                        null
+                    else
+                        upcast BitmapIndexedNode(null,bitmap^^^bit,removePair(array,idx))
+                else 
+                    upcast x
+
+        member x.find(shift,hash,key) = 
+            let bit = bitPos(hash,shift)
+            if (bitmap &&& bit) = 0 then
+                null
+            else
+                let idx = x.index(bit)
+                let keyOrNull = array.[2*idx]
+                let valOrNode = array.[2*idx+1]
+                if isNull keyOrNull then
+                    (valOrNode:?>INode).find(shift+5,hash,key)
+                elif Util.equiv(key,keyOrNull) then
+                    upcast MapEntry.create(keyOrNull,valOrNode)
+                else
+                    null
+
+        member x.find(shift,hash,key,nf) =
+            let bit = bitPos(hash,shift)
+            if (bitmap &&& bit) = 0 then
+                nf
+            else
+                let idx = x.index(bit)
+                let keyOrNull = array.[2*idx]
+                let valOrNode = array.[2*idx+1]
+                if isNull keyOrNull then
+                    (valOrNode:?>INode).find(shift+5,hash,key,nf)
+                elif Util.equiv(key,keyOrNull) then
+                    valOrNode
+                else
+                    nf
+
+        member x.getNodeSeq() = NodeSeq.create(array)
+
+        member x.assoc(edit,shift,hash,key,value,addedLeaf) =
+            let bit = bitPos(hash,shift)
+            let idx = x.index(bit)
+            if (bitmap &&& bit) <> 0 then
+                let keyOrNull = array.[2*idx]
+                let valOrNode = array.[2*idx+1]
+                if isNull keyOrNull then
+                    let n = (valOrNode:?>INode).assoc(edit, shift+5, hash, key, value, addedLeaf)
+                    if n = (valOrNode:?>INode) then
+                        upcast x
+                    else
+                        upcast x.editAndSet(edit, 2*idx+1,n)
+                elif Util.equiv(key,keyOrNull) then
+                    if value = valOrNode then  
+                        upcast x
+                    else
+                        upcast x.editAndSet(edit,2*idx+1, value)
+                else    
+                    addedLeaf.set()
+                    upcast x.editAndSet(edit,2*idx,null,2*idx+1,PersistentHashMap.createNode(edit,shift+5,keyOrNull,valOrNode,hash,key,value))
+            else 
+                let n = Util.bitCount bitmap
+                if n*2 < array.Length then  
+                    addedLeaf.set()
+                    let editable = x.ensureEditable(edit)
+                    Array.Copy(editable.Array,2*idx,editable.Array,2*(idx+1),2*(n-idx))
+                    editable.setArrayVal(2*idx, key)
+                    editable.setArrayVal(2*idx+1,value)
+                    editable.Bitmap <- editable.Bitmap ||| bit
+                    upcast editable
+                elif n >= 16 then
+                    let nodes : INode[] = Array.zeroCreate 32
+                    let jdx = Util.mask(hash,shift)
+                    nodes.[jdx] <- (BitmapIndexedNode.Empty :> INode).assoc(edit,shift+5,hash,key,value,addedLeaf)
+                    let mutable j = 0
+                    for i = 0 to 31 do
+                        if (( bitmap >>> i ) &&& 1 ) <> 0 then
+                            if isNull array.[j] then    
+                                nodes.[i] <- array.[j+1] :?> INode
+                            else
+                                nodes.[i] <- (BitmapIndexedNode.Empty :> INode).assoc(edit,shift+5,Util.hash(array.[j]),array.[j],array.[j+1],addedLeaf)
+                            j <- j+2
+                    upcast ArrayNode(edit,n+1,nodes)
+                else
+                    let newArray : obj[] = 2*(n+4) |> Array.zeroCreate
+                    Array.Copy(array,0,newArray,0,2*idx)
+                    newArray.[2*idx] <- key
+                    newArray.[2*idx+1] <- value
+                    addedLeaf.set()
+                    Array.Copy(array,2*idx,newArray,2*(idx+1),2*(n-idx))
+                    let editable = x.ensureEditable(edit)
+                    editable.Bitmap <- editable.Bitmap ||| bit
+                    upcast editable
+
+
+    member x.ensureEditable(e:AtomicReference<Thread>) : BitmapIndexedNode =
+        if edit = e then
+            x
+        else
+            let n = Util.bitCount(bitmap)
+            let newArray : obj[] = Array.zeroCreate (if n >= 0 then 2*(n+1) else 4) // make room for next assoc
+            Array.Copy(array,newArray,2*n)
+            BitmapIndexedNode(e,bitmap,newArray)
+
+    member private x.editAndSet(e:AtomicReference<Thread>,i:int,a:obj) : BitmapIndexedNode =
+        let editable = x.ensureEditable(e)
+        editable.setArrayVal(i,a)
+        editable
+
+
+    member private x.editAndSet(e:AtomicReference<Thread>,i:int,a:obj,j:int,b:obj) : BitmapIndexedNode =
+        let editable = x.ensureEditable(e)
+        editable.setArrayVal(i,a)
+        editable.setArrayVal(j,b)
+        editable
+
+    member private x.editAndRemovePair(e:AtomicReference<Thread>, bit:int, i:int) : BitmapIndexedNode =
+        if bitmap = bit then
+            null
+        else
+            let editable = x.ensureEditable(e)
+            editable.Bitmap <- editable.Bitmap ^^^ bit
+            Array.Copy(editable.Array, 2*(i+1), editable.Array, 2*i, editable.Array.Length-2*(i+1))
+            editable.setArrayVal(editable.Array.Length-2,null)
+            editable.setArrayVal(editable.Array.Length-1,null)
+            editable
+
+
+            
+
+
+
+
+
+
+and HashCollisionNode(e,h,c,a) = 
+
+    let edit : AtomicReference<Thread> = e
+    let hash : int = h
+    let mutable count : int = c
+    let mutable array : obj[] = a
+
+    interface INode with
+        member x.assoc(shift,hash,key,value,addedLeaf) = invalidArg "a " "B"
+
+and NodeSeq(m,a,i,s) =  
+    inherit ASeq(m)
+
+    let array : obj[] = a
+    let idx : int = i
+    let seq : ISeq = s
+
+    new(i,a,s) = NodeSeq(null,a,i,s)
+
+
+    static member private create(array:obj[],i:int,s:ISeq) : ISeq =
+        if not (isNull s) then  
+            upcast NodeSeq(null,array,i,s)
+        else 
+            let result = 
+                array 
+                |> Seq.indexed
+                |> Seq.skip (i-1)
+                |> Seq.tryPick (fun (j,node)  ->
+                    if  j % 2 = 0 then // even => key entry
+                        if not (isNull array.[j]) then NodeSeq(null,array,j,null) |> Some else None
+                    else               // odd => value entry
+                        if not (isNull array.[j]) then
+                            let node : INode  = array.[j] :?> INode
+                            let nodeSeq = node.getNodeSeq()
+                            if not (isNull nodeSeq) then NodeSeq(null,array,j+1,nodeSeq) |> Some else None
+                        else
+                            None   )
+            match result with
+            | Some s -> upcast s
+            | None -> null
+
+
+    static member create(array : obj[] ) : ISeq = NodeSeq.create(array,0,null)
+
+    interface IObj with
+        override x.withMeta(m) = 
+            if m = (x:>IMeta).meta() then   
+                upcast x
+            else 
+                upcast NodeSeq(m,array,i,s)
+
+    interface ISeq with
+        member x.first() = 
+            match s with    
+            | null -> upcast MapEntry.create(array.[i],array.[i+1])
+            | _ -> s.first()
+        member x.next() =
+            match s with
+            | null -> NodeSeq.create(array,i+2,null)
+            | _ -> NodeSeq.create(array,i,s.next())
+
+    static member kvReduce(a:obj[],f:IFn,init:obj) : obj =
+        let rec step (result:obj) (i:int) =
+            if i >= a.Length then
+                result
+            else 
+                let nextResult =
+                    if not (isNull a.[i]) then
+                        f.invoke(result,a.[i],a.[i+1])
+                    else
+                        let node = a.[i+1] :?> INode
+                        if not (isNull node) then
+                            node.kvReduce(f,result)
+                        else
+                            result
+                if RT.isReduced(nextResult) then
+                    nextResult
+                else
+                    step nextResult (i+2)
+        step init 0
+
+
+
+
+            
+            
+
+
+
+
+            
+
+
+               
+            
+
+                    
+
+
+
 
 
 //////////////////////////////////
@@ -590,310 +918,13 @@ and [<Sealed>] internal BitmapIndexedNode(e:AtomicReference<Thread>,b,a) =
 
 
 
-//           #region Node factories
-
-//           private static INode CreateNode(int shift, object key1, object val1, int key2hash, object key2, object val2)
-//           {
-//               int key1hash = Hash(key1);
-//               if (key1hash == key2hash)
-//                   return new HashCollisionNode(null, key1hash, 2, new object[] { key1, val1, key2, val2 });
-//               Box _ = new Box(null);
-//               AtomicReference<Thread> edit = new AtomicReference<Thread>();
-//               return BitmapIndexedNode.EMPTY
-//                   .Assoc(edit, shift, key1hash, key1, val1, _)
-//                   .Assoc(edit, shift, key2hash, key2, val2, _);
-//           }
-
-//           private static INode CreateNode(AtomicReference<Thread> edit, int shift, Object key1, Object val1, int key2hash, Object key2, Object val2)
-//           {
-//               int key1hash = Hash(key1);
-//               if (key1hash == key2hash)
-//                   return new HashCollisionNode(null, key1hash, 2, new Object[] { key1, val1, key2, val2 });
-//               Box _ = new Box(null);
-//               return BitmapIndexedNode.EMPTY
-//                   .Assoc(edit, shift, key1hash, key1, val1, _)
-//                   .Assoc(edit, shift, key2hash, key2, val2, _);
-//           }
-
-//           #endregion
 
 
-
-//               #region iterators
-
-//               public IEnumerator Iterator(KVMangleDel<Object> d)
-//               {
-//                   foreach (INode node in _array)
-//                   {
-//                       if (node != null)
-//                       {
-//                           IEnumerator ie = node.Iterator(d);
-
-//                           while (ie.MoveNext())
-//                               yield return ie.Current;
-//                       }
-//                   }
-//               }
-
-//               public IEnumerator<T> IteratorT<T>(KVMangleDel<T> d)
-//               {
-//                   foreach (INode node in _array)
-//                   {
-//                       if (node != null)
-//                       {
-//                           IEnumerator<T> ie = node.IteratorT(d);
-
-//                           while (ie.MoveNext())
-//                               yield return ie.Current;
-//                       }
-//                   }
-//               }
-
-//               #endregion
-//           }
-
-//           #endregion
 
 //           #region BitmapIndexNode
 
-//           /// <summary>
-//           ///  Represents an internal node in the trie, not full.
-//           /// </summary>
-//           [Serializable]
 //           sealed class BitmapIndexedNode : INode
 //           {
-//               #region Data
-
-//               internal static readonly BitmapIndexedNode EMPTY = new BitmapIndexedNode(null, 0, Array.Empty<object>());
-
-//               int _bitmap;
-//               object[] _array;
-//               [NonSerialized]
-//               readonly AtomicReference<Thread> _edit;
-
-//               #endregion
-
-//               #region Calculations
-
-//               int Index(int bit)
-//               {
-//                   return Util.BitCount(_bitmap & (bit - 1));
-//               }
-
-//               #endregion
-
-//               #region C-tors & factory methods
-
-//               internal BitmapIndexedNode(AtomicReference<Thread> edit, int bitmap, object[] array)
-//               {
-//                   _bitmap = bitmap;
-//                   _array = array;
-//                   _edit = edit;
-//               }
-
-//               #endregion
-
-//               #region INode Members
-
-//               public INode Assoc(int shift, int hash, object key, object val, Box addedLeaf)
-//               {
-//                   int bit = Bitpos(hash, shift);
-//                   int idx = Index(bit);
-//                   if ((_bitmap & bit) != 0)
-//                   {
-//                       object keyOrNull = _array[2 * idx];
-//                       object valOrNode = _array[2 * idx + 1];
-//                       if (keyOrNull == null)
-//                       {
-//                           INode n = ((INode)valOrNode).Assoc(shift + 5, hash, key, val, addedLeaf);
-//                           if (n == valOrNode)
-//                               return this;
-//                           return new BitmapIndexedNode(null, _bitmap, CloneAndSet(_array, 2 * idx + 1, n));
-//                       }
-//                       if ( Util.equiv(key,keyOrNull))
-//                       {
-//                           if ( val == valOrNode)
-//                               return this;
-//                           return new BitmapIndexedNode(null,_bitmap,CloneAndSet(_array,2*idx+1,val));
-//                       }
-//                       addedLeaf.Val = addedLeaf;
-//                       return new BitmapIndexedNode(null,_bitmap,
-//                           CloneAndSet(_array,
-//                                       2*idx,
-//                                       null,
-//                                       2*idx+1,
-//                                       CreateNode(shift+5,keyOrNull,valOrNode,hash,key,val)));
-//                   }
-//                   else
-//                   {
-//                       int n = Util.BitCount(_bitmap);
-//                       if ( n >= 16 )
-//                       {
-//                           INode [] nodes = new INode[32];
-//                           int jdx = Util.Mask(hash,shift);
-//                           nodes[jdx] = EMPTY.Assoc(shift+5,hash,key,val,addedLeaf);
-//                           int j=0;
-//                           for ( int i=0; i < 32; i++ )
-//                               if ( ( (_bitmap >>i) & 1) != 0 )
-//                               {
-//                                   if ( _array[j] ==  null )
-//                                      nodes[i] = (INode) _array[j+1];
-//                                   else
-//                                       nodes[i] = EMPTY.Assoc(shift+5,Hash(_array[j]),_array[j],_array[j+1], addedLeaf);
-//                                   j += 2;
-//                               }
-//                           return new ArrayNode(null,n+1,nodes);
-//                       }
-//                       else
-//                       {
-//                           object[] newArray = new object[2*(n+1)];
-//                           Array.Copy(_array, 0, newArray, 0, 2*idx);
-//                           newArray[2*idx] = key;
-//                           addedLeaf.Val = addedLeaf;
-//                           newArray[2*idx+1] = val;
-//                           Array.Copy(_array, 2*idx, newArray, 2*(idx + 1), 2*(n - idx));
-//                           return new BitmapIndexedNode(null, _bitmap | bit, newArray);
-//                       }           
-//                   }
-//               }
-
-
-//               public INode Without(int shift, int hash, object key)
-//               {
-//                   int bit = Bitpos(hash, shift);
-//                   if ((_bitmap & bit) == 0)
-//                       return this;
-
-//                   int idx = Index(bit);
-//                   object keyOrNull = _array[2 * idx];
-//                   object valOrNode = _array[2 * idx + 1];
-//                   if ( keyOrNull == null )
-//                   {
-//                       INode n = ((INode)valOrNode).Without(shift+5,hash,key);
-//                       if ( n == valOrNode)
-//                           return this;
-//                       if ( n != null )
-//                           return new BitmapIndexedNode(null,_bitmap,CloneAndSet(_array,2*idx+1,n));
-//                       if ( _bitmap == bit )
-//                           return null;
-//                       return new BitmapIndexedNode(null,_bitmap^bit,RemovePair(_array,idx));
-//                   }
-//                   if (Util.equiv(key, keyOrNull))
-//                   {
-//                       if (_bitmap == bit)
-//                           return null;
-//                       return new BitmapIndexedNode(null, _bitmap ^ bit, RemovePair(_array, idx));
-//                   }
-//                   return this;
-//               }
-
-//               public IMapEntry Find(int shift, int hash, object key)
-//               {
-//                   int bit = Bitpos(hash, shift);
-//                   if ((_bitmap & bit) == 0)
-//                       return null;
-//                   int idx = Index(bit);
-//                    object keyOrNull = _array[2 * idx];
-//                   object valOrNode = _array[2 * idx + 1];
-//                   if ( keyOrNull == null )
-//                       return ((INode)valOrNode).Find(shift+5,hash,key);
-//                   if ( Util.equiv(key,keyOrNull))
-//                       return (IMapEntry)MapEntry.create(keyOrNull, valOrNode);
-//                   return null;
-//               }
-
-
-//               public Object Find(int shift, int hash, Object key, Object notFound)
-//               {
-//                   int bit = Bitpos(hash, shift);
-//                   if ((_bitmap & bit) == 0)
-//                       return notFound;
-//                   int idx = Index(bit);
-//                   Object keyOrNull = _array[2 * idx];
-//                   Object valOrNode = _array[2 * idx + 1];
-//                   if (keyOrNull == null)
-//                       return ((INode)valOrNode).Find(shift + 5, hash, key, notFound);
-//                   if (Util.equiv(key, keyOrNull))
-//                       return valOrNode;
-//                   return notFound;
-//               }
-
-//               public ISeq GetNodeSeq()
-//               {
-//                   return NodeSeq.Create(_array);
-//               }
-
-//               public INode Assoc(AtomicReference<Thread> edit, int shift, int hash, object key, object val, Box addedLeaf)
-//               {
-//                   int bit = Bitpos(hash, shift);
-//                   int idx = Index(bit);
-//                   if ((_bitmap & bit) != 0)
-//                   {
-//                       object keyOrNull = _array[2 * idx];
-//                       object valOrNode = _array[2 * idx + 1];
-//                       if (keyOrNull == null)
-//                       {
-//                           INode n = ((INode)valOrNode).Assoc(edit, shift + 5, hash, key, val, addedLeaf);
-//                           if (n == valOrNode)
-//                               return this;
-//                           return EditAndSet(edit, 2 * idx + 1, n);
-//                       }
-//                       if (Util.equiv(key, keyOrNull))
-//                       {
-//                           if (val == valOrNode)
-//                               return this;
-//                           return EditAndSet(edit, 2 * idx + 1, val);
-//                       }
-//                       addedLeaf.Val = addedLeaf;
-//                       return EditAndSet(edit,
-//                           2*idx,null,
-//                           2*idx+1,CreateNode(edit,shift+5,keyOrNull,valOrNode,hash,key,val));
-//                   }
-//                   else
-//                   {int n = Util.BitCount(_bitmap);
-//                       if ( n*2 < _array.Length )
-//                       {
-//                           addedLeaf.Val = addedLeaf;
-//                           BitmapIndexedNode editable = EnsureEditable(edit);
-//                           Array.Copy(editable._array,2*idx,editable._array,2*(idx+1),2*(n-idx));
-//                           editable._array[2*idx] = key;
-//                           editable._array[2*idx+1] = val;
-//                           editable._bitmap |= bit;
-//                           return editable;
-//                       }
-//                       if ( n >= 16 )
-//                       {
-//                           INode[] nodes = new INode[32];
-//                           int jdx = Util.Mask(hash,shift);
-//                           nodes[jdx] = EMPTY.Assoc(edit,shift+5,hash,key,val,addedLeaf);
-//                           int j=0;
-//                           for ( int i=0; i<32; i++ )
-//                               if (((_bitmap>>i) & 1) != 0 )
-//                               {
-//                                   if ( _array[j] == null )
-//                                       nodes[i] = (INode)_array[j+1];
-//                                   else
-//                                       nodes[i] = EMPTY.Assoc(edit,shift+5,Hash(_array[j]), _array[j], _array[j+1], addedLeaf);
-//                                   j += 2;
-//                               }
-//                           return new ArrayNode(edit,n+1,nodes);
-//                       }
-//                       else
-//                       {
-//                           object[] newArray = new object[2*(n+4)];
-//                           Array.Copy(_array,0,newArray,0,2*idx);
-//                           newArray[2*idx] = key;
-//                           addedLeaf.Val = addedLeaf;
-//                           newArray[2 * idx + 1] = val;
-//                           Array.Copy(_array,2*idx,newArray,2*(idx+1),2*(n-idx));
-//                           BitmapIndexedNode editable = EnsureEditable(edit);
-//                           editable._array = newArray;
-//                           editable._bitmap |= bit;
-//                           return editable;
-//                       }
-//                   }
-//               }
-
 
 
 //               public INode Without(AtomicReference<Thread> edit, int shift, int hash, object key, Box removedLeaf)
@@ -933,50 +964,6 @@ and [<Sealed>] internal BitmapIndexedNode(e:AtomicReference<Thread>,b,a) =
 //               {
 //                   return NodeSeq.KvReduce(_array, reducef, combinef.invoke());
 //               }
-
-
-//               #endregion
-
-//               #region Implementation
-
-//               private BitmapIndexedNode EditAndSet(AtomicReference<Thread> edit, int i, Object a)
-//               {
-//                   BitmapIndexedNode editable = EnsureEditable(edit);
-//                   editable._array[i] = a;
-//                   return editable;
-//               }
-
-//               private BitmapIndexedNode EditAndSet(AtomicReference<Thread> edit, int i, Object a, int j, Object b)
-//               {
-//                   BitmapIndexedNode editable = EnsureEditable(edit);
-//                   editable._array[i] = a;
-//                   editable._array[j] = b;
-//                   return editable;
-//               }
-
-//               private BitmapIndexedNode EditAndRemovePair(AtomicReference<Thread> edit, int bit, int i)
-//               {
-//                   if (_bitmap == bit)
-//                       return null;
-//                   BitmapIndexedNode editable = EnsureEditable(edit);
-//                   editable._bitmap ^= bit;
-//                   Array.Copy(editable._array, 2 * (i + 1), editable._array, 2 * i, editable._array.Length - 2 * (i + 1));
-//                   editable._array[editable._array.Length - 2] = null;
-//                   editable._array[editable._array.Length - 1] = null;
-//                   return editable;
-//               }
-
-//               BitmapIndexedNode EnsureEditable(AtomicReference<Thread> edit)
-//               {
-//                   if (_edit == edit)
-//                       return this;
-//                   int n = Util.BitCount(_bitmap);
-//                   object[] newArray = new Object[n >= 0 ? 2 * (n + 1) : 4];  // make room for next assoc
-//                   Array.Copy(_array, newArray, 2 * n);
-//                   return new BitmapIndexedNode(edit, _bitmap, newArray);
-//               }
-
-//               #endregion
 
 //               #region iterators
 
@@ -1251,117 +1238,6 @@ and [<Sealed>] internal BitmapIndexedNode(e:AtomicReference<Thread>,b,a) =
 //           }
 
 //           #endregion
-
-//           #region NodeSeq
-
-//           [Serializable]
-//           sealed class NodeSeq : ASeq
-//           {
-
-//               #region Data
-
-//               readonly object[] _array;
-//               readonly int _i;
-//               readonly ISeq _s;
-
-//               #endregion
-
-//               #region Ctors
-
-//               [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality", "IDE0051:Remove unused private members", Justification = "<Pending>")]
-//               NodeSeq(object[] array, int i)
-//                   : this(null, array, i, null)
-//               {
-//               }
-
-//               public static ISeq Create(object[] array)
-//               {
-//                   return Create(array, 0, null);
-//               }
-
-//               private static ISeq Create(object[] array, int i, ISeq s)
-//               {
-//                   if (s != null)
-//                       return new NodeSeq(null, array, i, s);
-//                   for (int j = i; j < array.Length; j += 2)
-//                   {
-//                       if (array[j] != null)
-//                           return new NodeSeq(null, array, j, null);
-//                       INode node = (INode)array[j + 1];
-//                       if (node != null)
-//                       {
-//                           ISeq nodeSeq = node.GetNodeSeq();
-//                           if (nodeSeq != null)
-//                               return new NodeSeq(null, array, j + 2, nodeSeq);
-//                       }
-//                   }
-//                   return null;
-//               }
-
-//               NodeSeq(IPersistentMap meta, Object[] array, int i, ISeq s)
-//                   : base(meta)
-//               {
-//                   _array = array;
-//                   _i = i;
-//                   _s = s;
-//               }
-
-//               #endregion
-
-//               #region IObj methods
-
-//               public override IObj withMeta(IPersistentMap meta)
-//               {
-//                   if (_meta == meta)
-//                       return this;
-
-//                   return new NodeSeq(meta, _array, _i, _s);
-//               }
-
-//               #endregion
-
-//               #region ISeq methods
-
-//               public override object first()
-//               {
-//                   if (_s != null)
-//                       return _s.first();
-//                   return MapEntry.create(_array[_i], _array[_i + 1]);
-//               }
-
-//               public override ISeq next()
-//               {
-//                   if (_s != null)
-//                       return Create(_array, _i, _s.next());
-//                   return Create(_array, _i + 2, null);
-//               }
-//               #endregion
-
-//               #region KvReduce
-
-//               static public object KvReduce(object[] array, IFn f, object init)
-//               {
-//                   for (int i = 0; i < array.Length; i += 2)
-//                   {
-//                       if (array[i] != null)
-//                           init = f.invoke(init, array[i], array[i + 1]);
-//                       else
-//                       {
-//                           INode node = (INode)array[i + 1];
-//                           if (node != null)
-//                               init = node.KVReduce(f, init);
-//                       }
-//                       if (RT.isReduced(init))
-//                           return init;
-//                   }
-//                   return init;
-//               }
-
-//               #endregion
-//           }
-
-//           #endregion
-//       }
 //}
 
 

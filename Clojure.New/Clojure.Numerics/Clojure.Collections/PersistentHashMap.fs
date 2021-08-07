@@ -23,7 +23,7 @@ type KVMangleFn<'T> = obj * obj -> 'T
 
 
 [<AllowNullLiteral>]
-type private INode =
+type INode =
     abstract assoc : shift:int * hash:int * key:obj *  value:obj *  addedLeaf:SillyBox -> INode
     abstract without : shift:int * hash:int * key:obj -> INode
     abstract find : shift:int * hash: int * key:obj -> IMapEntry
@@ -72,9 +72,40 @@ module private INodeOps =
 
 open INodeOps
 
+module private NodeIter = 
+
+    let getEnumerator(array: obj[], d: KVMangleFn<obj>) : IEnumerator =
+        let s =
+            seq {
+                for i = 0 to array.Length-1 do
+                    if i % 2 = 0 then   // key index
+                        let key = array.[i]
+                        let nodeOrVal = array.[i+1]
+                        if not (isNull key) then yield d(key,nodeOrVal)
+                    else                // value index
+                        let ie = (array.[i] :?> INode).iterator(d)
+                        while ie.MoveNext() do yield ie.Current
+                }
+        s.GetEnumerator() :> IEnumerator
+
+    let getEnumeratorT(array: obj[], d: KVMangleFn<'T>) : IEnumerator<'T> =
+        let s =
+            seq {
+                for i = 0 to array.Length-1 do
+                    if i % 2 = 0 then   // key index
+                        let key = array.[i]
+                        let nodeOrVal = array.[i+1]
+                        if not (isNull key) then yield d(key,nodeOrVal)
+                    else                // value index
+                        let ie = (array.[i] :?> INode).iteratorT(d)
+                        while ie.MoveNext() do yield ie.Current 
+                }
+        s.GetEnumerator()
+
+
 
 [<AllowNullLiteral>]
-type PersistentHashMap private (meta, count, root, hasNull, nullValue) =
+type PersistentHashMap(meta, count, root, hasNull, nullValue) =
     inherit APersistentMap()
 
     let meta : IPersistentMap = meta
@@ -83,7 +114,7 @@ type PersistentHashMap private (meta, count, root, hasNull, nullValue) =
     let hasNull : bool = hasNull
     let nullValue: obj = nullValue
 
-    internal new(count,root,hasNull,nullValue) = PersistentHashMap(null,count,root,hasNull,nullValue)
+    new(count,root,hasNull,nullValue) = PersistentHashMap(null,count,root,hasNull,nullValue)
 
     member internal x.Meta = meta
     member internal x.Count = count
@@ -371,6 +402,8 @@ and private TransientHashMap(e,r,c,hn,nv) =
             if n <> root then root <- n
             if leafFlag.isSet then count <- count-1 
         upcast x
+
+    override x.doCount() = count
 
     override x.doPersistent() =
         edit.Set(null)
@@ -767,6 +800,38 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                     editable.Bitmap <- editable.Bitmap ||| bit
                     upcast editable
 
+        member x.without(e,shift,hash,key,removedLeaf) = 
+            let bit = bitPos(hash,shift)
+            if (bitmap &&& bit) = 0 then
+                upcast x
+            else
+                let idx = x.index(bit)
+                let keyOrNull = array.[2*idx]
+                let valOrNode = array.[2*idx+1]
+                if isNull keyOrNull then
+                    let n = (valOrNode :?> INode).without(e,shift+5,hash,key,removedLeaf)
+                    if n = (valOrNode :?> INode) then
+                        upcast x
+                    elif not (isNull n) then
+                        upcast x.editAndSet(e,2*idx+1,n)
+                    elif bitmap = bit then
+                        null
+                    else
+                        upcast x.editAndRemovePair(e,bit,idx)
+                elif Util.equiv(key,keyOrNull) then 
+                    removedLeaf.set()
+                    // TODO: Collapse
+                    upcast x.editAndRemovePair(e,bit,idx)
+                else    
+                    upcast x
+
+        member x.kvReduce(f,init) = NodeSeq.kvReduce(array,f,init)
+
+        member x.fold(combinef,reducef,fjtask,fjfork,fjjoin) = NodeSeq.kvReduce(array,reducef,combinef.invoke())
+
+        member x.iterator(d) = NodeIter.getEnumerator(array,d)
+
+        member x.iteratorT(d) = NodeIter.getEnumeratorT(array,d)
 
     member x.ensureEditable(e:AtomicReference<Thread>) : BitmapIndexedNode =
         if edit = e then
@@ -801,13 +866,6 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
             editable
 
 
-            
-
-
-
-
-
-
 and HashCollisionNode(e,h,c,a) = 
 
     let edit : AtomicReference<Thread> = e
@@ -815,8 +873,140 @@ and HashCollisionNode(e,h,c,a) =
     let mutable count : int = c
     let mutable array : obj[] = a
 
+    member private x.Array 
+        with get() = array
+        and set(a) = array <- a
+
+    member private x.Count
+        with get() = count
+        and set(c) = count <- c
+
+    member x.tryFindIndex(key:obj) : int option =
+        let rec step (i:int) =
+            if i >= 2*count then
+                None
+            elif Util.equiv(key,array.[i]) then 
+                Some i 
+            else 
+                i+2 |> step
+        step 0
+
+
     interface INode with
-        member x.assoc(shift,hash,key,value,addedLeaf) = invalidArg "a " "B"
+        member x.assoc(shift,h,key,value,addedLeaf) = 
+            if h = hash then
+                match x.tryFindIndex(key) with
+                | Some idx -> 
+                    if array.[idx+1] = value then
+                        upcast x
+                    else
+                        upcast HashCollisionNode(null,h,count,cloneAndSet(array,idx+1,value))
+                | None ->
+                    let newArray : obj[] = 2*(count+1) |> Array.zeroCreate
+                    Array.Copy(array,0,newArray,0,2*count)
+                    newArray.[2*count] <- key
+                    newArray.[2*count+1] <- value
+                    addedLeaf.set()
+                    upcast HashCollisionNode(edit,h,count+1,newArray)                    
+            else
+                (BitmapIndexedNode(null,bitPos(hash,shift),[| null; x|]) :> INode).assoc(shift,h,key,value,addedLeaf)
+
+        member x.without(shift,h,key) = 
+            match x.tryFindIndex(key) with
+            | None -> upcast x
+            | Some idx ->
+                if count = 1 then null else upcast HashCollisionNode(null,h,count-1,removePair(array,idx/2))
+
+        member x.find(shift,h,key) =
+            match x.tryFindIndex(key) with
+            | None -> null
+            | Some idx -> upcast MapEntry.create(array.[idx],array.[idx+1])
+
+        member x.find(shift,h,key,nf) =
+            match x.tryFindIndex(key) with
+            | None -> nf
+            | Some idx ->array.[idx+1]
+
+        member x.getNodeSeq() = NodeSeq.create(array)
+
+        member x.assoc(e,shift,h,key,value,addedLeaf) = 
+            if h = hash then
+                match x.tryFindIndex(key) with
+                | Some idx -> 
+                    if array.[idx+1] = value then
+                        upcast x
+                    else
+                        upcast x.editAndSet(e,idx+1,value)
+                | None ->
+                    if array.Length > 2*count then
+                        addedLeaf.set()
+                        let editable = x.editAndSet(e,2*count,key,2*count+1,value)
+                        editable.Count <- editable.Count+1
+                        upcast editable
+                    else
+                        let newArray : obj[] = array.Length+2 |> Array.zeroCreate
+                        Array.Copy(array,0,newArray,0,array.Length)
+                        newArray.[array.Length] <- key
+                        newArray.[array.Length+1] <- value
+                        addedLeaf.set()
+                        upcast x.ensureEditable(e,count+1,newArray)                    
+            else
+                (BitmapIndexedNode(null,bitPos(hash,shift),[| null; x; null; null|]) :> INode).assoc(e,shift,h,key,value,addedLeaf)
+
+        member x.without(e,shift,h,key,removedLeaf) = 
+            match x.tryFindIndex(key) with
+            | None -> upcast x
+            | Some idx ->
+                removedLeaf.set()
+                if count = 1 then 
+                    null 
+                else 
+                    let editable = x.ensureEditable(e)
+                    editable.Array.[idx] <- editable.Array.[2*count-2]
+                    editable.Array.[idx+1] <- editable.Array.[2*count-1]
+                    editable.Array.[2*count-2] <- null
+                    editable.Array.[2*count-1] <- null
+                    editable.Count <- editable.Count-1
+                    upcast editable
+
+        member x.kvReduce(f,init) = NodeSeq.kvReduce(array,f,init)
+
+        member x.fold(combinef,reducef,fjtask,fjfork,fjjoin) = NodeSeq.kvReduce(array,reducef,combinef.invoke())
+
+        member x.iterator(d) = NodeIter.getEnumerator(array,d)
+
+        member x.iteratorT(d) = NodeIter.getEnumeratorT(array,d)
+
+
+    member x.ensureEditable(e) =
+        if e = edit then
+            x
+        else
+            let newArray : obj[] = 2*(count+1) |> Array.zeroCreate
+            Array.Copy(array,0,newArray,0,2*count)
+            HashCollisionNode(e,hash,count,newArray)
+
+    member x.ensureEditable(e,c,a) =
+        if e = edit then
+            array <- a
+            count <- c
+            x
+        else
+            HashCollisionNode(e,hash,c,a)
+
+    member x.editAndSet(e,i,a) =
+        let editable = x.ensureEditable(e)
+        editable.Array.[i] <- a
+        editable
+
+    member x.editAndSet(e,i,a,j,b) =
+        let editable = x.ensureEditable(e)
+        editable.Array.[i] <- a
+        editable.Array.[j] <- b
+        editable
+
+
+            
 
 and NodeSeq(m,a,i,s) =  
     inherit ASeq(m)
@@ -889,522 +1079,3 @@ and NodeSeq(m,a,i,s) =
                 else
                     step nextResult (i+2)
         step init 0
-
-
-
-
-            
-            
-
-
-
-
-            
-
-
-               
-            
-
-                    
-
-
-
-
-
-//////////////////////////////////
-//////////////////////////////////
-//////////////////////////////////
-
-
-
-
-
-
-
-//           #region BitmapIndexNode
-
-//           sealed class BitmapIndexedNode : INode
-//           {
-
-
-//               public INode Without(AtomicReference<Thread> edit, int shift, int hash, object key, Box removedLeaf)
-//               {
-//                   int bit = Bitpos(hash, shift);
-//                   if ((_bitmap & bit) == 0)
-//                       return this;
-//                   int idx = Index(bit);
-//                   Object keyOrNull = _array[2 * idx];
-//                   Object valOrNode = _array[2 * idx + 1];
-//                   if (keyOrNull == null)
-//                   {
-//                       INode n = ((INode)valOrNode).Without(edit, shift + 5, hash, key, removedLeaf);
-//                       if (n == valOrNode)
-//                           return this;
-//                       if (n != null)
-//                           return EditAndSet(edit, 2 * idx + 1, n);
-//                       if (_bitmap == bit)
-//                           return null;
-//                       return EditAndRemovePair(edit, bit, idx);
-//                   }
-//                   if (Util.equiv(key, keyOrNull))
-//                   {
-//                       removedLeaf.Val = removedLeaf;
-//                       // TODO: collapse
-//                       return EditAndRemovePair(edit, bit, idx);
-//                   }
-//                   return this;
-//               }
-
-//               public object KVReduce(IFn f, object init)
-//               {
-//                   return NodeSeq.KvReduce(_array, f, init);
-//               }
-
-//               public object Fold(IFn combinef, IFn reducef, IFn fjtask, IFn fjfork, IFn fjjoin)
-//               {
-//                   return NodeSeq.KvReduce(_array, reducef, combinef.invoke());
-//               }
-
-//               #region iterators
-
-//               public IEnumerator Iterator(KVMangleDel<Object> d)
-//              { 
-//                   return NodeIter.GetEnumerator(_array, d);
-//               }
-
-//               public IEnumerator<T> IteratorT<T>(KVMangleDel<T> d)
-//               {
-//                   return NodeIter.GetEnumeratorT(_array, d);
-//               }
-
-//               #endregion
-//           }
-
-//           #endregion
-
-//           #region HashCollisionNode
-
-//           /// <summary>
-//           /// Represents a leaf node corresponding to multiple map entries, all with keys that have the same hash value.
-//           /// </summary>
-//           [Serializable]
-//           sealed class HashCollisionNode : INode
-//           {
-//               #region Data
-
-//               readonly int _hash;
-//               int _count;
-//               object[] _array;
-//               [NonSerialized]
-//               readonly AtomicReference<Thread> _edit;
-
-//               #endregion
-
-//               #region C-tors
-
-//               public HashCollisionNode(AtomicReference<Thread> edit, int hash, int count, params object[] array)
-//               {
-//                   _edit = edit;
-//                   _hash = hash;
-//                   _count = count;
-//                   _array = array;
-//               }
-
-//               #endregion
-
-//               #region details
-
-//               int FindIndex(object key)
-//               {
-//                   for (int i = 0; i < 2 * _count; i += 2)
-//                   {
-//                       if (Util.equiv(key, _array[i]))
-//                           return i;
-//                   }
-//                   return -1;
-//               }
-
-//               #endregion
-
-//               #region INode Members
-
-//               public INode Assoc(int shift, int hash, object key, object val, Box addedLeaf)
-//               {
-//                   if (_hash == hash)
-//                   {
-//                       int idx = FindIndex(key);
-//                       if (idx != -1)
-//                       {
-//                           if (_array[idx + 1] == val)
-//                               return this;
-//                           return new HashCollisionNode(null, hash, _count, CloneAndSet(_array, idx + 1, val));
-//                       }
-//                       Object[] newArray = new Object[2 * (_count + 1)];
-//                       Array.Copy(_array, 0, newArray, 0, 2 * _count);
-//                       newArray[2 * _count] = key;
-//                       newArray[2 * _count + 1] = val;
-//                       addedLeaf.Val = addedLeaf;
-//                       return new HashCollisionNode(_edit, hash, _count + 1, newArray);
-//                   }
-//                   // nest it in a bitmap node
-//                   return new BitmapIndexedNode(null, Bitpos(_hash, shift), new object[] { null, this })
-//                       .Assoc(shift, hash, key, val, addedLeaf);
-//               }
-
-//               public INode Without(int shift, int hash, object key)
-//               {
-//                   int idx = FindIndex(key);
-//                   if (idx == -1)
-//                       return this;
-//                   if (_count == 1)
-//                       return null;
-//                   return new HashCollisionNode(null, hash, _count - 1, RemovePair(_array, idx / 2));
-//               }
-
-//               public IMapEntry Find(int shift, int hash, object key)
-//               {
-//                   int idx = FindIndex(key);
-//                   if (idx < 0)
-//                       return null;
-//                   return (IMapEntry)MapEntry.create(_array[idx], _array[idx + 1]);
-
-//               }
-
-//               public Object Find(int shift, int hash, Object key, Object notFound)
-//               {
-//                   int idx = FindIndex(key);
-//                   if (idx < 0)
-//                       return notFound;
-//                   return _array[idx + 1];
-//               }
-
-//               public ISeq GetNodeSeq()
-//               {
-//                   return NodeSeq.Create(_array);
-//               }
-
-//               public INode Assoc(AtomicReference<Thread> edit, int shift, int hash, Object key, Object val, Box addedLeaf)
-//               {
-//                   if (hash == _hash)
-//                   {
-//                       int idx = FindIndex(key);
-//                       if (idx != -1)
-//                       {
-//                           if (_array[idx + 1] == val)
-//                               return this;
-//                           return EditAndSet(edit, idx + 1, val);
-//                       }
-//                       if (_array.Length > 2 * _count)
-//                       {
-//                           addedLeaf.Val = addedLeaf;
-//                           HashCollisionNode editable = EditAndSet(edit, 2 * _count, key, 2 * _count + 1, val);
-//                           editable._count++;
-//                           return editable;
-//                       }
-//                       object[] newArray = new object[_array.Length + 2];
-//                       Array.Copy(_array, 0, newArray, 0, _array.Length);
-//                       newArray[_array.Length] = key;
-//                       newArray[_array.Length + 1] = val;
-//                       addedLeaf.Val = addedLeaf;
-//                       return EnsureEditable(edit, _count + 1, newArray);
-//                   }
-//                   // nest it in a bitmap node
-//                   return new BitmapIndexedNode(edit, Bitpos(_hash, shift), new object[] { null, this, null, null })
-//                       .Assoc(edit, shift, hash, key, val, addedLeaf);
-//               }
-
-//               public INode Without(AtomicReference<Thread> edit, int shift, int hash, Object key, Box removedLeaf)
-//               {
-//                   int idx = FindIndex(key);
-//                   if (idx == -1)
-//                       return this;
-//                   removedLeaf.Val = removedLeaf;
-//                   if (_count == 1)
-//                       return null;
-//                   HashCollisionNode editable = EnsureEditable(edit);
-//                   editable._array[idx] = editable._array[2 * _count - 2];
-//                   editable._array[idx + 1] = editable._array[2 * _count - 1];
-//                   editable._array[2 * _count - 2] = editable._array[2 * _count - 1] = null;
-//                   editable._count--;
-//                   return editable;
-//               }
-
-//               public object KVReduce(IFn f, object init)
-//               {
-//                   return NodeSeq.KvReduce(_array, f, init);
-//               }
-
-//               public object Fold(IFn combinef, IFn reducef, IFn fjtask, IFn fjfork, IFn fjjoin)
-//               {
-//                   return NodeSeq.KvReduce(_array, reducef, combinef.invoke());
-//               }
-
-//               #endregion
-
-//               #region Implementation
-
-//               HashCollisionNode EnsureEditable(AtomicReference<Thread> edit)
-//               {
-//                   if (_edit == edit)
-//                       return this;
-//                   object[] newArray = new Object[2 * (_count + 1)];  // make room for next assoc
-//                   System.Array.Copy(_array, 0, newArray, 0, 2 * _count);
-//                   return new HashCollisionNode(edit, _hash, _count, newArray);
-//               }
-
-//               HashCollisionNode EnsureEditable(AtomicReference<Thread> edit, int count, Object[] array)
-//               {
-//                   if (_edit == edit)
-//                   {
-//                       _array = array;
-//                       _count = count;
-//                       return this;
-//                   }
-//                   return new HashCollisionNode(edit, _hash, count, array);
-//               }
-
-//               HashCollisionNode EditAndSet(AtomicReference<Thread> edit, int i, Object a)
-//               {
-//                   HashCollisionNode editable = EnsureEditable(edit);
-//                   editable._array[i] = a;
-//                   return editable;
-//               }
-
-//               HashCollisionNode EditAndSet(AtomicReference<Thread> edit, int i, Object a, int j, Object b)
-//               {
-//                   HashCollisionNode editable = EnsureEditable(edit);
-//                   editable._array[i] = a;
-//                   editable._array[j] = b;
-//                   return editable;
-//               }
-
-//               #endregion
-
-//               #region iterators
-
-//               public IEnumerator Iterator(KVMangleDel<Object> d)
-//               {
-//                   return NodeIter.GetEnumerator(_array, d);
-//               }
-
-//               public IEnumerator<T> IteratorT<T>(KVMangleDel<T> d)
-//               {
-//                   return NodeIter.GetEnumeratorT(_array, d);
-//               }
-
-//               #endregion
-
-//           }
-
-//           #endregion
-
-//           #region NodeIter
-
-//           static class NodeIter
-//           {
-//               public static IEnumerator GetEnumerator(object[] array, KVMangleDel<Object> d)
-//               {
-//                   for ( int i=0; i< array.Length; i+=2)
-//                   {
-//                       object key = array[i];
-//                       object nodeOrVal = array[i+1];
-//                       if (key != null)
-//                           yield return d(key, nodeOrVal);
-//                       else if ( nodeOrVal != null )
-//                       {
-//                           IEnumerator ie = ((INode)nodeOrVal).Iterator(d);
-//                           while (ie.MoveNext())
-//                               yield return ie.Current;
-//                       }
-//                   }
-//               }
-
-//               public static IEnumerator<T> GetEnumeratorT<T>(object[] array, KVMangleDel<T> d)
-//               {
-//                   for (int i = 0; i < array.Length; i += 2)
-//                   {
-//                       object key = array[i];
-//                       object nodeOrVal = array[i + 1];
-//                       if (key != null)
-//                           yield return d(key, nodeOrVal);
-//                       else if (nodeOrVal != null)
-//                       {
-//                           IEnumerator<T> ie = ((INode)nodeOrVal).IteratorT(d);
-//                           while (ie.MoveNext())
-//                               yield return ie.Current;
-//                       }
-//                   }
-//               }
-//           }
-
-//           #endregion
-//}
-
-
-
-
-//    // Node factories
-
-//    let EmptyBitmapNode  = BitmapIndexNode(ref 0, ref Array.empty<obj>,null)
-
-//    //           internal static readonly BitmapIndexedNode EMPTY = new BitmapIndexedNode(null, 0, Array.Empty<object>());
-
-//    //       private static INode CreateNode(int shift, object key1, object val1, int key2hash, object key2, object val2)
-//    let createNode(shift:int, key1:obj, val1:obj, key2hash:int, key2:obj, val2:obj) =
-//        let key1hash = hash(key1)
-//        if key1hash = key2hash then HashCollisionNode(key1hash,ref 2,ref [|key1;val1;key2;val2|],null)
-//        else assoc(EmptyBitmapNode,shift,key1hash,key1,val1).assoc(shift,key2hash,key2,val2)
-
-// //       private static INode CreateNode(int shift, object key1, object val1, int key2hash, object key2, object val2)
-// //       {
-// //           int key1hash = Hash(key1);
-// //           if (key1hash == key2hash)
-// //               return new HashCollisionNode(null, key1hash, 2, new object[] { key1, val1, key2, val2 });
-// //           Box _ = new Box(null);
-// //           AtomicReference<Thread> edit = new AtomicReference<Thread>();
-// //           return BitmapIndexedNode.EMPTY
-// //               .Assoc(edit, shift, key1hash, key1, val1, _)
-// //               .Assoc(edit, shift, key2hash, key2, val2, _);
-// //       }
- 
-// //       private static INode CreateNode(AtomicReference<Thread> edit, int shift, Object key1, Object val1, int key2hash, Object key2, Object val2)
-// //       {
-// //           int key1hash = Hash(key1);
-// //           if (key1hash == key2hash)
-// //               return new HashCollisionNode(null, key1hash, 2, new Object[] { key1, val1, key2, val2 });
-// //           Box _ = new Box(null);
-// //           return BitmapIndexedNode.EMPTY
-// //               .Assoc(edit, shift, key1hash, key1, val1, _)
-// //               .Assoc(edit, shift, key2hash, key2, val2, _);
-// //       }
-    
-
-
-
-
-
-
-////           INode Assoc(int shift, int hash, object key, object val, Box addedLeaf);
-////           INode Without(int shift, int hash, object key);
-////           IMapEntry Find(int shift, int hash, object key);
-////           object Find(int shift, int hash, object key, object notFound);
-////           ISeq GetNodeSeq();
-////           INode Assoc(AtomicReference<Thread> edit, int shift, int hash, object key, object val, Box addedLeaf);
-////           INode Without(AtomicReference<Thread> edit, int shift, int hash, object key, Box removedLeaf);
-////           object KVReduce(IFn f, Object init);
-////           object Fold(IFn combinef, IFn reducef, IFn fjtask, IFn fjfork, IFn fjjoin);
-////       public delegate T KVMangleDel<T>(object k, object v);
-////           IEnumerator Iterator(KVMangleDel<Object> d);
-////           IEnumerator<T> IteratorT<T>(KVMangleDel<T> d);
-
-
-//    let without(node, shift, hash, key) = raise <| NotImplementedException("TODO")
-//    let find(node, shift, hash, key) = raise <| NotImplementedException("TODO")
-//    let find(node, shift, hash, key, notFound) = raise <| NotImplementedException("TODO")
-//    let getNodeSeq() = raise <| NotImplementedException("TODO")
-//    let gehHash() = raise <| NotImplementedException("TODO")
-//    let assoc(node, edit, shift, hash, key, value, addedLeaf) = raise <| NotImplementedException("TODO")
-//    let without(node, edit, shift, hash, key) = raise <| NotImplementedException("TODO")
-//    let kvReduce(node, f, init) = raise <| NotImplementedException("TODO")
-//    let fold(node, combinef, reducef, jftask, fjfork, fjjoin) = raise <| NotImplementedException("TODO") 
-//    type KVMangleDel<'T> = delegate of obj * obj -> 'T
-
-//    let iterator(node, d:KVMangleDel<obj>) : IEnumerator  = raise <| NotImplementedException("TODO") 
-//    let iteratorT(node, d:KVMangleDel<'T>) : IEnumerator<'T>  = raise <| NotImplementedException("TODO") 
-    
-//    let rec assoc(node:INode, shift:int, hash:int, key:obj, value:obj) : INode * bool = 
-//        match node with
-//        | Empty ->  raise <| NotImplementedException("TODO") 
-//        | ArrayNode(rcount,nodes,edit) as an -> 
-//            let idx = Util.mask(hash,shift)
-//            let node = nodes.[idx]
-//            if isNull node 
-//            then 
-//                let newNode, leafAdded = assoc(EmptyBitmapNode,shift+5,hash,key,value) 
-//                ArrayNode(ref (!rcount+1), cloneAndSet(nodes,idx,newNode),null), leafAdded
-//            else
-//                let newNode, leafAdded  = assoc(node,shift+5,hash,key,value)
-//                if newNode = node then an, leafAdded
-//                else ArrayNode(ref !rcount, cloneAndSet(nodes,idx,newNode),null), leafAdded
-//        | BitmapIndexNode(rbitmap,robjs,edit) as bn ->
-//            let bit = bitPos(hash,shift)
-//            let idx = bitIndex(!rbitmap,bit)
-//            if (!rbitmap &&& bit) <> 0 then
-//                let keyOrNull = !robjs.[2*idx]
-//                let valOrNode = !robjs.[2*idx+1]
-//                if isNull keyOrNull then
-//                    let n , leafAdded = assoc((valOrNode:>INode),shift+5,hash,key,value)
-//                    if n = valOrNode 
-//                    then bn, leafAdded
-//                    else BitmapIndexNode(ref !rbitmap, cloneAndSet(!objs,2*idx1,n),null), leafAdded
-//                elif Util.equiv(key,keyOrNull) then
-//                    if value = valOrNode 
-//                    then bn, false
-//                    else BitmapIndexNode(ref !rbitmap, cloneAndSet(!objs,2*idx1,n,value),null), false
-//                else 
-//                    BitmapIndexNode(ref !rbitmap, cloneAndSet(!objs,2*idx,null,2*idx+1,createNode(shift+5,keyOrNull,valorNode, hash,key,value)),null), true
-//            else 
-//                let n = Util.bitCount(!rbitmap)
-//                if  n >= 16 
-//                then
-//                    let newNodes : INode[] = Array.create 32 Empty
-//                    int jdx = Util.Mask(hash,shift)
-//                    let newNode, leafAdded = assoc(EmptyBitmapNode,shift+5,hash,key,value)
-//                    newNodexs.[jdx] <- newNode
-//                    let mutable j = 0
-//                    for i = 0 to 31 do
-//                        if  ((!rbitmap) >>> i) &&& 1 <> 0 
-//                        then   
-//                            if isNull (!rnodes).[j] 
-//                            then (!rnodes).[i] <- downcast (!robsj).[j+1]
-//                            else 
-//                                let newNode, leafadded =  assoc(EmptyBitmapNode,shift+5,hash((!robjs).[j]),(!robjs).[j],(!robjs).[j+1])
-//                                (!rnodes).[i] <- newNode
-//                            j <- j+2
-//                    ArrayNode(ref (n+1), newNodes, null), leafAdded
-//                else
-
-//        | HashCollisionNode(nhash, rcount, robjs, edit) as hn ->
-//            if hash = nhash
-//            then 
-//                let idx = findIndex(key,!robjs,!rcount)
-//                if idx <> -1
-//                then
-//                    if (!robjs).[idx+1] = value
-//                    then hn, false
-//                    else HashCollisionNode(hash, ref !rcount, ref (cloneAndSet(!robjs, idx+1, value)),null), false
-//                else
-//                    let newObjs = Array.zeroCreate (2*(!rcount)+1)
-//                    Array.Copy(!robjs,0,newObjs,0,2*(!rcount))
-//                    newObjs.[2*(!rcount)] <- key
-//                    newObjs.[2*(!rcount)+1] <- value
-//                    HashCollisionNode(hash,ref ((!rcount)+1),ref newObjs,null),true
-//            else BitmapIndexNode( ref (bitPos(nhash,shift)), ref ([| null, hn|]), null), false
-
-        
-
-
-        
-//        //           public INode Assoc(int shift, int hash, object key, object val, Box addedLeaf)
-//        //           {
-//        //               if (_hash == hash)
-//        //               {
-//        //                   int idx = FindIndex(key);
-//        //                   if (idx != -1)
-//        //                   {
-//        //                       if (_array[idx + 1] == val)
-//        //                           return this;
-//        //                       return new HashCollisionNode(null, hash, _count, CloneAndSet(_array, idx + 1, val));
-//        //                   }
-//        //                   Object[] newArray = new Object[2 * (_count + 1)];
-//        //                   Array.Copy(_array, 0, newArray, 0, 2 * _count);
-//        //                   newArray[2 * _count] = key;
-//        //                   newArray[2 * _count + 1] = val;
-//        //                   addedLeaf.Val = addedLeaf;
-//        //                   return new HashCollisionNode(_edit, hash, _count + 1, newArray);
-//        //               }
-//        //               // nest it in a bitmap node
-//        //               return new BitmapIndexedNode(null, Bitpos(_hash, shift), new object[] { null, this })
-//        //                   .Assoc(shift, hash, key, val, addedLeaf);
-//        //           }
-

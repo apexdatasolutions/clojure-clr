@@ -37,12 +37,11 @@ open System.Threading
 type PersistentArrayMap(m,a) =
     inherit APersistentMap()
     let meta : IPersistentMap = m
-    let kvs : obj array = a
+    let kvs : obj[] = a
     
     new() = PersistentArrayMap(null,Array.zeroCreate 0)
     new(a) = PersistentArrayMap(null,a)
 
-    member x.create(init: obj[]) = PersistentArrayMap((x:>IMeta).meta(),init) 
 
     static member internal hashtableThreshold = 16
     static member Empty = PersistentArrayMap()
@@ -114,7 +113,7 @@ type PersistentArrayMap(m,a) =
             if i >= 0 && Object.ReferenceEquals(kvs.[i+1],v) 
             then upcast x   // no change, no-op
             elif i < 0 && kvs.Length >= PersistentArrayMap.hashtableThreshold 
-            then createHT(kvs).assoc(k,v)
+            then x.createHT(kvs).assoc(k,v)
             else
                 // we will create a new PersistentArrayMap
                 let newArray =
@@ -140,7 +139,7 @@ type PersistentArrayMap(m,a) =
             if i < 0 then upcast x  // key does note exist, no-op
             elif newLen = 0 then downcast (x:>IPersistentCollection).empty()
             else 
-                let newArray = Array.zeroCreate newLen
+                let newArray  : obj[] = Array.zeroCreate newLen
                 Array.Copy(kvs,0,newArray,0,i)
                 Array.Copy(kvs,i+1,newArray,i,newLen-i)
                 upcast x.create(newArray)
@@ -206,6 +205,8 @@ type PersistentArrayMap(m,a) =
             for j in i+2 .. 2 .. init.Length-1 do   
                 if PersistentArrayMap.equalKey(init.[i],init.[j]) then raise <| ArgumentException("init","Duplicate key " + (init.[i].ToString())) 
         PersistentArrayMap(init)
+
+    member x.createHT(init:obj[]) : IPersistentMap = upcast PersistentHashMap.create((x:>IMeta).meta(),init)
 
 
 // public class PersistentArrayMap : APersistentMap, IObj, IEditableCollection, IMapEnumerable, IMapEnumerableTyped<Object,Object>, IEnumerable, IEnumerable<IMapEntry>, IKVReduce
@@ -340,8 +341,7 @@ and TransientArrayMap(a) =
 
     override x.doAssoc(k,v) = 
         let i = x.indexOfKey(k)
-        if i >= 0
-        then  // exists, overwrite value
+        if i >= 0 then  // exists, overwrite value
             if kvs.[i+1] <> v then   kvs.[i+1] <- v
             upcast x
         elif len < kvs.Length
@@ -351,7 +351,7 @@ and TransientArrayMap(a) =
             len <- len+2
             upcast x
         else 
-            (PersistentHashMap.create(kvs).asTransient():>ITransientMap).assoc(k,v)
+            ((PersistentHashMap.create(kvs):>IEditableCollection).asTransient() :?> ITransientMap).assoc(k,v)
 
     override x.doWithout(k) =
         let i = x.indexOfKey(k)

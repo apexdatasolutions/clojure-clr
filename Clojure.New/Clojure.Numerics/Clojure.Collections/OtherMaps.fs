@@ -86,10 +86,10 @@ type PersistentArrayMap(m,a) =
         override x.seq() = if kvs.Length = 0 then null else upcast ArrayMapSeq(kvs,0)
 
     interface IPersistentCollection with    
-        override x.count() = kvs.Length / 2
         override x.empty() = (PersistentArrayMap.Empty:>IObj).withMeta(meta) :?> IPersistentCollection
 
-
+    interface Counted with  
+        override x.count() = kvs.Length/2
 
     interface ILookup with
         member x.valAt(k) = (x:>ILookup).valAt(x,null)
@@ -301,7 +301,7 @@ and [<Sealed>] ArrayMapSeq(m,a,i) =
     new(a,i) = ArrayMapSeq(null,a,i)
 
     interface IPersistentCollection with
-        override x.count() = (kvs.Length - i) / 2
+        override x.count() = (x :> Counted).count()
 
     interface ISeq with
         override x.first() = upcast MapEntry.create(kvs.[i],kvs.[i+1])
@@ -316,13 +316,16 @@ and [<Sealed>] ArrayMapSeq(m,a,i) =
             else upcast ArrayMapSeq((x:>IMeta).meta(),kvs,idx)
 
     interface Counted with
-        member x.count() = (x:>IPersistentCollection).count()
+        member x.count() = (kvs.Length - i) / 2
 
 and TransientArrayMap(a) = 
     inherit ATransientMap()
+
+    let kvs : obj[] = Math.Max(PersistentArrayMap.hashtableThreshold,a.Length) |> Array.zeroCreate
+
     [<VolatileField>] 
-    let mutable len : int = Math.Max(PersistentArrayMap.hashtableThreshold,a.Length)
-    let kvs : obj[] = Array.zeroCreate len
+    let mutable len : int = a.Length
+
     [<NonSerialized>][<VolatileField>] 
     let mutable owner : Thread = Thread.CurrentThread
 

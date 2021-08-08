@@ -13,6 +13,8 @@
     <Compile Include="ConsTests.fs" />
     <Compile Include="PersistentListTests.fs" />
     <Compile Include="FnTests.fs" />
+    <Compile Include="PersistentHashMapTests.fs" />
+    <Compile Include="PersistentArrayMapTests.fs" />
     <Compile Include="LazySeqTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

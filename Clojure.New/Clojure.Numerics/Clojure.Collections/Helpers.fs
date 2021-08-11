@@ -320,10 +320,6 @@ module RT =
                
     and print(x:obj, w:TextWriter ) : unit = RTEnv.printFn(x, w)
 
-    do
-        RTEnv.setPrintFn (fun (x,w) -> basePrinter(true,x,w))
-        RTEnv.setMetaPrintFn baseMetaPrinter
-
     let printString(x:obj) =
         use sw = new StringWriter()
         print(x,sw)
@@ -370,12 +366,9 @@ module Util =
 
     let isNumeric (o:obj) = o <> null && isNumericType (o.GetType())
 
-    let numericEquals(x:obj,y:obj) = RTEnv.numericEqualityFn(x,y)
+    let numericEquals(x:obj,y:obj) = RTEnv.numericEquals(x,y)
 
     let baseNumericEqualityFn(x,y) = x.Equals(y)
-
-    do 
-        RTEnv.setNumericEqualityFn baseNumericEqualityFn
 
     let pcequiv(k1:obj,k2:obj) =
         match k1, k2 with
@@ -387,7 +380,7 @@ module Util =
         if Object.ReferenceEquals(k1,k2) then true
         elif isNull k1 then false
         else 
-            if isNumeric k1 && isNumeric k2 then RTEnv.numericEqualityFn(k1,k2)
+            if isNumeric k1 && isNumeric k2 then numericEquals(k1,k2)
             else pcequiv(k1,k2)
 
     // TODO: Benchmark this against alternative implementations: just use Convert, or match on TypeCode.
@@ -651,3 +644,16 @@ module Util =
 
 ////        //    return new Cons(x, seq(coll));
 ////        //}
+
+
+module RTEnvInitialization = 
+
+
+    let initialize() : unit  = 
+        RTEnv.setPrintFn (fun (x,w) -> RT.basePrinter(true,x,w))
+        RTEnv.setMetaPrintFn RT.baseMetaPrinter
+        RTEnv.setNumericEqualityFn Util.baseNumericEqualityFn
+        RTEnv.isInitialized <- true
+
+    do
+        initialize()

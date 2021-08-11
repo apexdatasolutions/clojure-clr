@@ -25,11 +25,13 @@ module RTEnv =
 
     
     // Similarly, we need to provide a method for comparing numeric types for equality
-    let dummyNumericEquality(x:obj,y:obj) : bool = raise <| NotImplementedException("Called dummy numeric equality function -- initialization error")
+    let dummyNumericEquality(x:obj,y:obj) : bool = x.Equals(y)
  
 
     let mutable internal numericEqualityFn : (obj*obj) -> bool = dummyNumericEquality
     let setNumericEqualityFn (neFn:((obj*obj) -> bool)) = numericEqualityFn <- neFn
+
+    let numericEquals(a:obj,b:obj) = numericEqualityFn(a,b)
 
 
     
@@ -59,12 +61,11 @@ module RTEnv =
         // the real printer to use in Clojure requires a lot of Clojure infrastructure.
         // We provide a base printer that can be used as a default case later.
         // The initialization of the Clojure environment will have to install its own printer.
-    
-    
 
-    type PrintFnType = (obj * TextWriter) -> unit
-
-    let dummyPrinter : PrintFnType = raise <| NotImplementedException("Call to dummyPrinter -- initialization error")
+  
+    type PrintFnType = (obj * TextWriter) -> unit  
+    
+    let dummyPrinter : PrintFnType = fun (o, tw) ->  tw.Write(o.ToString())
           
 
     let mutable internal metaPrinterFn : PrintFnType = dummyPrinter
@@ -73,3 +74,6 @@ module RTEnv =
     
     let mutable internal printFn : PrintFnType = dummyPrinter
     let setPrintFn (prfn: PrintFnType)  : unit = printFn <- prfn
+
+    
+    let mutable isInitialized : bool = false

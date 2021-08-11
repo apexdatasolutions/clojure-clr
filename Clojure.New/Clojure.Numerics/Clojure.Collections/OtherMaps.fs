@@ -47,11 +47,11 @@ type PersistentArrayMap(m,a) =
     static member Empty = PersistentArrayMap()
     
     interface IMeta with    
-        member x.meta() = meta
+        override x.meta() = meta
 
     interface IObj with
-        member x.withMeta(m) = 
-            if Object.ReferenceEquals(m,meta) then upcast x
+        override x.withMeta(m) = 
+            if m = meta then upcast x
             else upcast PersistentArrayMap(m,kvs)
 
     member private x.indexOfObject(key:obj) = 
@@ -63,8 +63,7 @@ type PersistentArrayMap(m,a) =
             else step (idx+2)
         step 0
     
-    member private x.indexOfOKeyword(key:Keyword) =
-        
+    member private x.indexOfOKeyword(key:Keyword) =        
         let rec step (idx:int) =
             if idx >= kvs.Length then -1
             elif  Object.ReferenceEquals(key,kvs.[idx]) then idx
@@ -92,8 +91,8 @@ type PersistentArrayMap(m,a) =
         override x.count() = kvs.Length/2
 
     interface ILookup with
-        member x.valAt(k) = (x:>ILookup).valAt(x,null)
-        member x.valAt(k,notFound) = 
+        override x.valAt(k) = (x:>ILookup).valAt(k,null)
+        override x.valAt(k,notFound) = 
             let i = x.indexOfKey(k)
             if i < 0 then notFound
             else kvs.[i+1]

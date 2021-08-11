@@ -197,7 +197,10 @@ type APersistentMap() =
            
     // Object overrides
 
-    override x.ToString() = RT.printString(x)
+    override x.ToString() =
+        // complete and total hach until I get RTEnv intiailized figured out:  TODO: FIX THIS!
+        if not RTEnv.isInitialized then RTEnvInitialization.initialize()
+        RT.printString(x)
 
     override x.Equals(o) = APersistentMap.mapEquals(x,o)
 

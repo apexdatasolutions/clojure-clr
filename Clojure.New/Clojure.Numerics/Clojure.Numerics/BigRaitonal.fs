@@ -4,7 +4,6 @@ open System
 open System.Numerics
 
 
-
 [<Sealed>]
 type BigRational(n:BigInteger,d:BigInteger) =
     let mutable numerator = n
@@ -19,7 +18,6 @@ type BigRational(n:BigInteger,d:BigInteger) =
         let n2, d2 = BigRational.normalize n1 d1
         numerator <- n2
         denominator <- d2
-
 
     
     // integer constructors
@@ -36,8 +34,7 @@ type BigRational(n:BigInteger,d:BigInteger) =
     new(x:decimal) =
         let coeff, exp = ArithmeticHelpers.deconstructDecimal x
         BigRational(coeff,BigInteger.Pow(ArithmeticHelpers.biTen,exp))
-            
-
+ 
     new(x:double) =
         let n,d  =
             match ArithmeticHelpers.deconstructDouble x with
@@ -60,14 +57,13 @@ type BigRational(n:BigInteger,d:BigInteger) =
     static member private normalize (n:BigInteger) (d:BigInteger)  = 
 
         let gcd = BigInteger.GreatestCommonDivisor(n,d)
-        if gcd.IsOne 
-        then (n,d)
+        if gcd.IsOne then (n,d)
         else (n/gcd,d/gcd)
 
     // some accessors
 
-    member x.Numerator = numerator
-    member x.Denominator = denominator
+    member _.Numerator = numerator
+    member _.Denominator = denominator
 
     // Some contants
     static member Zero = BigRational(BigInteger.Zero,BigInteger.One)
@@ -76,67 +72,68 @@ type BigRational(n:BigInteger,d:BigInteger) =
     // basic interfaces
 
     interface IEquatable<BigRational> with
-        member x.Equals(y:BigRational) = 
-            if x.Denominator = y.Denominator 
-            then x.Numerator = y.Numerator
-            else x.Numerator*y.Denominator = y.Numerator*x.Denominator
+        member this.Equals(y:BigRational) = 
+            if this.Denominator = y.Denominator then 
+                this.Numerator = y.Numerator
+            else 
+                this.Numerator*y.Denominator = y.Numerator*this.Denominator
     
-    override x.Equals(obj) = 
+    override this.Equals(obj) = 
         match obj with
-        | :? BigRational as r -> (x :> IEquatable<BigRational>).Equals(r)
+        | :? BigRational as r -> (this :> IEquatable<BigRational>).Equals(r)
         | _ -> false
 
-    override x.GetHashCode() = x.Numerator.GetHashCode() ^^^ x.Denominator.GetHashCode()
+    override this.GetHashCode() = this.Numerator.GetHashCode() ^^^ this.Denominator.GetHashCode()
 
-    override x.ToString() = x.Numerator.ToString() + "/" + x.Denominator.ToString()
+    override this.ToString() = this.Numerator.ToString() + "/" + this.Denominator.ToString()
 
 
     interface IComparable<BigRational> with   
-        member x.CompareTo(y) = BigInteger.Compare(x.Numerator*y.Denominator,y.Numerator*x.Denominator)
+        member this.CompareTo(y) = BigInteger.Compare(this.Numerator*y.Denominator,y.Numerator*this.Denominator)
 
 
     interface IComparable with  
-        member x.CompareTo y = 
+        member this.CompareTo y = 
             match y with
             | null -> 1
-            | :? BigRational as r -> (x :> IComparable<BigRational>).CompareTo(r)
+            | :? BigRational as r -> (this :> IComparable<BigRational>).CompareTo(r)
             | _ -> invalidArg "y" "Argument must be of type BigRational"
 
 
     // some conversions
 
-    member x.ToBigInteger() = x.Numerator / x.Denominator
-    member x.ToBigDecimal() = BigDecimal.Create(x.Numerator) / BigDecimal.Create(x.Denominator)
-    member x.ToBigDecimal(c) = BigDecimal.Divide(BigDecimal.Create(x.Numerator), BigDecimal.Create(x.Denominator), c)
+    member this.ToBigInteger() = this.Numerator / this.Denominator
+    member this.ToBigDecimal() = BigDecimal.Create(this.Numerator) / BigDecimal.Create(this.Denominator)
+    member this.ToBigDecimal(c) = BigDecimal.Divide(BigDecimal.Create(this.Numerator), BigDecimal.Create(this.Denominator), c)
 
     // compatibility with JVM implementation
-    member x.BigIntegerValue() = x.ToBigInteger()
+    member this.BigIntegerValue() = this.ToBigInteger()
 
     interface IConvertible with
-        member x.GetTypeCode() = TypeCode.Object
-        member x.ToBoolean(_:IFormatProvider) = not x.Numerator.IsZero
-        member x.ToByte(_:IFormatProvider) = Convert.ToByte(x.ToBigInteger())
-        member x.ToChar(_:IFormatProvider) = Convert.ToChar(x.ToBigInteger())
-        member x.ToDateTime(_:IFormatProvider) = Convert.ToDateTime(x.ToBigInteger())
-        member x.ToDecimal(fp:IFormatProvider) = (x.ToBigDecimal(Context.Decimal128) :> IConvertible).ToDecimal(fp)
-        member x.ToDouble(fp:IFormatProvider) = (x.ToBigDecimal(Context.Decimal64) :> IConvertible).ToDouble(fp)       
-        member x.ToInt16(_:IFormatProvider) = Convert.ToInt16(x.ToBigInteger())
-        member x.ToInt32(_:IFormatProvider) = Convert.ToInt32(x.ToBigInteger())
-        member x.ToInt64(_:IFormatProvider) = Convert.ToInt64(x.ToBigInteger())
-        member x.ToSByte(_:IFormatProvider) = Convert.ToSByte(x.ToBigInteger())    
-        member x.ToSingle(fp:IFormatProvider) = (x.ToBigDecimal(Context.Decimal32) :> IConvertible).ToSingle(fp)
-        member x.ToString(_:IFormatProvider) = x.ToString()
-        member x.ToType(conversionType: Type, fp:IFormatProvider) = Convert.ChangeType((x :> IConvertible).ToDouble(fp),conversionType,fp)
-        member x.ToUInt16(_:IFormatProvider) = Convert.ToUInt16(x.ToBigInteger())
-        member x.ToUInt32(_:IFormatProvider) = Convert.ToUInt32(x.ToBigInteger())
-        member x.ToUInt64(_:IFormatProvider) = Convert.ToUInt64(x.ToBigInteger())
+        member _.GetTypeCode() = TypeCode.Object
+        member this.ToBoolean(_:IFormatProvider) = not this.Numerator.IsZero
+        member this.ToByte(_:IFormatProvider) = Convert.ToByte(this.ToBigInteger())
+        member this.ToChar(_:IFormatProvider) = Convert.ToChar(this.ToBigInteger())
+        member this.ToDateTime(_:IFormatProvider) = Convert.ToDateTime(this.ToBigInteger())
+        member this.ToDecimal(fp:IFormatProvider) = (this.ToBigDecimal(Context.Decimal128) :> IConvertible).ToDecimal(fp)
+        member this.ToDouble(fp:IFormatProvider) = (this.ToBigDecimal(Context.Decimal64) :> IConvertible).ToDouble(fp)       
+        member this.ToInt16(_:IFormatProvider) = Convert.ToInt16(this.ToBigInteger())
+        member this.ToInt32(_:IFormatProvider) = Convert.ToInt32(this.ToBigInteger())
+        member this.ToInt64(_:IFormatProvider) = Convert.ToInt64(this.ToBigInteger())
+        member this.ToSByte(_:IFormatProvider) = Convert.ToSByte(this.ToBigInteger())    
+        member this.ToSingle(fp:IFormatProvider) = (this.ToBigDecimal(Context.Decimal32) :> IConvertible).ToSingle(fp)
+        member this.ToString(_:IFormatProvider) = this.ToString()
+        member this.ToType(conversionType: Type, fp:IFormatProvider) = Convert.ChangeType((this :> IConvertible).ToDouble(fp),conversionType,fp)
+        member this.ToUInt16(_:IFormatProvider) = Convert.ToUInt16(this.ToBigInteger())
+        member this.ToUInt32(_:IFormatProvider) = Convert.ToUInt32(this.ToBigInteger())
+        member this.ToUInt64(_:IFormatProvider) = Convert.ToUInt64(this.ToBigInteger())
 
     // Some helpful properties
 
-    member x.IsZero = x.Numerator.IsZero
-    member x.IsPositive = x.Numerator.Sign > 0
-    member x.IsNegative = x.Numerator.Sign < 0
-    member x.Sign = x.Numerator.Sign
+    member this.IsZero = this.Numerator.IsZero
+    member this.IsPositive = this.Numerator.Sign > 0
+    member this.IsNegative = this.Numerator.Sign < 0
+    member this.Sign = this.Numerator.Sign
 
     // Parsing
 
@@ -160,68 +157,68 @@ type BigRational(n:BigInteger,d:BigInteger) =
     // Arithmetic operations
 
     // -(c/d) = (-c)/d
-    member x.Negate() = if x.IsZero then x else BigRational(-x.Numerator,x.Denominator)
+    member this.Negate() = if this.IsZero then this else BigRational(-this.Numerator,this.Denominator)
     static member Negate(x:BigRational) = x.Negate()
     static member (~-) (x:BigRational) = x.Negate()
     static member (~+) (x:BigRational) = x
 
     // abs (a/b) = abs(a)/b
-    member x.Abs() = if x.Numerator.Sign < 0 then BigRational(BigInteger.Abs(x.Numerator),x.Denominator) else x
+    member this.Abs() = if this.Numerator.Sign < 0 then BigRational(BigInteger.Abs(this.Numerator),this.Denominator) else this
     static member Abs(x:BigRational) = x.Abs()
 
     // a/b + c/d = (ad+bc)/bd
-    member x.Add(y:BigRational) =  BigRational(x.Numerator * y.Denominator + x.Denominator*y.Numerator,x.Denominator*y.Denominator) 
+    member this.Add(y:BigRational) =  BigRational(this.Numerator * y.Denominator + this.Denominator*y.Numerator,this.Denominator*y.Denominator) 
     static member Add(x:BigRational, y:BigRational) = x.Add(y)
     static member (+) (x:BigRational, y:BigRational) = x.Add(y)
 
     // a/b - c/d = (ad-bc)/bd
-    member x.Subtract(y:BigRational) =  BigRational(x.Numerator * y.Denominator - x.Denominator*y.Numerator,x.Denominator*y.Denominator) 
+    member this.Subtract(y:BigRational) =  BigRational(this.Numerator * y.Denominator - this.Denominator*y.Numerator,this.Denominator*y.Denominator) 
     static member Subtract(x:BigRational, y:BigRational) = x.Subtract(y)
     static member (-) (x:BigRational, y:BigRational) = x.Subtract(y)
 
 
     // a/b * c/d = ac/bd
-    member x.Multiply(y:BigRational) =  BigRational(x.Numerator * y.Numerator ,x.Denominator*y.Denominator) 
+    member this.Multiply(y:BigRational) =  BigRational(this.Numerator * y.Numerator ,this.Denominator*y.Denominator) 
     static member Multiply(x:BigRational, y:BigRational) = x.Multiply(y)
     static member (*) (x:BigRational, y:BigRational) = x.Multiply(y)
 
     // a/b / c/d = ad/bc
-    member x.Divide(y:BigRational) =  BigRational(x.Numerator * y.Denominator ,x.Numerator*y.Denominator) 
+    member this.Divide(y:BigRational) =  BigRational(this.Numerator * y.Denominator ,this.Numerator*y.Denominator) 
     static member Divide(x:BigRational, y:BigRational) = x.Divide(y)
     static member (/) (x:BigRational, y:BigRational) = x.Divide(y)
 
     // a/b % c/d = (ad % bc)/bd
-    member x.Mod(y:BigRational) =  BigRational(x.Numerator * y.Denominator % x.Denominator*y.Numerator,x.Denominator*y.Denominator) 
+    member this.Mod(y:BigRational) =  BigRational(this.Numerator * y.Denominator % this.Denominator*y.Numerator,this.Denominator*y.Denominator) 
     static member Mod(x:BigRational, y:BigRational) = x.Mod(y)
     static member (%) (x:BigRational, y:BigRational) = x.Mod(y)
 
     // a/b / c/d  == (ad)/(bc)
     // a/b % c/d  == (ad % bc)/bd
-    member x.DivRem(y:BigRational, remainder:outref<BigRational>) = 
-        let ad = x.Numerator*y.Denominator
-        let bc = x.Denominator*y.Numerator
-        let bd = x.Denominator*y.Denominator
+    member this.DivRem(y:BigRational, remainder:outref<BigRational>) = 
+        let ad = this.Numerator*y.Denominator
+        let bc = this.Denominator*y.Numerator
+        let bd = this.Denominator*y.Denominator
         remainder <- BigRational(ad % bc, bd)
         ad/bc
     static member DivRem(x:BigRational, y:BigRational, remainder:outref<BigRational>) = x.DivRem(y,&remainder)
 
     
     // multiplicative inverse of a/b = b/a
-    member x.Invert() = BigRational(x.Denominator,x.Numerator)
+    member this.Invert() = BigRational(this.Denominator,this.Numerator)
     static member Invert(x:BigRational) = x.Invert()
 
-    member x.Pow(n:int) = 
+    member this.Pow(n:int) = 
         if n = 0
         then
-            if x.IsZero 
+            if this.IsZero 
             then raise <| ArithmeticException("Cannot compute 0**0")
             else BigRational.Zero
         elif n < 0
         then 
-            if x.IsZero
+            if this.IsZero
             then raise <| ArithmeticException("Cannot raise zero to a negative exponent")
-            else x.Invert().Pow(-n)
-        else BigRational(BigInteger.Pow(x.Numerator,n),BigInteger.Pow(x.Denominator,n))
+            else this.Invert().Pow(-n)
+        else BigRational(BigInteger.Pow(this.Numerator,n),BigInteger.Pow(this.Denominator,n))
 
 
     // LCD( a/b, c/d ) = (bd) / GCD(b,d)

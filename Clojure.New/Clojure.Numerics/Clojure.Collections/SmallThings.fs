@@ -11,10 +11,10 @@ type Obj(m:IPersistentMap) =
     new() = Obj(null)
 
     interface IMeta with
-        member x.meta() = mm
+        member _.meta() = mm
 
     interface IObj with 
-        member x.withMeta(m) = raise <| NotImplementedException("You must implement withMeta in derived classes")
+        member _.withMeta(m) = raise <| NotImplementedException("You must implement withMeta in derived classes")
 
 
 
@@ -25,5 +25,5 @@ type Reduced(v) =
     let value = v
 
     interface IDeref with
-        member x.deref() = value
+        member _.deref() = value
 

@@ -127,8 +127,7 @@ module RT =
 
         let getByNth coll key =
             let n = Util.convertToInt(key)
-            if n >= 0 && n < RT.count(coll) 
-            then RT.nth(coll,n)
+            if n >= 0 && n < RT.count(coll) then RT.nth(coll,n)
             else null
 
         match coll with
@@ -147,8 +146,7 @@ module RT =
 
         let getByNth coll key =
             let n = Util.convertToInt(key)
-            if n >= 0 && n < RT.count(coll) 
-            then RT.nth(coll,n)
+            if n >= 0 && n < RT.count(coll) then RT.nth(coll,n)
             else notFound
 
         match coll with
@@ -196,7 +194,8 @@ module RT =
             step s
 
         let baseCharPrinter readably (c:char) (w:TextWriter) =
-            if not readably then w.Write(c)
+            if not readably then 
+                w.Write(c)
             else
                 w.Write('\\')
                 match c with
@@ -209,7 +208,8 @@ module RT =
                 | _ -> w.Write(c)
 
         let baseStringPrinter readably (s:string) (w:TextWriter) =
-            if not readably then w.Write(s)
+            if not readably then 
+                w.Write(s)
             else
                 w.Write('"')
                 s |> Seq.iter (fun c -> 
@@ -353,7 +353,8 @@ module Util =
 
     let private isNumericType (t:Type) = 
         let t = getNonNullableType(t)
-        if t.IsEnum then false
+        if t.IsEnum then 
+            false
         else
             match Type.GetTypeCode(t)  with
             | TypeCode.SByte | TypeCode.Byte
@@ -377,8 +378,10 @@ module Util =
         | _ -> k1.Equals(k2)
 
     let equiv(k1:obj, k2:obj) =
-        if Object.ReferenceEquals(k1,k2) then true
-        elif isNull k1 then false
+        if Object.ReferenceEquals(k1,k2) then 
+            true
+        elif isNull k1 then 
+            false
         else 
             if isNumeric k1 && isNumeric k2 then numericEquals(k1,k2)
             else pcequiv(k1,k2)
@@ -489,12 +492,12 @@ module Util =
         
     let nameForType (t:Type) =
         //| null -> "<null>"  // prior version printed a message
-        if t.IsNested
-        then
+        if t.IsNested then
             let fullName = t.FullName
             let index = fullName.LastIndexOf('.')
             fullName.Substring(index+1)
-        else t.Name
+        else 
+            t.Name
 
 
     let mask(hash,shift) = (hash >>> shift) &&& 0x01f

@@ -99,7 +99,8 @@ type Murmur3 =
     static member HashStringU (input:string) =
             // step through two characters at a time
             let rec step idx h =
-                if idx >= input.Length then h
+                if idx >= input.Length then 
+                    h
                 else
                     let key = (uint input.[idx-1]) ||| ((uint input.[idx]) <<< 16)
                     let key = Murmur3.mixKey key
@@ -108,12 +109,12 @@ type Murmur3 =
             let hash = step 1 Murmur3.Seed
             let hash =
                 // deal with remaining character if length is odd
-                if input.Length &&& 1 = 1   
-                then    
+                if input.Length &&& 1 = 1 then    
                     let key = uint input.[input.Length-1]
                     let key = Murmur3.mixKey key
                     hash ^^^ key
-                else hash
+                else 
+                    hash
             Murmur3.finalize hash (2*input.Length)
 
     // int-return api

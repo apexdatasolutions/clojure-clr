@@ -12,13 +12,13 @@ type  AtomicReference<'T  when 'T :not struct>(v) =
     new() = AtomicReference(Unchecked.defaultof<'T>)
 
 
-    member x.Get() = Volatile.Read(&value)
-    member x.Value = Volatile.Read(&value)
+    member _.Get() = Volatile.Read(&value)
+    member _.Value = Volatile.Read(&value)
 
-    member x.CompareAndSet(expect,update) =
+    member _.CompareAndSet(expect,update) =
         let oldVal = Interlocked.CompareExchange(&value,update,expect)
         Object.ReferenceEquals(oldVal,expect)
 
 
-    member x.GetAndSet(update) = Interlocked.Exchange(&value,update) 
-    member x.Set(update) = Volatile.Write(&value,update)
+    member this.GetAndSet(update) = Interlocked.Exchange(&value,update) 
+    member this.Set(update) = Volatile.Write(&value,update)

@@ -49,31 +49,31 @@ type AFn() =
             step xs 0                   
             a
 
-    member x.WrongArityException (reqArity:int) : ArityException = ArityException(reqArity,x.GetType().FullName)
+    member this.WrongArityException (reqArity:int) : ArityException = ArityException(reqArity,this.GetType().FullName)
 
     interface IFn with  
-        member x.invoke () = raise <| x.WrongArityException(0)
-        member x.invoke(a1) =  raise <| x.WrongArityException(1)
-        member x.invoke(a1,a2) =  raise <| x.WrongArityException(2)
-        member x.invoke(a1,a2,a3) =  raise <| x.WrongArityException(3)
-        member x.invoke(a1,a2,a3,a4) =  raise <| x.WrongArityException(4)
-        member x.invoke(a1,a2,a3,a4,a5) =  raise <| x.WrongArityException(5)
-        member x.invoke(a1,a2,a3,a4,a5,a6) =  raise <| x.WrongArityException(6)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7) =  raise <| x.WrongArityException(7)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8) =  raise <| x.WrongArityException(8)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9) =  raise <| x.WrongArityException(9)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =  raise <| x.WrongArityException(10)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11) =  raise <| x.WrongArityException(11)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12) =  raise <| x.WrongArityException(12)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13) =  raise <| x.WrongArityException(13)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14) =  raise <| x.WrongArityException(14)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15) =  raise <| x.WrongArityException(15)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16) =  raise <| x.WrongArityException(16)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17) =  raise <| x.WrongArityException(17)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18) =  raise <| x.WrongArityException(18)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19) =  raise <| x.WrongArityException(19)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20) =  raise <| x.WrongArityException(20)
-        member x.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,[<ParamArray>]args) =  raise <| x.WrongArityException(21)
+        member this.invoke () = raise <| this.WrongArityException(0)
+        member this.invoke(a1) =  raise <| this.WrongArityException(1)
+        member this.invoke(a1,a2) =  raise <| this.WrongArityException(2)
+        member this.invoke(a1,a2,a3) =  raise <| this.WrongArityException(3)
+        member this.invoke(a1,a2,a3,a4) =  raise <| this.WrongArityException(4)
+        member this.invoke(a1,a2,a3,a4,a5) =  raise <| this.WrongArityException(5)
+        member this.invoke(a1,a2,a3,a4,a5,a6) =  raise <| this.WrongArityException(6)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7) =  raise <| this.WrongArityException(7)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8) =  raise <| this.WrongArityException(8)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9) =  raise <| this.WrongArityException(9)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =  raise <| this.WrongArityException(10)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11) =  raise <| this.WrongArityException(11)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12) =  raise <| this.WrongArityException(12)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13) =  raise <| this.WrongArityException(13)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14) =  raise <| this.WrongArityException(14)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15) =  raise <| this.WrongArityException(15)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16) =  raise <| this.WrongArityException(16)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17) =  raise <| this.WrongArityException(17)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18) =  raise <| this.WrongArityException(18)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19) =  raise <| this.WrongArityException(19)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20) =  raise <| this.WrongArityException(20)
+        member this.invoke(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,[<ParamArray>]args) =  raise <| this.WrongArityException(21)
 
     // TODO: Check to see if the original use of Util1.Ret is necessary.
 
@@ -108,7 +108,7 @@ type AFn() =
         
 
     abstract member applyTo : arglist: ISeq -> obj 
-    default x.applyTo arglist = AFn.applyToHelper(x, arglist)
+    default this.applyTo arglist = AFn.applyToHelper(this, arglist)
 
     // TODO: Do we need the implementation of IDynamicMetaObjectProvide.GetMetaObject?
 

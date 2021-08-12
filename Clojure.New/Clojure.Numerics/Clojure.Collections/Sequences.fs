@@ -513,10 +513,3 @@ type LazySeq(m1, fn1, s1) =
                     arr.SetValue(s.first(),i)
                     step (i+1) (s.next())
             step idx (x:>ISeq)
-
-
-
-
-
-
-

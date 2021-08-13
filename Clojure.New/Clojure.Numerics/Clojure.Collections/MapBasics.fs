@@ -8,34 +8,39 @@ open System.Reflection
 
 [<Sealed>]
 type MapEnumerator(m:IPersistentMap) =
-    let ienum : IEnumerator = upcast new SeqEnumerator(m.seq())
-    let disposed = false
+    let seqenum = new SeqEnumerator(m.seq())
+    let mutable disposed = false
 
-    member private x.currentKey = (ienum.Current:?>IMapEntry).key()
-    member private x.currentVal = (ienum.Current:?>IMapEntry).value()
+    let ienum = seqenum :> IEnumerator
+
+    member private _.currentKey = (ienum.Current:?>IMapEntry).key()
+    member private _.currentVal = (ienum.Current:?>IMapEntry).value()
 
     interface IDictionaryEnumerator with
-        member x.Entry = DictionaryEntry(x.currentKey,x.currentVal)
-        member x.Key = x.currentKey
-        member x.Value = x.currentVal
+        member this.Entry = DictionaryEntry(this.currentKey,this.currentVal)
+        member this.Key = this.currentKey
+        member this.Value = this.currentVal
 
     interface IEnumerator with  
-        member x.Current = ienum.Current
-        member x.MoveNext() = ienum.MoveNext()
-        member x.Reset() = ienum.Reset()
+        member _.Current = ienum.Current
+        member _.MoveNext() = ienum.MoveNext()
+        member _.Reset() = ienum.Reset()
 
-    // Do we need this to be IDisposable?  Was in the original
+    member _.Dispose disposing =
+        if not disposed then
+            if disposing && not (isNull ienum) then (seqenum:>IDisposable).Dispose()
+            disposed <- true
+
+    interface IDisposable with
+        member this.Dispose() = this.Dispose(true); GC.SuppressFinalize(this)
 
 
 [<Sealed>]
 [<AllowNullLiteral>]
-type KeySeq(meta, s,e) =
+type KeySeq(meta, iseq,ienum) =
     inherit ASeq(meta)
-    let iseq : ISeq = s
-    let ienum : IEnumerable = e
-
+ 
     new(s,e) = KeySeq(null,s,e)
-
 
     static member create(s:ISeq) : KeySeq =
         match s with
@@ -50,16 +55,16 @@ type KeySeq(meta, s,e) =
             else KeySeq(s,m)
 
     interface ISeq with
-        override x.first() =
+        override _.first() =
             match iseq.first() with
             | :? IMapEntry as me -> me.key()
             | :? DictionaryEntry as de -> de.Key
             | _ -> raise <| InvalidCastException("Cannot convert hashtable entry to IMapEntry or DictionaryEntry")
-        override x.next() = upcast KeySeq.create(iseq.next())
+        override _.next() = upcast KeySeq.create(iseq.next())
 
     interface IObj with
-        override x.withMeta(m) =
-            if Object.ReferenceEquals(m,meta) then upcast x
+        override this.withMeta(m) =
+            if m = meta then upcast this
             else upcast  KeySeq(m,iseq,ienum)
 
     static member private keyIterator (e:IEnumerable) : IEnumerator =
@@ -72,7 +77,7 @@ type KeySeq(meta, s,e) =
 
 
     interface IEnumerable with
-        override x.GetEnumerator() = 
+        override _.GetEnumerator() = 
             match ienum with    
             | null -> base.GetMyEnumerator() 
             | :? IMapEnumerable as imi -> imi.keyEnumerator()
@@ -80,13 +85,10 @@ type KeySeq(meta, s,e) =
 
 [<Sealed>]
 [<AllowNullLiteral>]
-type ValSeq(meta, s,e) =
+type ValSeq(meta, iseq:ISeq, ienum:IEnumerable) =
     inherit ASeq(meta)
-    let iseq : ISeq = s
-    let ienum : IEnumerable = e
 
     new(s,e) = ValSeq(null,s,e)
-
 
     static member create(s:ISeq) : ValSeq =
         match s with
@@ -101,17 +103,17 @@ type ValSeq(meta, s,e) =
             else ValSeq(s,m)
 
     interface ISeq with
-        override x.first() =
+        override _.first() =
             match iseq.first() with
             | :? IMapEntry as me -> me.key()
             | :? DictionaryEntry as de -> de.Key
             | _ -> raise <| InvalidCastException("Cannot convert hashtable entry to IMapEntry or DictionaryEntry")
-        override x.next() = upcast ValSeq.create(iseq.next())
+        override _.next() = upcast ValSeq.create(iseq.next())
 
     interface IObj with
-        override x.withMeta(m) =
-            if Object.ReferenceEquals(m,meta) then upcast x
-            else upcast  ValSeq(m,iseq,ienum)
+        override this.withMeta(m) =
+            if m = meta then upcast this
+            else upcast ValSeq(m,iseq,ienum)
 
     static member keyIterator (e:IEnumerable) : IEnumerator =
         let s = 
@@ -123,7 +125,7 @@ type ValSeq(meta, s,e) =
 
 
     interface IEnumerable with
-        override x.GetEnumerator() = 
+        override _.GetEnumerator() = 
             match ienum with    
             | null -> base.GetMyEnumerator() 
             | :? IMapEnumerable as imi -> imi.keyEnumerator()
@@ -135,15 +137,13 @@ type ValSeq(meta, s,e) =
 // We don't need all this just to get APersistentMap going
 
 [<AllowNullLiteral>]
-type MapEntry(k,v) =
-    let key : obj = k
-    let value : obj = v
+type MapEntry(key:obj, value:obj) =
 
     static member create(k,v) = MapEntry(k,v)  // not sure why we need this, but here it is
 
     interface IMapEntry with
-        member x.key() = key
-        member x.value() = value
+        member _.key() = key
+        member _.value() = value
 
 
 
@@ -152,8 +152,8 @@ type MapEntry(k,v) =
 type APersistentMap() =
     inherit AFn()
 
-    let mutable hash = 0
-    let mutable hasheq = 0
+    let mutable hash : int option = None
+    let mutable hasheq : int option = None
 
     // Some static methods
     // Could be put into their own module?
@@ -161,20 +161,20 @@ type APersistentMap() =
     static member mapEquals(m:IPersistentMap, o:obj) : bool =
         
         let rec step (s:ISeq) (d:IDictionary) =
-            if isNull s then true
+            if isNull s then 
+                true
             else 
                 let me : IMapEntry = downcast s.first()
-                if d.Contains(me.key) && Util.equals(me.value(),d.[me.key()])
-                then step (s.next()) d
+                if d.Contains(me.key) && Util.equals(me.value(),d.[me.key()]) then step (s.next()) d
                 else false            
 
         let mapDictEquals (m:IPersistentMap) (d:IDictionary) : bool =
-            if d.Count <> m.count() 
-            then false
+            if d.Count <> m.count()  then false
             else step (m.seq()) d
                
             
-        if Object.ReferenceEquals(m,o) then true
+        if (m :> obj) = o then 
+            true
         else
             match o with
             | :? IDictionary as d -> mapDictEquals m d
@@ -197,85 +197,89 @@ type APersistentMap() =
            
     // Object overrides
 
-    override x.ToString() =
-        // complete and total hach until I get RTEnv intiailized figured out:  TODO: FIX THIS!
+    override this.ToString() =
+        // complete and total hack until I get RTEnv intiailized figured out:  TODO: FIX THIS!
         if not RTEnv.isInitialized then RTEnvInitialization.initialize()
-        RT.printString(x)
+        RT.printString(this)
 
-    override x.Equals(o) = APersistentMap.mapEquals(x,o)
+    override this.Equals(o) = APersistentMap.mapEquals(this,o)
 
-    override x.GetHashCode() =
-        if hash = 0 then hash <- APersistentMap.mapHash(x)
-        hash
-
+    override this.GetHashCode() =
+        match hash with
+        | None -> 
+            let h = APersistentMap.mapHash(this)
+            hash <- Some h
+            h
+        | Some h ->
+            h
+        
     interface IMeta with
-        member x.meta() = raise <| NotImplementedException("You must implement meta in derived classes")
+        member _.meta() = raise <| NotImplementedException("You must implement meta in derived classes")
 
     interface IObj with
-        member x.withMeta(m) = raise <| NotImplementedException("You must implement withMeta in derived classes")
+        member _.withMeta(m) = raise <| NotImplementedException("You must implement withMeta in derived classes")
 
     interface Counted with
-        member x.count() = raise <| NotImplementedException("You must implement count in derived classes")
+        member _.count() = raise <| NotImplementedException("You must implement count in derived classes")
 
         
 
     interface Seqable with
-        member x.seq() = raise <| NotImplementedException("You must implement seq in derived classes")
+        member _.seq() = raise <| NotImplementedException("You must implement seq in derived classes")
 
     interface IPersistentCollection with
-        member x.count() = (x:>Counted).count()
-        member x.empty() = raise <| NotImplementedException("You must implement empty in derived classes")
+        member this.count() = (this:>Counted).count()
+        member _.empty() = raise <| NotImplementedException("You must implement empty in derived classes")
 
-        member x.cons(o) = upcast (x:>IPersistentMap).cons(o)
-        member x.equiv(o) = 
+        member this.cons(o) = upcast (this:>IPersistentMap).cons(o)
+        member this.equiv(o) = 
             match o with
             | :? IDictionary as d ->
-                if o :? IPersistentMap && not (o :? MapEquivalence)
-                then false
-                elif d.Count <> (x:>IPersistentCollection).count()
-                then false
+                if o :? IPersistentMap && not (o :? MapEquivalence) then 
+                    false
+                elif d.Count <> (this:>IPersistentCollection).count() then 
+                    false
                 else 
                     let rec step (s:ISeq) =                            
                         if isNull s then true
                         else 
                             let me : IMapEntry = downcast s.first()
-                            if d.Contains(me.key) && Util.equiv(me.value(),d.[me.key()])
-                            then step (s.next())
+                            if d.Contains(me.key) && Util.equiv(me.value(),d.[me.key()]) then step (s.next())
                             else false
-                    step ((x:>Seqable).seq())
+                    step ((this:>Seqable).seq())
             | _ -> false
 
 
     interface ILookup with
-        member x.valAt(k) = raise <| NotImplementedException("You must implement valAt in derived classes")
-        member x.valAt(k,nf) = raise <| NotImplementedException("You must implement valAt in derived classes")
+        member _.valAt(k) = raise <| NotImplementedException("You must implement valAt in derived classes")
+        member _.valAt(k,nf) = raise <| NotImplementedException("You must implement valAt in derived classes")
 
 
     interface Associative with
-        member x.assoc(k,v) = upcast (x:>IPersistentMap).assoc(k,v)
-        member x.containsKey(k) = raise <| NotImplementedException("You must implement containsKey in derived classes")
-        member x.entryAt(k) = raise <| NotImplementedException("You must implement entryAt in derived classes")
+        member this.assoc(k,v) = upcast (this:>IPersistentMap).assoc(k,v)
+        member _.containsKey(k) = raise <| NotImplementedException("You must implement containsKey in derived classes")
+        member _.entryAt(k) = raise <| NotImplementedException("You must implement entryAt in derived classes")
 
 
     // TODO: conversion to an IMapEntry could be a protocol. Would simplify code in a lot of places
     interface IPersistentMap with
-        member x.assoc(k,v) = raise <| NotImplementedException("You must implement entryAt in derived classes")
-        member x.assocEx(k,v) = raise <| NotImplementedException("You must implement entryAt in derived classes")
-        member x.without(k) = raise <| NotImplementedException("You must implement entryAt in derived classes")
+        member _.assoc(k,v) = raise <| NotImplementedException("You must implement entryAt in derived classes")
+        member _.assocEx(k,v) = raise <| NotImplementedException("You must implement entryAt in derived classes")
+        member _.without(k) = raise <| NotImplementedException("You must implement entryAt in derived classes")
 
-        member x.count() = (x:>Counted).count()
-        member x.cons(o) =
+        member this.count() = (this:>Counted).count()
+        member this.cons(o) =
             match o with
-            | null -> upcast x
-            | :? IMapEntry as e -> (x:>IPersistentMap).assoc(e.key(),e.value())
-            | :? DictionaryEntry as e -> (x:>IPersistentMap).assoc(e.Key,e.Value)
+            | null -> upcast this
+            | :? IMapEntry as e -> (this:>IPersistentMap).assoc(e.key(),e.value())
+            | :? DictionaryEntry as e -> (this:>IPersistentMap).assoc(e.Key,e.Value)
             | _ when o.GetType().IsGenericType && o.GetType().Name = "KeyValuePair`2" ->
                 let t = o.GetType()
                 let k = t.InvokeMember("Key",BindingFlags.GetProperty,null,o,null)
                 let v = t.InvokeMember("Value",BindingFlags.GetProperty,null,o,null)
-                (x:>IPersistentMap).assoc(k,v)
+                (this:>IPersistentMap).assoc(k,v)
             | :? IPersistentVector as v ->
-                if v.count() = 2 then (x:>IPersistentMap).assoc(v.nth(0),v.nth(1))
+                if v.count() = 2 then (this:>IPersistentMap).assoc(v.nth(0),v.nth(1))
                 else raise <| ArgumentException("o","Vector arg to map cons must be a pair")
             | _ ->
                 let rec step (s:ISeq) (m:IPersistentMap) =
@@ -283,17 +287,21 @@ type APersistentMap() =
                     else 
                         let me =  s.first() :?> IMapEntry
                         step (s.next()) (m.assoc(me.key(),me.value()))
-                step (RT.seq(o)) x
+                step (RT.seq(o)) this
 
     interface IFn with
-        override x.invoke(arg1) = (x:>ILookup).valAt(arg1)
-        override x.invoke(arg1,arg2) = (x:>ILookup).valAt(arg1,arg2)
+        override this.invoke(arg1) = (this:>ILookup).valAt(arg1)
+        override this.invoke(arg1,arg2) = (this:>ILookup).valAt(arg1,arg2)
 
     interface IHashEq with
         member x.hasheq() =
-            if hasheq = 0 then hasheq <- Util.hashUnordered(x :> IEnumerable)
-            hasheq
-
+            match hasheq with
+            | None -> 
+                let h = Util.hashUnordered(x :> IEnumerable)
+                hasheq <- Some h
+                h
+            | Some h ->
+                h
 
     //interface IDictionary<obj,obj> with
     //    member x.Add(k,v) = raise <| InvalidOperationException("Cannot modify an immutable map")
@@ -329,13 +337,13 @@ type APersistentMap() =
 
 
     interface IEnumerable with
-        member x.GetEnumerator() : IEnumerator = new SeqEnumerator((x:>Seqable).seq()) :> IEnumerator
+        member this.GetEnumerator() : IEnumerator = new SeqEnumerator((this:>Seqable).seq()) :> IEnumerator
 
     interface IEnumerable<IMapEntry> with
-        member x.GetEnumerator() =   // could be a TypedSeqEnumerator?
+        member this.GetEnumerator() =   // could be a TypedSeqEnumerator?
             let s = 
                 seq {
-                        let mutable s = (x:>Seqable).seq()
+                        let mutable s = (this:>Seqable).seq()
                         while not (isNull s) do
                             yield s.first() :?> IMapEntry
                             s <- s.next()
@@ -353,34 +361,34 @@ type APersistentMap() =
       
 
     interface ICollection with
-        member x.IsSynchronized = true
-        member x.SyncRoot = upcast x
-        member x.Count = (x:>IPersistentMap).count()
-        member x.CopyTo(arr,idx) =  
+        member _.IsSynchronized = true
+        member this.SyncRoot = upcast this
+        member this.Count = (this:>IPersistentMap).count()
+        member this.CopyTo(arr,idx) =  
             if isNull arr then raise <| ArgumentNullException("array")
             if idx < 0 then raise <| ArgumentOutOfRangeException("arrayIndex","must be non-negative")
             if arr.Rank <> 1 then raise <| ArgumentException("Array must be 1-dimensional")
             if idx >= arr.Length then raise <|  ArgumentException("index", "must be less than the length")
-            if (x:>IPersistentCollection).count() > arr.Length - idx then raise <| InvalidOperationException("Not enough available space from index to end of the array.")
+            if (this:>IPersistentCollection).count() > arr.Length - idx then raise <| InvalidOperationException("Not enough available space from index to end of the array.")
             let rec step (i:int) (s:ISeq) =
                 if not (isNull s) then 
                     arr.SetValue(s.first(),i)
                     step (i+1) (s.next())
-            step idx ((x:>Seqable).seq())
+            step idx ((this:>Seqable).seq())
         
     interface IDictionary with
-        member x.IsFixedSize = true
-        member x.IsReadOnly = true
-        member x.Add(k,v) = raise <| InvalidOperationException("Cannot modify an immutable map")
-        member x.Clear() = raise <| InvalidOperationException("Cannot modify an immutable map")   
-        member x.Remove(k) = raise <| InvalidOperationException("Cannot modify an immutable map") 
-        member x.Keys = upcast KeySeq.create((x:>Seqable).seq())
-        member x.Values = upcast ValSeq.create((x:>Seqable).seq())
-        member x.Contains(k) = (x:>Associative).containsKey(k)
-        member x.Item
-            with get key = (x:>ILookup).valAt(key)
+        member _.IsFixedSize = true
+        member _.IsReadOnly = true
+        member _.Add(k,v) = raise <| InvalidOperationException("Cannot modify an immutable map")
+        member _.Clear() = raise <| InvalidOperationException("Cannot modify an immutable map")   
+        member _.Remove(k) = raise <| InvalidOperationException("Cannot modify an immutable map") 
+        member this.Keys = upcast KeySeq.create((this:>Seqable).seq())
+        member this.Values = upcast ValSeq.create((this:>Seqable).seq())
+        member this.Contains(k) = (this:>Associative).containsKey(k)
+        member this.Item
+            with get key = (this:>ILookup).valAt(key)
             and set _ _ = raise <| InvalidOperationException("Cannot modify an immutable map") 
-        member x.GetEnumerator() = upcast new MapEnumerator(x)
+        member this.GetEnumerator() = upcast new MapEnumerator(this)
        
 [<AbstractClass>]
 type ATransientMap() =
@@ -394,22 +402,22 @@ type ATransientMap() =
     abstract doPersistent : unit -> IPersistentMap
 
     interface ITransientCollection with
-        member x.persistent() = upcast (x:>ITransientMap).persistent()
-        member x.conj(o) = upcast x.conj(o)
+        member this.persistent() = upcast (this:>ITransientMap).persistent()
+        member this.conj(o) = upcast this.conj(o)
 
-    member x.conj(value:obj) : ITransientMap =
-        x.ensureEditable()
+    member this.conj(value:obj) : ITransientMap =
+        this.ensureEditable()
         
         // TODO: add KeyValuePair?  (also not in C# version)
         // TODO: find general method for handling heys
         match value with
-        | :? IMapEntry as e -> downcast (x:>ITransientAssociative).assoc(e.key(),e.value())
-        | :? DictionaryEntry as e -> downcast (x:>ITransientAssociative).assoc(e.Key,e.Value)
+        | :? IMapEntry as e -> downcast (this:>ITransientAssociative).assoc(e.key(),e.value())
+        | :? DictionaryEntry as e -> downcast (this:>ITransientAssociative).assoc(e.Key,e.Value)
         | :? IPersistentVector as v ->
             if v.count() <> 2 then raise <| ArgumentException("value","vector arg to map conj must be a pair")
-            downcast (x:>ITransientAssociative).assoc(v.nth(0),v.nth(1))
+            downcast (this:>ITransientAssociative).assoc(v.nth(0),v.nth(1))
         | _ ->
-            let mutable ret : ITransientMap = upcast x
+            let mutable ret : ITransientMap = upcast this
             let mutable es : ISeq = RT.seq(value)
             while not (isNull es) do
                 let e : IMapEntry = downcast es.first()
@@ -419,48 +427,37 @@ type ATransientMap() =
     static  member private NotFound:obj = obj()
 
     interface ILookup with
-        member x.valAt(key:obj) = (x:>ILookup).valAt(key,null)
-        member x.valAt(key:obj, notFound:obj) =
-            x.ensureEditable()
-            x.doValAt(key,notFound)    
+        member this.valAt(key:obj) = (this:>ILookup).valAt(key,null)
+        member this.valAt(key:obj, notFound:obj) =
+            this.ensureEditable()
+            this.doValAt(key,notFound)    
 
     interface ITransientAssociative with
-        member x.assoc(k,v) = upcast (x:>ITransientMap).assoc(k,v)
+        member this.assoc(k,v) = upcast (this:>ITransientMap).assoc(k,v)
 
     interface ITransientAssociative2 with
-        member x.containsKey(key:obj) = (x:>ILookup).valAt(key,ATransientMap.NotFound) <> ATransientMap.NotFound
-        member x.entryAt(key:obj) = 
-            let v = (x:>ILookup).valAt(key,ATransientMap.NotFound)
+        member this.containsKey(key:obj) = (this:>ILookup).valAt(key,ATransientMap.NotFound) <> ATransientMap.NotFound
+        member this.entryAt(key:obj) = 
+            let v = (this:>ILookup).valAt(key,ATransientMap.NotFound)
             if v = ATransientMap.NotFound then null
             else upcast MapEntry.create(key,v)
 
     interface ITransientMap with    
-        member x.assoc(key,value) =
-            x.ensureEditable()
-            x.doAssoc(key,value)
-        member x.without(key) =
-            x.ensureEditable()
-            x.doWithout(key)
-        member x.persistent() =
-            x.ensureEditable()
-            x.doPersistent()
+        member this.assoc(key,value) =
+            this.ensureEditable()
+            this.doAssoc(key,value)
+        member this.without(key) =
+            this.ensureEditable()
+            this.doWithout(key)
+        member this.persistent() =
+            this.ensureEditable()
+            this.doPersistent()
 
     interface Counted with
-        member x.count() =
-            x.ensureEditable()
-            x.doCount()
+        member this.count() =
+            this.ensureEditable()
+            this.doCount()
 
     interface IFn with
-        override x.invoke(arg1) = (x:>ILookup).valAt(arg1)
-        override x.invoke(arg1,arg2) = (x:>ILookup).valAt(arg1,arg2)
-
-
-
-
-   
-
-
-
-
-                
-
+        override this.invoke(arg1) = (this:>ILookup).valAt(arg1)
+        override this.invoke(arg1,arg2) = (this:>ILookup).valAt(arg1,arg2)

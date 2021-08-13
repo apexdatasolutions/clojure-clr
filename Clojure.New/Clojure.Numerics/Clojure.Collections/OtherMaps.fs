@@ -34,27 +34,24 @@ open EquivPredLib
 open System.Threading
 
 
-type PersistentArrayMap(m,a) =
+type PersistentArrayMap(meta: IPersistentMap, kvs: obj[]) =
     inherit APersistentMap()
-    let meta : IPersistentMap = m
-    let kvs : obj[] = a
     
     new() = PersistentArrayMap(null,Array.zeroCreate 0)
     new(a) = PersistentArrayMap(null,a)
-
 
     static member internal hashtableThreshold = 16
     static member Empty = PersistentArrayMap()
     
     interface IMeta with    
-        override x.meta() = meta
+        override _.meta() = meta
 
     interface IObj with
-        override x.withMeta(m) = 
-            if m = meta then upcast x
+        override this.withMeta(m) = 
+            if m = meta then upcast this
             else upcast PersistentArrayMap(m,kvs)
 
-    member private x.indexOfObject(key:obj) = 
+    member private _.indexOfObject(key:obj) = 
         let ep = getEquivPred key
         
         let rec step (idx:int) =
@@ -63,17 +60,17 @@ type PersistentArrayMap(m,a) =
             else step (idx+2)
         step 0
     
-    member private x.indexOfOKeyword(key:Keyword) =        
+    member private _.indexOfOKeyword(key:Keyword) =        
         let rec step (idx:int) =
             if idx >= kvs.Length then -1
             elif  Object.ReferenceEquals(key,kvs.[idx]) then idx
             else step (idx+2)
         step 0
 
-    member private x.indexOfKey(key:obj) =
+    member private this.indexOfKey(key:obj) =
         match key with
-        | :? Keyword as kw -> x.indexOfOKeyword(kw)
-        | _ -> x.indexOfObject key
+        | :? Keyword as kw -> this.indexOfOKeyword(kw)
+        | _ -> this.indexOfObject key
 
     static member equalKey(k1:obj,k2:obj) =
         match k1 with
@@ -82,37 +79,37 @@ type PersistentArrayMap(m,a) =
 
 
     interface Seqable with
-        override x.seq() = if kvs.Length = 0 then null else upcast ArrayMapSeq(kvs,0)
+        override _.seq() = if kvs.Length = 0 then null else upcast ArrayMapSeq(kvs,0)
 
     interface IPersistentCollection with    
-        override x.empty() = (PersistentArrayMap.Empty:>IObj).withMeta(meta) :?> IPersistentCollection
+        override _.empty() = (PersistentArrayMap.Empty:>IObj).withMeta(meta) :?> IPersistentCollection
 
     interface Counted with  
-        override x.count() = kvs.Length/2
+        override _.count() = kvs.Length/2
 
     interface ILookup with
-        override x.valAt(k) = (x:>ILookup).valAt(k,null)
-        override x.valAt(k,notFound) = 
-            let i = x.indexOfKey(k)
+        override this.valAt(k) = (this:>ILookup).valAt(k,null)
+        override this.valAt(k,notFound) = 
+            let i = this.indexOfKey(k)
             if i < 0 then notFound
             else kvs.[i+1]
 
 
     interface Associative with 
-        member x.containsKey(k) = x.indexOfKey(k) >= 0
-        member x.entryAt(k) =
-            let i = x.indexOfKey(k)
+        member this.containsKey(k) = this.indexOfKey(k) >= 0
+        member this.entryAt(k) =
+            let i = this.indexOfKey(k)
             if i < 0 then null  
             else upcast MapEntry.create(kvs.[i],kvs.[i+1])
         
 
     interface IPersistentMap with
-        member x.assoc(k,v) = 
-            let i = x.indexOfKey(k)
-            if i >= 0 && Object.ReferenceEquals(kvs.[i+1],v) 
-            then upcast x   // no change, no-op
+        member this.assoc(k,v) = 
+            let i = this.indexOfKey(k)
+            if i >= 0 && kvs.[i+1] = v 
+            then upcast this   // no change, no-op
             elif i < 0 && kvs.Length >= PersistentArrayMap.hashtableThreshold 
-            then x.createHT(kvs).assoc(k,v)
+            then this.createHT(kvs).assoc(k,v)
             else
                 // we will create a new PersistentArrayMap
                 let newArray =
@@ -127,29 +124,29 @@ type PersistentArrayMap(m,a) =
                         na.[Array.length(na)-2] <- k
                         na.[Array.length(na)-1] <- v
                         na
-                upcast x.create(newArray)
-        member x.assocEx(k,v) = 
-            let i = x.indexOfKey(k)
+                upcast this.create(newArray)
+        member this.assocEx(k,v) = 
+            let i = this.indexOfKey(k)
             if i >= 0 then raise <| InvalidOperationException("Key already present")
-            (x:>IPersistentMap).assoc(k,v)
-        member x.without(k) =
-            let i = x.indexOfKey(k)
+            (this:>IPersistentMap).assoc(k,v)
+        member this.without(k) =
+            let i = this.indexOfKey(k)
             let newLen = kvs.Length-2
-            if i < 0 then upcast x  // key does note exist, no-op
-            elif newLen = 0 then downcast (x:>IPersistentCollection).empty()
+            if i < 0 then upcast this  // key does note exist, no-op
+            elif newLen = 0 then downcast (this:>IPersistentCollection).empty()
             else 
                 let newArray  : obj[] = Array.zeroCreate newLen
                 Array.Copy(kvs,0,newArray,0,i)
                 Array.Copy(kvs,i+1,newArray,i,newLen-i)
-                upcast x.create(newArray)
+                upcast this.create(newArray)
 
 
     interface IEditableCollection with
-        member x.asTransient()  = upcast TransientArrayMap(kvs)
+        member _.asTransient()  = upcast TransientArrayMap(kvs)
 
 
     interface IKVReduce with    
-        member x.kvreduce(f,init) =
+        member _.kvreduce(f,init) =
             let rec step (i:int) (value:obj) =
                 if i >= kvs.Length then value   
                 else 
@@ -161,7 +158,7 @@ type PersistentArrayMap(m,a) =
 
 
     interface IMapEnumerable with
-        member x.keyEnumerator() = 
+        member _.keyEnumerator() = 
             let s = 
                 seq {
                         for i in 0 .. 2 .. (kvs.Length-1) do    
@@ -169,7 +166,7 @@ type PersistentArrayMap(m,a) =
                     }
             upcast s.GetEnumerator()
 
-        member x.valEnumerator() =
+        member _.valEnumerator() =
             let s = 
                 seq {
                         for i in 0 .. 2 .. (kvs.Length-1) do    
@@ -178,7 +175,7 @@ type PersistentArrayMap(m,a) =
             upcast s.GetEnumerator()
 
     interface IEnumerable<IMapEntry> with
-        member x.GetEnumerator() =
+        member _.GetEnumerator() =
             let s = 
                 seq {
                         for i in 0 .. 2 .. (kvs.Length-1) do    
@@ -187,7 +184,7 @@ type PersistentArrayMap(m,a) =
             s.GetEnumerator()
 
     interface IEnumerable with
-        member x.GetEnumerator() : IEnumerator = upcast (x:>IEnumerable<IMapEntry>).GetEnumerator()
+        member this.GetEnumerator() : IEnumerator = upcast (this:>IEnumerable<IMapEntry>).GetEnumerator()
 
     static member create (other:IDictionary) : IPersistentMap =
         let mutable ret : ITransientMap = (PersistentArrayMap.Empty:>IEditableCollection).asTransient() :?> ITransientMap
@@ -197,7 +194,7 @@ type PersistentArrayMap(m,a) =
         ret.persistent()
 
     // if you pass an array to this, this map must become the owner or immutability is screwed
-    member x.create([<ParamArray>] init : obj[]) : PersistentArrayMap = PersistentArrayMap((x:>IMeta).meta(),init)
+    member this.create([<ParamArray>] init : obj[]) : PersistentArrayMap = PersistentArrayMap((this:>IMeta).meta(),init)
 
     static member createWithCheck(init:obj[]) : PersistentArrayMap =
         for i in 0 .. 2 .. init.Length-1 do
@@ -205,7 +202,7 @@ type PersistentArrayMap(m,a) =
                 if PersistentArrayMap.equalKey(init.[i],init.[j]) then raise <| ArgumentException("init","Duplicate key " + (init.[i].ToString())) 
         PersistentArrayMap(init)
 
-    member x.createHT(init:obj[]) : IPersistentMap = upcast PersistentHashMap.create((x:>IMeta).meta(),init)
+    member this.createHT(init:obj[]) : IPersistentMap = upcast PersistentHashMap.create((this:>IMeta).meta(),init)
 
 
 // public class PersistentArrayMap : APersistentMap, IObj, IEditableCollection, IMapEnumerable, IMapEnumerableTyped<Object,Object>, IEnumerable, IEnumerable<IMapEntry>, IKVReduce
@@ -293,29 +290,28 @@ type PersistentArrayMap(m,a) =
 //       }
 
 
-and [<Sealed>] ArrayMapSeq(m,a,i) =
-    inherit ASeq(m)
-    let kvs : obj[] = a
-    let idx : int = i
+and [<Sealed>] ArrayMapSeq(meta, kvs: obj[], idx: int) =
+    inherit ASeq(meta)
+ 
     new(a,i) = ArrayMapSeq(null,a,i)
 
     interface IPersistentCollection with
-        override x.count() = (x :> Counted).count()
+        override this.count() = (this :> Counted).count()
 
     interface ISeq with
-        override x.first() = upcast MapEntry.create(kvs.[i],kvs.[i+1])
-        override x.next() =
+        override _.first() = upcast MapEntry.create(kvs.[idx],kvs.[idx+1])
+        override _.next() =
             let nextIdx = idx+2
             if nextIdx < kvs.Length then upcast ArrayMapSeq(kvs,nextIdx)
             else null
 
     interface IObj with
-        override x.withMeta(m) = 
-            if Object.ReferenceEquals(m,(x:>IMeta).meta()) then upcast x 
-            else upcast ArrayMapSeq((x:>IMeta).meta(),kvs,idx)
+        override this.withMeta(m) = 
+            if m = (this:>IMeta).meta() then upcast this 
+            else upcast ArrayMapSeq((this:>IMeta).meta(),kvs,idx)
 
     interface Counted with
-        member x.count() = (kvs.Length - i) / 2
+        member _.count() = (kvs.Length - idx) / 2
 
 and TransientArrayMap(a) = 
     inherit ATransientMap()
@@ -332,31 +328,31 @@ and TransientArrayMap(a) =
         Array.Copy(a,kvs,a.Length)
 
 
-    member private x.indexOfKey(key:obj) =
+    member private _.indexOfKey(key:obj) =
         let rec step (idx:int) =
             if idx >= len then -1
             elif PersistentArrayMap.equalKey(kvs.[idx],key) then idx
             else step (idx+2)
         step 0
 
-    override x.ensureEditable() = if isNull owner then raise <| InvalidOperationException("Transient used after persistent! call")
+    override _.ensureEditable() = if isNull owner then raise <| InvalidOperationException("Transient used after persistent! call")
 
-    override x.doAssoc(k,v) = 
-        let i = x.indexOfKey(k)
+    override this.doAssoc(k,v) = 
+        let i = this.indexOfKey(k)
         if i >= 0 then  // exists, overwrite value
             if kvs.[i+1] <> v then   kvs.[i+1] <- v
-            upcast x
+            upcast this
         elif len < kvs.Length
         then    // we have room to add
             kvs.[len] <- k
             kvs.[len+1] <- v
             len <- len+2
-            upcast x
+            upcast this
         else 
             ((PersistentHashMap.create(kvs):>IEditableCollection).asTransient() :?> ITransientMap).assoc(k,v)
 
-    override x.doWithout(k) =
-        let i = x.indexOfKey(k)
+    override this.doWithout(k) =
+        let i = this.indexOfKey(k)
         if  i >= 0
         then  // exists, must remove
             if len >= 2
@@ -364,16 +360,16 @@ and TransientArrayMap(a) =
                 kvs.[i] <- kvs.[kvs.Length-2]
                 kvs.[i+1] <- kvs.[kvs.Length-1]
             len <- len-2
-        upcast x
+        upcast this
 
-    override x.doValAt(k,nf) =
-        let i = x.indexOfKey(k)
+    override this.doValAt(k,nf) =
+        let i = this.indexOfKey(k)
         if i >= 0 then kvs.[i+1] else nf
 
-    override x.doCount() = len / 2
+    override _.doCount() = len / 2
 
-    override x.doPersistent() =
-        x.ensureEditable()
+    override this.doPersistent() =
+        this.ensureEditable()
         owner <- null
         let a = Array.zeroCreate len
         Array.Copy(kvs,a,len)

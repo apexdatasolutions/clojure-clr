@@ -22,8 +22,8 @@ type SillyBox(init) =
     let mutable value : bool = init
     new() = SillyBox(false)
 
-    member x.set() = value <- true
-    member x.reset() = value <- false
-    member x.isSet = value
-    member x.isNotSet = not value
+    member _.set() = value <- true
+    member _.reset() = value <- false
+    member _.isSet = value
+    member _.isNotSet = not value
 

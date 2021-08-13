@@ -62,9 +62,9 @@ module private INodeOps =
 
     let hash(k) = Util.hasheq(k)
     let bitPos(hash, shift) = 1 <<< Util.mask(hash,shift)
-    let bitIndex(bitmap,bit) = Util.bitCount(bitmap &&& (bit-1))
+    let bitIndex(bitmap,bit) = Util.bitCount(bitmap &&& (bit-1))        // Not used?
 
-    let findIndex(key:obj, items: obj[], count: int) : int =
+    let findIndex(key:obj, items: obj[], count: int) : int =            // Not used?
        seq { 0 .. 2 .. 2*count-1 }
        |> Seq.tryFindIndex (fun i -> Util.equiv(key,items.[i]))
        |> Option.defaultValue -1
@@ -105,22 +105,16 @@ module private NodeIter =
 
 
 [<AllowNullLiteral>]
-type PersistentHashMap(meta, count, root, hasNull, nullValue) =
+type PersistentHashMap(meta: IPersistentMap, count: int, root: INode, hasNull: bool, nullValue: obj) =
     inherit APersistentMap()
-
-    let meta : IPersistentMap = meta
-    let count : int = count
-    let root : INode = root
-    let hasNull : bool = hasNull
-    let nullValue: obj = nullValue
 
     new(count,root,hasNull,nullValue) = PersistentHashMap(null,count,root,hasNull,nullValue)
 
-    member internal x.Meta = meta
-    member internal x.Count = count
-    member internal x.Root = root
-    member internal x.HasNull = hasNull
-    member internal x.NullValue = nullValue
+    member internal _.Meta = meta
+    member internal _.Count = count
+    member internal _.Root = root
+    member internal _.HasNull = hasNull
+    member internal _.NullValue = nullValue
 
     static member Empty = PersistentHashMap(null,0,null,false,null)
     static member private notFoundValue = obj()
@@ -185,18 +179,18 @@ type PersistentHashMap(meta, count, root, hasNull, nullValue) =
 
      
     interface IMeta with    
-        override x.meta() = meta
+        override _.meta() = meta
 
     interface IObj with
-        override x.withMeta(m) = 
-            if m = meta then upcast x else upcast PersistentHashMap(m,count,root,hasNull,nullValue)
+        override this.withMeta(m) = 
+            if m = meta then upcast this else upcast PersistentHashMap(m,count,root,hasNull,nullValue)
 
     interface Counted with  
-        override x.count() = count
+        override _.count() = count
 
     interface ILookup with
-        override x.valAt(k) = (x:>ILookup).valAt(k,null)
-        override x.valAt(k,nf) =
+        override this.valAt(k) = (this:>ILookup).valAt(k,null)
+        override _.valAt(k,nf) =
             if isNull k then 
                 if hasNull then nullValue else nf
             elif isNull root then 
@@ -204,34 +198,33 @@ type PersistentHashMap(meta, count, root, hasNull, nullValue) =
             else root.find(0,hash(k),k,nf)
             
     interface Associative with
-        override x.containsKey(k) = 
+        override _.containsKey(k) = 
             if isNull k 
             then hasNull 
             else not (isNull root) && root.find(0,hash(k),k,PersistentHashMap.notFoundValue) <> PersistentHashMap.notFoundValue
-        override x.entryAt(k) =
+        override _.entryAt(k) =
             if isNull k
             then if hasNull then upcast MapEntry.create(null,nullValue) else null
             elif isNull root then null
             else root.find(0,hash(k),k)
 
-
        
     interface Seqable with
-        override x.seq() = 
+        override _.seq() = 
             let s = if isNull root then null else root.getNodeSeq()
             if hasNull then upcast Cons(MapEntry.create(null,nullValue),s) else s
 
 
     interface IPersistentCollection with
-        override x.count()  = count
-        override x.empty() =  (PersistentHashMap.Empty:>IObj).withMeta(meta) :?> IPersistentCollection
+        override _.count()  = count
+        override _.empty() =  (PersistentHashMap.Empty:>IObj).withMeta(meta) :?> IPersistentCollection
 
 
     interface IPersistentMap with
-        override x.assoc(k,v) =
+        override this.assoc(k,v) =
             if isNull k then
                 if hasNull && v = nullValue then 
-                    upcast x 
+                    upcast this 
                 else
                     upcast PersistentHashMap(meta, (if hasNull then count else count+1), root, true, v)
             else 
@@ -239,44 +232,44 @@ type PersistentHashMap(meta, count, root, hasNull, nullValue) =
                 let rootToUse : INode = if isNull root then upcast BitmapIndexedNode.Empty else root
                 let newRoot = rootToUse.assoc(0,hash(k),k,v,addedLeaf)
                 if newRoot = root then 
-                    upcast x 
+                    upcast this 
                 else 
                     upcast PersistentHashMap(meta,(if addedLeaf.isSet then count+1 else count), newRoot, hasNull, nullValue)
 
-        override x.assocEx(k,v) =
-            if (x:>Associative).containsKey(k) then raise <| InvalidOperationException("Key already present")
-            (x:>IPersistentMap).assoc(k,v)
+        override this.assocEx(k,v) =
+            if (this:>Associative).containsKey(k) then raise <| InvalidOperationException("Key already present")
+            (this:>IPersistentMap).assoc(k,v)
 
-        override x.without(k) =
+        override this.without(k) =
             if isNull k then
                 if hasNull then 
                     upcast PersistentHashMap(meta,count-1,root,false,null)
                 else
-                    upcast x
+                    upcast this
             elif isNull root then
-                upcast x
+                upcast this
             else
                 let newRoot = root.without(0,hash(k),k)
                 if newRoot = root then
-                    upcast x
+                    upcast this
                 else
                     upcast PersistentHashMap(meta,count-1,newRoot,hasNull,nullValue)
     
 
     interface IEditableCollection with  
-        member x.asTransient() = upcast TransientHashMap(x)
+        member this.asTransient() = upcast TransientHashMap(this)
     
     interface ITransientCollection with
-        member x.conj(o)  = raise <| NotImplementedException()
-        member x.persistent()  = raise <| NotImplementedException()
+        member _.conj(o)  = raise <| NotImplementedException()
+        member _.persistent()  = raise <| NotImplementedException()
 
     interface ITransientAssociative with
-        member x.assoc(k,v) = raise <| NotImplementedException()
+        member _.assoc(k,v) = raise <| NotImplementedException()
 
     interface ITransientMap with
-        member x.assoc(k,v) = raise <| NotImplementedException()
-        member x.without(k) = raise <| NotImplementedException()
-        member x.persistent()  = raise <| NotImplementedException()
+        member _.assoc(k,v) = raise <| NotImplementedException()
+        member _.without(k) = raise <| NotImplementedException()
+        member _.persistent()  = raise <| NotImplementedException()
 
 
     
@@ -299,27 +292,27 @@ type PersistentHashMap(meta, count, root, hasNull, nullValue) =
             }
         s.GetEnumerator()
 
-    member x.MakeEnumerator( d: KVMangleFn<Object> ) : IEnumerator =
+    member _.MakeEnumerator( d: KVMangleFn<Object> ) : IEnumerator =
         let rootIter = if isNull root then PersistentHashMap.emptyEnumerator() else root.iteratorT(d)
         if hasNull then upcast PersistentHashMap.nullEnumerator(d, nullValue, rootIter) else upcast rootIter
         
-    member x.MakeEnumeratorT<'T>( d: KVMangleFn<'T> ) =
+    member _.MakeEnumeratorT<'T>( d: KVMangleFn<'T> ) =
         let rootIter = if isNull root then PersistentHashMap.emptyEnumerator() else root.iteratorT(d)
         if hasNull then PersistentHashMap.nullEnumeratorT(d, nullValue, rootIter) else rootIter
 
     interface IMapEnumerable with
-        member x.keyEnumerator() = x.MakeEnumerator (fun (k, v) -> k)
-        member x.valEnumerator() = x.MakeEnumerator (fun (k, v) -> v)
+        member this.keyEnumerator() = this.MakeEnumerator (fun (k, v) -> k)
+        member this.valEnumerator() = this.MakeEnumerator (fun (k, v) -> v)
         
   
     interface IEnumerable<IMapEntry> with   
-        member x.GetEnumerator() =  x.MakeEnumeratorT<IMapEntry> (fun (k, v) -> upcast MapEntry.create(k,v))
+        member this.GetEnumerator() =  this.MakeEnumeratorT<IMapEntry> (fun (k, v) -> upcast MapEntry.create(k,v))
     
     interface IEnumerable with   
-        member x.GetEnumerator() =  x.MakeEnumerator (fun (k, v) -> upcast MapEntry.create(k,v))
+        member this.GetEnumerator() =  this.MakeEnumerator (fun (k, v) -> upcast MapEntry.create(k,v))
 
     interface IKVReduce with
-        member x.kvreduce(f,init) =
+        member _.kvreduce(f,init) =
             let init = if hasNull then f.invoke(init,null,nullValue) else init
             match init with                                                     // in original, call to RT.isReduced
             | :? Reduced as r -> (r:>IDeref).deref()
@@ -331,7 +324,7 @@ type PersistentHashMap(meta, count, root, hasNull, nullValue) =
                 else
                     init
 
-    member x.fold(n:int64, combinef:IFn, reducef:IFn, fjinvoke:IFn, fjtask:IFn, fjfork:IFn, fjjoin:IFn) : obj =
+    member _.fold(n:int64, combinef:IFn, reducef:IFn, fjinvoke:IFn, fjtask:IFn, fjfork:IFn, fjjoin:IFn) : obj =
         // JVM: we are ignoreing n for now
         let top : Func<obj> = Func<obj>( (fun () -> 
             let mutable ret = combinef.invoke()     
@@ -360,9 +353,6 @@ type PersistentHashMap(meta, count, root, hasNull, nullValue) =
             let box = SillyBox()
             (BitmapIndexedNode.Empty :> INode).assoc(edit,shift,key1hash,key1,val1,box).assoc(edit,shift,key2hash,key2,val2,box)
            
-        
-
-
 
 
 and private TransientHashMap(e,r,c,hn,nv) =
@@ -377,7 +367,7 @@ and private TransientHashMap(e,r,c,hn,nv) =
 
     new(m:PersistentHashMap) = TransientHashMap(AtomicReference(Thread.CurrentThread),m.Root,m.Count,m.HasNull,m.NullValue)
     
-    override x.doAssoc(k,v) = 
+    override this.doAssoc(k,v) = 
         if isNull k then  
             if nullValue <> v then nullValue <- v
             if not hasNull then
@@ -388,9 +378,9 @@ and private TransientHashMap(e,r,c,hn,nv) =
             let n = (if isNull root then (BitmapIndexedNode.Empty :> INode) else root).assoc(edit,0,hash(k),k,v,leafFlag)
             if n <> root then root <- n
             if leafFlag.isSet then count <- count+1
-        upcast x
+        upcast this
 
-    override x.doWithout(k) =
+    override this.doWithout(k) =
         if isNull k then
             if hasNull then
                 hasNull <- false
@@ -401,15 +391,15 @@ and private TransientHashMap(e,r,c,hn,nv) =
             let n = root.without(edit,0,hash(k),k,leafFlag)
             if n <> root then root <- n
             if leafFlag.isSet then count <- count-1 
-        upcast x
+        upcast this
 
-    override x.doCount() = count
+    override _.doCount() = count
 
-    override x.doPersistent() =
+    override _.doPersistent() =
         edit.Set(null)
         upcast PersistentHashMap(count,root,hasNull,nullValue)
 
-    override x.doValAt(k,nf) = 
+    override _.doValAt(k,nf) = 
         if isNull k then
             if hasNull then nullValue else nf
         elif isNull root then
@@ -417,7 +407,7 @@ and private TransientHashMap(e,r,c,hn,nv) =
         else
             root.find(0,hash(k),k,nf)
 
-    override x.ensureEditable() =
+    override _.ensureEditable() =
         if  edit.Get() |> isNull then raise <| InvalidOperationException("Transient used after persistent! call")
 
 
@@ -428,12 +418,12 @@ and [<Sealed>] private ArrayNode(e,c,a) =
     [<NonSerialized>]   
     let edit: AtomicReference<Thread> = e
 
-    member private x.setNode(i,n) = array.[i] <- n
-    member private x.incrementCount() = count <- count+1
-    member private x.decrementCount() = count <- count-1
+    member private _.setNode(i,n) = array.[i] <- n
+    member private _.incrementCount() = count <- count+1
+    member private _.decrementCount() = count <- count-1
 
     // TODO: Do this with some sequence functions?
-    member x.pack(edit:AtomicReference<Thread>,idx) : INode =
+    member _.pack(edit:AtomicReference<Thread>,idx) : INode =
         let newArray : obj[] = Array.zeroCreate <| 2*(count-1)
         let mutable j = 1
         let mutable bitmap = 0
@@ -450,89 +440,89 @@ and [<Sealed>] private ArrayNode(e,c,a) =
         upcast BitmapIndexedNode(edit,bitmap,newArray)
 
     
-    member x.ensureEditable(e) =
-        if edit = e then x else ArrayNode(e,count,array.Clone():?>INode[])
+    member this.ensureEditable(e) =
+        if edit = e then this else ArrayNode(e,count,array.Clone():?>INode[])
 
-    member x.editAndSet(e,i,n) =
-        let editable = x.ensureEditable(e)
+    member this.editAndSet(e,i,n) =
+        let editable = this.ensureEditable(e)
         editable.setNode(i,n)
         editable
     
 
     interface INode with
-        member x.assoc(shift,hash,key,value,addedLeaf) =
+        member this.assoc(shift,hash,key,value,addedLeaf) =
             let idx = Util.mask(hash,shift)
             let node = array.[idx]
             if isNull node then
                 upcast ArrayNode(null,count+1,cloneAndSet(array,idx,(BitmapIndexedNode.Empty :> INode).assoc(shift+5,hash,key, value,addedLeaf)))
             else
                 let n = node.assoc(shift+5,hash,key,value,addedLeaf)
-                if n = node then upcast x else upcast ArrayNode(null,count,cloneAndSet(array,idx,n))
+                if n = node then upcast this else upcast ArrayNode(null,count,cloneAndSet(array,idx,n))
 
-        member x.without(shift,hash,key) =
+        member this.without(shift,hash,key) =
             let idx = Util.mask(hash,shift)
             let node = array.[idx]
             if isNull node then
-                upcast x
+                upcast this
             else
                 let n = node.without(shift+5,hash,key)
                 if n = node then
-                    upcast x
+                    upcast this
                 elif isNull n then
                     if count <= 8 then // shrink
-                        x.pack(null,idx)
+                        this.pack(null,idx)
                     else 
                         upcast ArrayNode(null,count-1,cloneAndSet(array,idx,n))
                 else 
                     upcast ArrayNode(null, count, cloneAndSet(array,idx,n))       
                     
-        member x.find(shift,hash,key) = 
+        member _.find(shift,hash,key) = 
             let idx = Util.mask(hash,shift)
             let node = array.[idx]
             match node with
             | null -> null
             | _ -> node.find(shift+5,hash,key)
 
-        member x.find(shift,hash,key,nf) =
+        member _.find(shift,hash,key,nf) =
             let idx = Util.mask(hash,shift)
             let node = array.[idx]
             match node with
             | null -> nf
             | _ -> node.find(shift+5,hash,key,nf)
 
-        member x.getNodeSeq() = ArrayNodeSeq.create(array)
+        member _.getNodeSeq() = ArrayNodeSeq.create(array)
 
-        member x.assoc(e,shift,hash,key,value,addedLeaf) =
+        member this.assoc(e,shift,hash,key,value,addedLeaf) =
             let idx =  Util.mask(hash,shift)
             let node = array.[idx]
             if isNull node then 
-                let editable = x.editAndSet(edit,idx,(BitmapIndexedNode.Empty :> INode).assoc(e,shift+5,hash,key,value,addedLeaf))
+                let editable = this.editAndSet(edit,idx,(BitmapIndexedNode.Empty :> INode).assoc(e,shift+5,hash,key,value,addedLeaf))
                 editable.incrementCount()
                 upcast editable
             else
                 let n = node.assoc(e,shift+5,hash,key,value,addedLeaf)
-                if n = node then upcast x else upcast x.editAndSet(e,idx,n)
+                if n = node then upcast this else upcast this.editAndSet(e,idx,n)
     
-        member x.without(e,shift,hash,key,removedLeaf) =            
+        member this.without(e,shift,hash,key,removedLeaf) =            
             let idx =  Util.mask(hash,shift)
             let node = array.[idx]
             if isNull node then
-                upcast x
+                upcast this
             else
                 let n = node.without(e,shift+5,hash,key,removedLeaf)
                 if n = node then
-                    upcast x
+                    upcast this
                 elif isNull n then
                     if count <= 8 then // shrink
-                        x.pack(e,idx)
+                        this.pack(e,idx)
                     else
-                        let editable = x.editAndSet(e,idx,n)
+                        let editable = this.editAndSet(e,idx,n)
                         editable.decrementCount()
                         upcast editable
                 else
-                    upcast x.editAndSet(e,idx,n)
+                    upcast this.editAndSet(e,idx,n)
 
-        member x.kvReduce(f,init) =
+        member _.kvReduce(f,init) =
             let rec step  (i:int) (v:obj) =
                 if i >= array.Length then
                     v
@@ -545,13 +535,13 @@ and [<Sealed>] private ArrayNode(e,c,a) =
                         step (i+1) nextv
             step 0 init
 
-        member x.fold(combinef,reducef,fjtask,fjfork,fjjoin) =
+        member _.fold(combinef,reducef,fjtask,fjfork,fjjoin) =
             let tasks =
                 array
                 |> Array.map (fun node -> Func<obj>((fun () -> node.fold(combinef,reducef,fjtask,fjfork,fjjoin))))
             ArrayNode.foldTasks(tasks,combinef,fjtask,fjfork,fjjoin)
 
-        member x.iterator(d) = 
+        member _.iterator(d) = 
             let s = 
                 seq {
                     for node in array do
@@ -562,7 +552,7 @@ and [<Sealed>] private ArrayNode(e,c,a) =
                     }
             s.GetEnumerator() :> IEnumerator
 
-        member x.iteratorT(d) = 
+        member _.iteratorT(d) = 
             let s = 
                 seq {
                     for node in array do
@@ -585,12 +575,8 @@ and [<Sealed>] private ArrayNode(e,c,a) =
             combinef.invoke(ArrayNode.foldTasks(halves.[0],combinef,fjtask,fjfork,fjjoin), fjjoin.invoke(forked))
             
 
-and private ArrayNodeSeq(m,ns,i,s) =
-    inherit ASeq(m)
-
-    let nodes : INode[] = ns
-    let i : int = i
-    let s : ISeq = s
+and private ArrayNodeSeq(meta,nodes: INode[], i: int, s:ISeq) =
+    inherit ASeq(meta)
 
     static member create(meta: IPersistentMap, nodes: INode[], i: int, s: ISeq) : ISeq = 
         match s with
@@ -609,12 +595,12 @@ and private ArrayNodeSeq(m,ns,i,s) =
         | _ -> upcast ArrayNodeSeq(meta,nodes,i,s)
 
     interface IObj with
-        override x.withMeta(m) = 
-            if m = (x:>IMeta).meta() then upcast x else upcast ArrayNodeSeq(m,nodes,i,s)
+        override this.withMeta(m) = 
+            if m = (this:>IMeta).meta() then upcast this else upcast ArrayNodeSeq(m,nodes,i,s)
 
     interface ISeq with
-        member x.first() = s.first()
-        member x.next() = ArrayNodeSeq.create(null,nodes,i,s.next())
+        member _.first() = s.first()
+        member _.next() = ArrayNodeSeq.create(null,nodes,i,s.next())
 
     static member create(nodes : INode[]) = ArrayNodeSeq.create(null,nodes,0,null)
 
@@ -628,20 +614,20 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
 
     static member Empty : BitmapIndexedNode = BitmapIndexedNode(null,0,Array.empty<obj>)
 
-    member x.index(bit:int) : int = Util.bitCount(bitmap &&& (bit-1))
+    member _.index(bit:int) : int = Util.bitCount(bitmap &&& (bit-1))
 
     member private x.Bitmap 
         with get() = bitmap
         and set (v) = bitmap <- v
 
-    member private x.setArrayVal(i,v) = array.[i] <- v
-    member private x.Array = array
+    member private _.setArrayVal(i,v) = array.[i] <- v
+    member private _.Array = array
 
 
     interface INode with
-        member x.assoc(shift,hash,key,value,addedLeaf) = 
+        member this.assoc(shift,hash,key,value,addedLeaf) = 
             let bit = bitPos(hash,shift)
-            let idx = x.index(bit)
+            let idx = this.index(bit)
             if bitmap &&& bit = 0 then
                 let n = Util.bitCount(bitmap)
                 if n >= 16 then
@@ -673,12 +659,12 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                 if isNull keyOrNull then
                     let n = (valOrNode:?>INode).assoc(shift+5,hash,key,value,addedLeaf)
                     if n = (valOrNode:?>INode) then
-                        upcast x
+                        upcast this
                     else 
                         upcast BitmapIndexedNode(null,bitmap,cloneAndSet(array,2*idx+1,upcast n))
                 elif Util.equiv(key,keyOrNull) then
                     if value = valOrNode then
-                        upcast x
+                        upcast this
                     else
                         upcast BitmapIndexedNode(null,bitmap,cloneAndSet(array,2*idx+1,value))
                 else
@@ -688,18 +674,18 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                         bitmap,
                         cloneAndSet2(array,2*idx,null,2*idx+1,upcast PersistentHashMap.createNode(shift+5,keyOrNull,valOrNode,hash,key,value)))
 
-        member x.without(shift,hash,key) =
+        member this.without(shift,hash,key) =
             let bit = bitPos(hash,shift)
             if (bitmap &&& bit) = 0 then    
-                upcast x
+                upcast this
             else
-                let idx = x.index(bit)
+                let idx = this.index(bit)
                 let keyOrNull = array.[2*idx]
                 let valOrNode = array.[2*idx+1]
                 if isNull keyOrNull then
                     let n = (valOrNode:?>INode).without(shift+5,hash,key)
                     if n = (valOrNode:?>INode) then   
-                        upcast x
+                        upcast this
                     elif not (isNull n) then
                         upcast BitmapIndexedNode(null,bitmap,cloneAndSet(array,2*idx+1,upcast n))
                     elif bitmap = bit then  
@@ -712,14 +698,14 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                     else
                         upcast BitmapIndexedNode(null,bitmap^^^bit,removePair(array,idx))
                 else 
-                    upcast x
+                    upcast this
 
-        member x.find(shift,hash,key) = 
+        member this.find(shift,hash,key) = 
             let bit = bitPos(hash,shift)
             if (bitmap &&& bit) = 0 then
                 null
             else
-                let idx = x.index(bit)
+                let idx = this.index(bit)
                 let keyOrNull = array.[2*idx]
                 let valOrNode = array.[2*idx+1]
                 if isNull keyOrNull then
@@ -729,12 +715,12 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                 else
                     null
 
-        member x.find(shift,hash,key,nf) =
+        member this.find(shift,hash,key,nf) =
             let bit = bitPos(hash,shift)
             if (bitmap &&& bit) = 0 then
                 nf
             else
-                let idx = x.index(bit)
+                let idx = this.index(bit)
                 let keyOrNull = array.[2*idx]
                 let valOrNode = array.[2*idx+1]
                 if isNull keyOrNull then
@@ -744,33 +730,33 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                 else
                     nf
 
-        member x.getNodeSeq() = NodeSeq.create(array)
+        member _.getNodeSeq() = NodeSeq.create(array)
 
-        member x.assoc(edit,shift,hash,key,value,addedLeaf) =
+        member this.assoc(edit,shift,hash,key,value,addedLeaf) =
             let bit = bitPos(hash,shift)
-            let idx = x.index(bit)
+            let idx = this.index(bit)
             if (bitmap &&& bit) <> 0 then
                 let keyOrNull = array.[2*idx]
                 let valOrNode = array.[2*idx+1]
                 if isNull keyOrNull then
                     let n = (valOrNode:?>INode).assoc(edit, shift+5, hash, key, value, addedLeaf)
                     if n = (valOrNode:?>INode) then
-                        upcast x
+                        upcast this
                     else
-                        upcast x.editAndSet(edit, 2*idx+1,n)
+                        upcast this.editAndSet(edit, 2*idx+1,n)
                 elif Util.equiv(key,keyOrNull) then
                     if value = valOrNode then  
-                        upcast x
+                        upcast this
                     else
-                        upcast x.editAndSet(edit,2*idx+1, value)
+                        upcast this.editAndSet(edit,2*idx+1, value)
                 else    
                     addedLeaf.set()
-                    upcast x.editAndSet(edit,2*idx,null,2*idx+1,PersistentHashMap.createNode(edit,shift+5,keyOrNull,valOrNode,hash,key,value))
+                    upcast this.editAndSet(edit,2*idx,null,2*idx+1,PersistentHashMap.createNode(edit,shift+5,keyOrNull,valOrNode,hash,key,value))
             else 
                 let n = Util.bitCount bitmap
                 if n*2 < array.Length then  
                     addedLeaf.set()
-                    let editable = x.ensureEditable(edit)
+                    let editable = this.ensureEditable(edit)
                     Array.Copy(editable.Array,2*idx,editable.Array,2*(idx+1),2*(n-idx))
                     editable.setArrayVal(2*idx, key)
                     editable.setArrayVal(2*idx+1,value)
@@ -796,69 +782,69 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                     newArray.[2*idx+1] <- value
                     addedLeaf.set()
                     Array.Copy(array,2*idx,newArray,2*(idx+1),2*(n-idx))
-                    let editable = x.ensureEditable(edit)
+                    let editable = this.ensureEditable(edit)
                     editable.Bitmap <- editable.Bitmap ||| bit
                     upcast editable
 
-        member x.without(e,shift,hash,key,removedLeaf) = 
+        member this.without(e,shift,hash,key,removedLeaf) = 
             let bit = bitPos(hash,shift)
             if (bitmap &&& bit) = 0 then
-                upcast x
+                upcast this
             else
-                let idx = x.index(bit)
+                let idx = this.index(bit)
                 let keyOrNull = array.[2*idx]
                 let valOrNode = array.[2*idx+1]
                 if isNull keyOrNull then
                     let n = (valOrNode :?> INode).without(e,shift+5,hash,key,removedLeaf)
                     if n = (valOrNode :?> INode) then
-                        upcast x
+                        upcast this
                     elif not (isNull n) then
-                        upcast x.editAndSet(e,2*idx+1,n)
+                        upcast this.editAndSet(e,2*idx+1,n)
                     elif bitmap = bit then
                         null
                     else
-                        upcast x.editAndRemovePair(e,bit,idx)
+                        upcast this.editAndRemovePair(e,bit,idx)
                 elif Util.equiv(key,keyOrNull) then 
                     removedLeaf.set()
                     // TODO: Collapse
-                    upcast x.editAndRemovePair(e,bit,idx)
+                    upcast this.editAndRemovePair(e,bit,idx)
                 else    
-                    upcast x
+                    upcast this
 
-        member x.kvReduce(f,init) = NodeSeq.kvReduce(array,f,init)
+        member _.kvReduce(f,init) = NodeSeq.kvReduce(array,f,init)
 
-        member x.fold(combinef,reducef,fjtask,fjfork,fjjoin) = NodeSeq.kvReduce(array,reducef,combinef.invoke())
+        member _.fold(combinef,reducef,fjtask,fjfork,fjjoin) = NodeSeq.kvReduce(array,reducef,combinef.invoke())
 
-        member x.iterator(d) = NodeIter.getEnumerator(array,d)
+        member _.iterator(d) = NodeIter.getEnumerator(array,d)
 
-        member x.iteratorT(d) = NodeIter.getEnumeratorT(array,d)
+        member _.iteratorT(d) = NodeIter.getEnumeratorT(array,d)
 
-    member x.ensureEditable(e:AtomicReference<Thread>) : BitmapIndexedNode =
+    member this.ensureEditable(e:AtomicReference<Thread>) : BitmapIndexedNode =
         if edit = e then
-            x
+            this
         else
             let n = Util.bitCount(bitmap)
             let newArray : obj[] = Array.zeroCreate (if n >= 0 then 2*(n+1) else 4) // make room for next assoc
             Array.Copy(array,newArray,2*n)
             BitmapIndexedNode(e,bitmap,newArray)
 
-    member private x.editAndSet(e:AtomicReference<Thread>,i:int,a:obj) : BitmapIndexedNode =
-        let editable = x.ensureEditable(e)
+    member private this.editAndSet(e:AtomicReference<Thread>,i:int,a:obj) : BitmapIndexedNode =
+        let editable = this.ensureEditable(e)
         editable.setArrayVal(i,a)
         editable
 
 
-    member private x.editAndSet(e:AtomicReference<Thread>,i:int,a:obj,j:int,b:obj) : BitmapIndexedNode =
-        let editable = x.ensureEditable(e)
+    member private this.editAndSet(e:AtomicReference<Thread>,i:int,a:obj,j:int,b:obj) : BitmapIndexedNode =
+        let editable = this.ensureEditable(e)
         editable.setArrayVal(i,a)
         editable.setArrayVal(j,b)
         editable
 
-    member private x.editAndRemovePair(e:AtomicReference<Thread>, bit:int, i:int) : BitmapIndexedNode =
+    member private this.editAndRemovePair(e:AtomicReference<Thread>, bit:int, i:int) : BitmapIndexedNode =
         if bitmap = bit then
             null
         else
-            let editable = x.ensureEditable(e)
+            let editable = this.ensureEditable(e)
             editable.Bitmap <- editable.Bitmap ^^^ bit
             Array.Copy(editable.Array, 2*(i+1), editable.Array, 2*i, editable.Array.Length-2*(i+1))
             editable.setArrayVal(editable.Array.Length-2,null)
@@ -866,22 +852,20 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
             editable
 
 
-and HashCollisionNode(e,h,c,a) = 
+and HashCollisionNode(edit: AtomicReference<Thread>, hash: int, c,a) = 
 
-    let edit : AtomicReference<Thread> = e
-    let hash : int = h
     let mutable count : int = c
     let mutable array : obj[] = a
 
-    member private x.Array 
+    member private _.Array 
         with get() = array
         and set(a) = array <- a
 
-    member private x.Count
+    member private _.Count
         with get() = count
         and set(c) = count <- c
 
-    member x.tryFindIndex(key:obj) : int option =
+    member _.tryFindIndex(key:obj) : int option =
         let rec step (i:int) =
             if i >= 2*count then
                 None
@@ -893,12 +877,12 @@ and HashCollisionNode(e,h,c,a) =
 
 
     interface INode with
-        member x.assoc(shift,h,key,value,addedLeaf) = 
+        member this.assoc(shift,h,key,value,addedLeaf) = 
             if h = hash then
-                match x.tryFindIndex(key) with
+                match this.tryFindIndex(key) with
                 | Some idx -> 
                     if array.[idx+1] = value then
-                        upcast x
+                        upcast this
                     else
                         upcast HashCollisionNode(null,h,count,cloneAndSet(array,idx+1,value))
                 | None ->
@@ -909,38 +893,38 @@ and HashCollisionNode(e,h,c,a) =
                     addedLeaf.set()
                     upcast HashCollisionNode(edit,h,count+1,newArray)                    
             else
-                (BitmapIndexedNode(null,bitPos(hash,shift),[| null; x|]) :> INode).assoc(shift,h,key,value,addedLeaf)
+                (BitmapIndexedNode(null,bitPos(hash,shift),[| null; this|]) :> INode).assoc(shift,h,key,value,addedLeaf)
 
-        member x.without(shift,h,key) = 
-            match x.tryFindIndex(key) with
-            | None -> upcast x
+        member this.without(shift,h,key) = 
+            match this.tryFindIndex(key) with
+            | None -> upcast this
             | Some idx ->
                 if count = 1 then null else upcast HashCollisionNode(null,h,count-1,removePair(array,idx/2))
 
-        member x.find(shift,h,key) =
-            match x.tryFindIndex(key) with
+        member this.find(shift,h,key) =
+            match this.tryFindIndex(key) with
             | None -> null
             | Some idx -> upcast MapEntry.create(array.[idx],array.[idx+1])
 
-        member x.find(shift,h,key,nf) =
-            match x.tryFindIndex(key) with
+        member this.find(shift,h,key,nf) =
+            match this.tryFindIndex(key) with
             | None -> nf
             | Some idx ->array.[idx+1]
 
-        member x.getNodeSeq() = NodeSeq.create(array)
+        member _.getNodeSeq() = NodeSeq.create(array)
 
-        member x.assoc(e,shift,h,key,value,addedLeaf) = 
+        member this.assoc(e,shift,h,key,value,addedLeaf) = 
             if h = hash then
-                match x.tryFindIndex(key) with
+                match this.tryFindIndex(key) with
                 | Some idx -> 
                     if array.[idx+1] = value then
-                        upcast x
+                        upcast this
                     else
-                        upcast x.editAndSet(e,idx+1,value)
+                        upcast this.editAndSet(e,idx+1,value)
                 | None ->
                     if array.Length > 2*count then
                         addedLeaf.set()
-                        let editable = x.editAndSet(e,2*count,key,2*count+1,value)
+                        let editable = this.editAndSet(e,2*count,key,2*count+1,value)
                         editable.Count <- editable.Count+1
                         upcast editable
                     else
@@ -949,19 +933,19 @@ and HashCollisionNode(e,h,c,a) =
                         newArray.[array.Length] <- key
                         newArray.[array.Length+1] <- value
                         addedLeaf.set()
-                        upcast x.ensureEditable(e,count+1,newArray)                    
+                        upcast this.ensureEditable(e,count+1,newArray)                    
             else
-                (BitmapIndexedNode(null,bitPos(hash,shift),[| null; x; null; null|]) :> INode).assoc(e,shift,h,key,value,addedLeaf)
+                (BitmapIndexedNode(null,bitPos(hash,shift),[| null; this; null; null|]) :> INode).assoc(e,shift,h,key,value,addedLeaf)
 
-        member x.without(e,shift,h,key,removedLeaf) = 
-            match x.tryFindIndex(key) with
-            | None -> upcast x
+        member this.without(e,shift,h,key,removedLeaf) = 
+            match this.tryFindIndex(key) with
+            | None -> upcast this
             | Some idx ->
                 removedLeaf.set()
                 if count = 1 then 
                     null 
                 else 
-                    let editable = x.ensureEditable(e)
+                    let editable = this.ensureEditable(e)
                     editable.Array.[idx] <- editable.Array.[2*count-2]
                     editable.Array.[idx+1] <- editable.Array.[2*count-1]
                     editable.Array.[2*count-2] <- null
@@ -969,38 +953,38 @@ and HashCollisionNode(e,h,c,a) =
                     editable.Count <- editable.Count-1
                     upcast editable
 
-        member x.kvReduce(f,init) = NodeSeq.kvReduce(array,f,init)
+        member _.kvReduce(f,init) = NodeSeq.kvReduce(array,f,init)
 
-        member x.fold(combinef,reducef,fjtask,fjfork,fjjoin) = NodeSeq.kvReduce(array,reducef,combinef.invoke())
+        member _.fold(combinef,reducef,fjtask,fjfork,fjjoin) = NodeSeq.kvReduce(array,reducef,combinef.invoke())
 
-        member x.iterator(d) = NodeIter.getEnumerator(array,d)
+        member _.iterator(d) = NodeIter.getEnumerator(array,d)
 
-        member x.iteratorT(d) = NodeIter.getEnumeratorT(array,d)
+        member _.iteratorT(d) = NodeIter.getEnumeratorT(array,d)
 
 
-    member x.ensureEditable(e) =
+    member this.ensureEditable(e) =
         if e = edit then
-            x
+            this
         else
             let newArray : obj[] = 2*(count+1) |> Array.zeroCreate
             Array.Copy(array,0,newArray,0,2*count)
             HashCollisionNode(e,hash,count,newArray)
 
-    member x.ensureEditable(e,c,a) =
+    member this.ensureEditable(e,c,a) =
         if e = edit then
             array <- a
             count <- c
-            x
+            this
         else
             HashCollisionNode(e,hash,c,a)
 
-    member x.editAndSet(e,i,a) =
-        let editable = x.ensureEditable(e)
+    member this.editAndSet(e,i,a) =
+        let editable = this.ensureEditable(e)
         editable.Array.[i] <- a
         editable
 
-    member x.editAndSet(e,i,a,j,b) =
-        let editable = x.ensureEditable(e)
+    member this.editAndSet(e,i,a,j,b) =
+        let editable = this.ensureEditable(e)
         editable.Array.[i] <- a
         editable.Array.[j] <- b
         editable
@@ -1008,15 +992,10 @@ and HashCollisionNode(e,h,c,a) =
 
             
 
-and NodeSeq(m,a,i,s) =  
-    inherit ASeq(m)
-
-    let array : obj[] = a
-    let idx : int = i
-    let seq : ISeq = s
+and NodeSeq(meta, array: obj[], idx: int, seq: ISeq) =  
+    inherit ASeq(meta)
 
     new(i,a,s) = NodeSeq(null,a,i,s)
-
 
     static member private create(array:obj[],i:int,s:ISeq) : ISeq =
         if not (isNull s) then  
@@ -1044,21 +1023,21 @@ and NodeSeq(m,a,i,s) =
     static member create(array : obj[] ) : ISeq = NodeSeq.create(array,0,null)
 
     interface IObj with
-        override x.withMeta(m) = 
-            if m = (x:>IMeta).meta() then   
-                upcast x
+        override this.withMeta(m) = 
+            if m = (this:>IMeta).meta() then   
+                upcast this
             else 
-                upcast NodeSeq(m,array,i,s)
+                upcast NodeSeq(m,array,idx,seq)
 
     interface ISeq with
-        member x.first() = 
-            match s with    
-            | null -> upcast MapEntry.create(array.[i],array.[i+1])
-            | _ -> s.first()
-        member x.next() =
-            match s with
-            | null -> NodeSeq.create(array,i+2,null)
-            | _ -> NodeSeq.create(array,i,s.next())
+        member _.first() = 
+            match seq with    
+            | null -> upcast MapEntry.create(array.[idx],array.[idx+1])
+            | _ -> seq.first()
+        member _.next() =
+            match seq with
+            | null -> NodeSeq.create(array,idx+2,null)
+            | _ -> NodeSeq.create(array,idx,seq.next())
 
     static member kvReduce(a:obj[],f:IFn,init:obj) : obj =
         let rec step (result:obj) (i:int) =

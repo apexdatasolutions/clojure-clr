@@ -14,20 +14,19 @@ type TypedSeqEnumerator<'T  when 'T :not struct>(s:ISeq) =
     let mutable curr : 'T option = None
 
     interface IEnumerator<'T> with
-        member x.Current = 
+        member _.Current = 
             if next = null then raise <| InvalidOperationException("No current value.")
             match curr with 
-            | None -> let v = RT.first(next) :?> 'T in curr <- Some v; v;
+            | None -> let v = RT.first(next) :?> 'T in curr <- Some v; v
             | Some v -> v
 
 
-
     interface IEnumerator with
-        member x.Reset() = 
+        member _.Reset() = 
             isRealized <- false;  // TODO - first this -- already realized!  (Note from original code)
             curr <- None
             next <- orig
-        member x.MoveNext() =
+        member _.MoveNext() =
             if next = null then false
             else
                 curr <- None
@@ -38,16 +37,16 @@ type TypedSeqEnumerator<'T  when 'T :not struct>(s:ISeq) =
                 else 
                     next <- RT.next(next)
                 next <> null
-        member x.Current = (x:>IEnumerator<'T>).Current :> obj
+        member this.Current = (this :> IEnumerator<'T>).Current :> obj
     
-    member x.Dispose disposing =
+    member _.Dispose disposing =
         if disposing then
             orig <- null
             curr <- None
             next <- null
 
     interface IDisposable with
-        member x.Dispose() = x.Dispose(true); GC.SuppressFinalize(x)
+        member this.Dispose() = this.Dispose(true); GC.SuppressFinalize(this)
 
 
 type SeqEnumerator(s:ISeq) =
@@ -63,17 +62,18 @@ type ASeq(m) =
     inherit Obj(m)
 
     [<NonSerialized>]
-    let mutable hash = 0
+    let mutable hash : int option = None
 
     [<NonSerialized>]
-    let mutable hasheq = 0
+    let mutable hasheq : int option = None
 
     new() = ASeq(null)
   
-    override x.ToString() = RT.printString(x)
+    override this.ToString() = RT.printString(this)
 
     override x.Equals(o) = 
-        if obj.ReferenceEquals(x,o) then true
+        if (x :> obj) = o then 
+            true
         else
             match o with
             | :? Sequential 
@@ -87,7 +87,7 @@ type ASeq(m) =
                 step x (RT.seq(o))
             | _ -> false
 
-    override x.GetHashCode() =
+    override this.GetHashCode() =
         let rec step (xs:ISeq) (h:int) =
             match xs with
             | null -> h
@@ -95,8 +95,13 @@ type ASeq(m) =
                 let f = xs.first()
                 let fh = Util.hash f
                 step (xs.next()) (31*h + fh)
-        if hash = 0 then hash <- step ((x:>ISeq).seq()) 1
-        hash
+        match hash with
+        | None -> 
+            let h = step ((this:>ISeq).seq()) 1
+            hash <- Some h
+            h
+        | Some h -> 
+        h
 
 
     static member doCount (s:ISeq) =
@@ -113,18 +118,18 @@ type ASeq(m) =
     member  x.GetMyEnumerator() = (x:>IEnumerable).GetEnumerator()
 
     interface ISeq with
-        member x.first() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.first()")
-        member x.next() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.next()")
-        member x.more() =
-            let s = (x:>ISeq).next()
+        member _.first() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.first()")
+        member _.next() = raise <| NotImplementedException("Subclasses of ASeq must implement ISeq.next()")
+        member this.more() =
+            let s = (this:>ISeq).next()
             if s = null then EmptyList.Empty :> ISeq else s
-        member x.cons(o) = Cons(o,x) :> ISeq  
+        member this.cons(o) = Cons(o,this) :> ISeq  
 
     interface IPersistentCollection with
-        member x.cons(o) = (x:>ISeq).cons(o) :> IPersistentCollection
-        member x.count() = 1 + ASeq.doCount ((x:>ISeq).next())
-        member x.empty() = EmptyList.Empty :> IPersistentCollection
-        member x.equiv(o) = 
+        member this.cons(o) = (this:>ISeq).cons(o) :> IPersistentCollection
+        member this.count() = 1 + ASeq.doCount ((this:>ISeq).next())
+        member _.empty() = EmptyList.Empty :> IPersistentCollection
+        member this.equiv(o) = 
             match o with
             | :? Sequential | :? IList -> 
                 let rec step (s1:ISeq) (s2:ISeq) =
@@ -133,11 +138,11 @@ type ASeq(m) =
                     | _, null -> false
                     | null, _ -> false
                     | _ -> Util.equiv(s1.first(),s2.first()) && step (s1.next()) (s2.next())
-                step x (RT.seq(o))    
+                step this (RT.seq(o))    
             | _ -> false
 
     interface Seqable with
-        member x.seq() = x :> ISeq
+        member this.seq() = this :> ISeq
 
     // In the original, we also did IList<obj>  We goenthing special form that, I think.
 
@@ -150,7 +155,7 @@ type ASeq(m) =
         member _.RemoveAt(i) = raise <| InvalidOperationException("Cannot modify an immutable sequence")    
         member _.IsFixedSize = true
         member _.IsReadOnly = true
-        member x.Item 
+        member this.Item 
             //Java has this: return RT.nth(this, index);
             // THis causes an infinite loop in my code.    TODO:  SEE IF THIS IS STILL TRUE, OR FIND A WORKAROUND?
             // When this was introduces, a change was made in RT.nth that changed the List test in its type dispatch to RandomAccess.
@@ -162,20 +167,20 @@ type ASeq(m) =
                     if i = index then s.first()
                     elif s = null then raise <| ArgumentOutOfRangeException("index","Index past end of list")
                     else step (i+1) (s.next())
-                step 0 x                                            // TODO: See IndexOf. Should this be called on x or x.seq() ??  Check original Java code.
+                step 0 this                                            // TODO: See IndexOf. Should this be called on x or x.seq() ??  Check original Java code.
             and set _ _ = raise <| InvalidOperationException("Cannot modify an immutable sequence")  
-        member x.IndexOf(v) =
+        member this.IndexOf(v) =
             let rec step i (s:ISeq) = 
                 if isNull s then -1
                 else if Util.equiv(s.first(), v) then i
                 else step (i+1) (s.next())
-            step 0 ((x:>ISeq).seq())
-        member x.Contains(v) = 
+            step 0 ((this:>ISeq).seq())
+        member this.Contains(v) = 
             let rec step (s:ISeq) = 
                 if isNull s then false
                 else if Util.equiv(s.first(), v) then true
                 else step (s.next())
-            step ((x:>ISeq).seq())
+            step ((this:>ISeq).seq())
 
     interface IEnumerable with
         member x.GetEnumerator() = new SeqEnumerator(x) :> IEnumerator
@@ -198,9 +203,13 @@ type ASeq(m) =
             step idx (x:>ISeq)
 
     interface IHashEq with
-        member x.hasheq() = 
-            if hasheq = 0 then hasheq <- Util.hashOrdered(x)
-            hasheq
+        member this.hasheq() = 
+            match hasheq with 
+            | None ->
+                let h = Util.hashOrdered(this)
+                hasheq <- Some h
+                h
+            | Some h -> h
 
 and [<Sealed>] Cons(meta,f:obj,m:ISeq) =
     inherit ASeq(meta)
@@ -211,18 +220,18 @@ and [<Sealed>] Cons(meta,f:obj,m:ISeq) =
     new(f:obj,m:ISeq) = Cons(null,f,m)
 
     interface IObj with
-        member x.withMeta(m) = if Object.ReferenceEquals(m,meta) then (x:>IObj) else Cons(m,first,more) :> IObj
+        member this.withMeta(m) = if m = meta then (this:>IObj) else Cons(m,first,more) :> IObj
 
     interface ISeq with
         member _.first() = first
-        member x.next() = (x:>ISeq).more().seq()
-        member x.more() = 
+        member this.next() = (this:>ISeq).more().seq()
+        member _.more() = 
             match more with 
             | null ->  upcast EmptyList.Empty
             | _ -> more
         
     interface IPersistentCollection with
-        member x.count() = 1 + RT.count(more)
+        member _.count() = 1 + RT.count(more)
 
 
 and [<Sealed>] EmptyList(m) =
@@ -233,46 +242,46 @@ and [<Sealed>] EmptyList(m) =
     static member hasheq = Util.hashOrdered(Enumerable.Empty<Object>())
     static member Empty : EmptyList = EmptyList()
 
-    override x.GetHashCode() = 1
-    override x.Equals(o) = 
+    override _.GetHashCode() = 1
+    override _.Equals(o) = 
         match o with    
         | :? Sequential | :? IList -> RT.seq(o) |> isNull 
         | _ -> false
 
     interface IObj with 
-        member x.withMeta(m) = if obj.ReferenceEquals(m,(x:>IMeta).meta()) then x:>IObj else EmptyList(m) :> IObj
+        member this.withMeta(m) = if m = (this:>IMeta).meta() then this:>IObj else EmptyList(m) :> IObj
 
     interface ISeq with
-        member x.first() = null
-        member x.next() = null
-        member x.more() = x :> ISeq
-        member x.cons(o) = PersistentList((x:>IMeta).meta(),o,null,1) :> ISeq
+        member _.first() = null
+        member _.next() = null
+        member this.more() = this :> ISeq
+        member this.cons(o) = PersistentList((this:>IMeta).meta(),o,null,1) :> ISeq
 
     interface IPersistentCollection with
-        member x.count() = 0
-        member x.cons(o) = (x:>ISeq).cons(o) :> IPersistentCollection
-        member x.empty() = x :> IPersistentCollection
-        member x.equiv(o) = x.Equals(o)
+        member _.count() = 0
+        member this.cons(o) = (this:>ISeq).cons(o) :> IPersistentCollection
+        member this.empty() = this :> IPersistentCollection
+        member this.equiv(o) = this.Equals(o)
 
     interface Seqable with
-        member x.seq() = null
+        member _.seq() = null
 
     interface IPersistentStack with
-        member x.peek() = null
-        member x.pop() = raise <| InvalidOperationException("Attempt to pop an empty list")
+        member _.peek() = null
+        member _.pop() = raise <| InvalidOperationException("Attempt to pop an empty list")
 
     interface Sequential
 
     interface IPersistentList
 
     interface IHashEq with
-        member x.hasheq() = EmptyList.hasheq
+        member _.hasheq() = EmptyList.hasheq
 
     interface ICollection with
-        member x.CopyTo(a:Array, idx:int) = ()  // no-op
-        member x.Count = 0
-        member x.IsSynchronized = true
-        member x.SyncRoot = upcast x
+        member _.CopyTo(a:Array, idx:int) = ()  // no-op
+        member _.Count = 0
+        member _.IsSynchronized = true
+        member this.SyncRoot = upcast this
 
     static member emptyEnumerator : IEnumerator = Seq.empty<obj>.GetEnumerator() :> IEnumerator
 
@@ -287,11 +296,11 @@ and [<Sealed>] EmptyList(m) =
         member _.RemoveAt(i) = raise <| InvalidOperationException("Cannot modify an immutable sequence")    
         member _.IsFixedSize = true
         member _.IsReadOnly = true
-        member x.Item 
+        member _.Item 
             with get index = raise <| ArgumentOutOfRangeException("index")
             and set _ _ = raise <| InvalidOperationException("Cannot modify an immutable sequence")  
-        member x.IndexOf(v) = -1
-        member x.Contains(v) = false
+        member _.IndexOf(v) = -1
+        member _.Contains(v) = false
 
 and [<AllowNullLiteral>] PersistentList(m1,f1,r1,c1) =
     inherit ASeq(m1)
@@ -310,31 +319,30 @@ and [<AllowNullLiteral>] PersistentList(m1,f1,r1,c1) =
         r
 
     interface IObj with 
-        member x.withMeta(m) = 
-            if obj.ReferenceEquals(m,(x:>IMeta).meta()) 
-            then x:>IObj 
+        member this.withMeta(m) = 
+            if m = (this:>IMeta).meta() then this:>IObj 
             else PersistentList(m,first,rest,count) :> IObj
 
     interface ISeq with
-        member x.first() = first
-        member x.next() = if count = 1 then null else rest.seq()
-        member x.cons(o) = PersistentList((x:>IObj).meta(),o,(x:>IPersistentList),count+1) :> ISeq
+        member _.first() = first
+        member _.next() = if count = 1 then null else rest.seq()
+        member this.cons(o) = PersistentList((this:>IObj).meta(),o,(this:>IPersistentList),count+1) :> ISeq
 
     interface IPersistentCollection with
-        member x.count() = count
-        member x.empty() = (EmptyList.Empty:>IObj).withMeta((x:>IMeta).meta()) :?> IPersistentCollection
+        member _.count() = count
+        member this.empty() = (EmptyList.Empty:>IObj).withMeta((this:>IMeta).meta()) :?> IPersistentCollection
 
     interface IPersistentStack with
-        member x.peek() = first
-        member x.pop() = 
+        member _.peek() = first
+        member this.pop() = 
             match rest with
-            | null -> (EmptyList.Empty:>IObj).withMeta((x:>IMeta).meta()) :?> IPersistentStack
+            | null -> (EmptyList.Empty:>IObj).withMeta((this:>IMeta).meta()) :?> IPersistentStack
             | _ -> rest :> IPersistentStack
 
     interface IPersistentList
 
     interface IReduceInit with
-        member x.reduce(fn,start) =
+        member this.reduce(fn,start) =
             let rec step (s:ISeq) (value:obj) =
                 match s with
                 | null -> value
@@ -342,14 +350,14 @@ and [<AllowNullLiteral>] PersistentList(m1,f1,r1,c1) =
                     match value with
                     | :? Reduced as r -> (r:>IDeref).deref()
                     | _ -> step (s.next()) (fn.invoke(value,s.first()))
-            let init = fn.invoke(start,(x:>ISeq).first())
-            let ret = step ((x:>ISeq).next()) init
+            let init = fn.invoke(start,(this:>ISeq).first())
+            let ret = step ((this:>ISeq).next()) init
             match ret with 
             | :? Reduced as r -> (r:>IDeref).deref()
             | _ -> ret
             
     interface IReduce with
-        member x.reduce(fn) = 
+        member this.reduce(fn) = 
             let rec step (s:ISeq) (value:obj) =
                 match s with
                 | null -> value
@@ -358,9 +366,10 @@ and [<AllowNullLiteral>] PersistentList(m1,f1,r1,c1) =
                     match nextVal with
                     | :? Reduced as r -> (r:>IDeref).deref()
                     | _ -> step (s.next()) nextVal
-            step ((x:>ISeq).next()) ((x:>ISeq).first())
+            step ((this:>ISeq).next()) ((this:>ISeq).first())
 
 // We had to defer this definition until now because we needed PersistentList and Cons
+// Eventually we will have to consolidate via an export module.
 
 module RT2 =
 
@@ -383,25 +392,25 @@ type LazySeq(m1, fn1, s1) =
     new(fn:IFn) = LazySeq(null,fn,null)
     new(m1: IPersistentMap, s1: ISeq) = LazySeq(m1,null,s1)
 
-    override x.GetHashCode() = 
-        match (x:>ISeq).seq() with
+    override this.GetHashCode() = 
+        match (this:>ISeq).seq() with
         | null -> 1
         | _ as s -> Util.hash s
 
 
-    override x.Equals(o:obj) =
-        match  (x:>ISeq).seq(), o with
+    override this.Equals(o:obj) =
+        match  (this:>ISeq).seq(), o with
         | null, :? Sequential 
         | null, :? IList      -> RT.seq(o) = null
         | null, _ -> false
         | _ as s ,_ -> s.Equals(o)
 
     interface IObj with
-        member x.withMeta(meta: IPersistentMap) =
-            if ( (x :> IMeta).meta() = meta ) then x :> IObj
-            else LazySeq(meta,(x:>ISeq).seq()) :> IObj
+        member this.withMeta(meta: IPersistentMap) =
+            if ( (this :> IMeta).meta() = meta ) then this :> IObj
+            else LazySeq(meta,(this:>ISeq).seq()) :> IObj
 
-    member x.sval() : obj = 
+    member _.sval() : obj = 
         if not (isNull fn)
         then
             sv <- fn.invoke()
@@ -415,13 +424,13 @@ type LazySeq(m1, fn1, s1) =
     interface Seqable with
 
         [<MethodImpl(MethodImplOptions.Synchronized)>]
-        member x.seq() =
+        member this.seq() =
             let rec getNext (x:obj) =
                 match x with
                 | :? LazySeq as ls -> getNext(ls.sval())
-                | _ -> x
+                | _ -> this
             
-            x.sval() |> ignore
+            this.sval() |> ignore
             if not (isNull sv) then
                 let ls = sv
                 sv <- null
@@ -430,16 +439,16 @@ type LazySeq(m1, fn1, s1) =
 
 
     interface IPersistentCollection with
-        member x.count() =
+        member _.count() =
             let rec countAux (s:ISeq) (acc:int) : int =
                 match s with  
                 | null -> acc
                 | _ -> countAux (s.next()) (acc+1)
             countAux s 0
-        member x.cons(o) = upcast (x:>ISeq).cons(o)
-        member x.empty() = upcast PersistentList.Empty
-        member x.equiv(o) = 
-            match (x:>ISeq).seq() with
+        member this.cons(o) = upcast (this:>ISeq).cons(o)
+        member _.empty() = upcast PersistentList.Empty
+        member this.equiv(o) = 
+            match (this:>ISeq).seq() with
             | null -> 
                 match o with
                 | :? IList | :? Sequential -> RT.seq(o) = null
@@ -447,25 +456,25 @@ type LazySeq(m1, fn1, s1) =
             | _ as s -> s.equiv(o)
 
     interface ISeq with
-        member x.first() = 
-            (x:>ISeq).seq() |> ignore
+        member this.first() = 
+            (this:>ISeq).seq() |> ignore
             if isNull s then null else s.first()
-        member x.next() =
-            (x:>ISeq).seq() |> ignore
+        member this.next() =
+            (this:>ISeq).seq() |> ignore
             if isNull s then null else s.next()
-        member x.more() =
-            (x:>ISeq).seq() |> ignore
+        member this.more() =
+            (this:>ISeq).seq() |> ignore
             if isNull s then upcast PersistentList.Empty else s.more()         
-        member x.cons(o:obj) : ISeq = RT2.cons(o,(x:>ISeq).seq())
+        member this.cons(o:obj) : ISeq = RT2.cons(o,(this:>ISeq).seq())
 
     interface IPending with
-        member x.isRealized() = isNull fn
+        member _.isRealized() = isNull fn
 
     interface IHashEq with
-        member x.hasheq() = Util.hashOrdered(x)
+        member this.hasheq() = Util.hashOrdered(this)
 
     interface IEnumerable with
-        member x.GetEnumerator() = upcast new SeqEnumerator(x)
+        member this.GetEnumerator() = upcast new SeqEnumerator(this)
 
     interface IList with
         member _.Add(_) = raise <| InvalidOperationException("Cannot modify an immutable sequence")
@@ -475,41 +484,41 @@ type LazySeq(m1, fn1, s1) =
         member _.RemoveAt(i) = raise <| InvalidOperationException("Cannot modify an immutable sequence")    
         member _.IsFixedSize = true
         member _.IsReadOnly = true
-        member x.Item 
+        member this.Item 
             with get index = 
                 if index < 0 then raise <| ArgumentOutOfRangeException("index","Index must be non-negative")
                 let rec step i (s:ISeq) = 
                     if i = index then s.first()
                     elif s = null then raise <| ArgumentOutOfRangeException("index","Index past end of list")
                     else step (i+1) (s.next())
-                step 0 x                                            // TODO: See IndexOf. Should this be called on x or x.seq() ??  Check original Java code.
+                step 0 this                                            // TODO: See IndexOf. Should this be called on x or x.seq() ??  Check original Java code.
             and set _ _ = raise <| InvalidOperationException("Cannot modify an immutable sequence")  
-        member x.IndexOf(v) =
+        member this.IndexOf(v) =
             let rec step i (s:ISeq) = 
                 if isNull s then -1
                 else if Util.equiv(s.first(), v) then i
                 else step (i+1) (s.next())
-            step 0 ((x:>ISeq).seq())
-        member x.Contains(v) = 
+            step 0 ((this:>ISeq).seq())
+        member this.Contains(v) = 
             let rec step (s:ISeq) = 
                 if isNull s then false
                 else if Util.equiv(s.first(), v) then true
                 else step (s.next())
-            step ((x:>ISeq).seq())
+            step ((this:>ISeq).seq())
 
     interface ICollection with
-        member x.Count = (x:>IPersistentCollection).count()
-        member x.IsSynchronized = true
-        member x.SyncRoot = upcast x
+        member this.Count = (this:>IPersistentCollection).count()
+        member _.IsSynchronized = true
+        member this.SyncRoot = upcast this
              
-        member x.CopyTo(arr : Array,idx) =
+        member this.CopyTo(arr : Array,idx) =
             if isNull arr then raise <| ArgumentNullException("array")
             if idx < 0 then raise <| ArgumentOutOfRangeException("arrayIndex","must be non-negative")
             if arr.Rank <> 1 then raise <| ArgumentException("Array must be 1-dimensional")
             if idx >= arr.Length then raise <|  ArgumentException("index", "must be less than the length")
-            if (x:>IPersistentCollection).count() > arr.Length - idx then raise <| InvalidOperationException("Not enough available space from index to end of the array.")
+            if (this:>IPersistentCollection).count() > arr.Length - idx then raise <| InvalidOperationException("Not enough available space from index to end of the array.")
             let rec step (i:int) (s:ISeq) =
                 if not (isNull s) then 
                     arr.SetValue(s.first(),i)
                     step (i+1) (s.next())
-            step idx (x:>ISeq)
+            step idx (this:>ISeq)

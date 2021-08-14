@@ -105,8 +105,8 @@ type ValSeq(meta, iseq:ISeq, ienum:IEnumerable) =
     interface ISeq with
         override _.first() =
             match iseq.first() with
-            | :? IMapEntry as me -> me.key()
-            | :? DictionaryEntry as de -> de.Key
+            | :? IMapEntry as me -> me.value()
+            | :? DictionaryEntry as de -> de.Value
             | _ -> raise <| InvalidCastException("Cannot convert hashtable entry to IMapEntry or DictionaryEntry")
         override _.next() = upcast ValSeq.create(iseq.next())
 

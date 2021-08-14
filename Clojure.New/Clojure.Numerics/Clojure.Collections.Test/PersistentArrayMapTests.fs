@@ -5,6 +5,7 @@ open Clojure.Collections
 open TestHelpers
 open System
 open System.Collections.Generic
+open System.Collections
 
 [<Tests>]
 let basicPersistentArrayMapTests =
@@ -294,7 +295,363 @@ let aPersistentMapTests =
                 
             Expect.isFalse (m.equiv(d)) "Equal on different dictionary"
 
+        testCase "Hashcode based on value" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m1 = PersistentArrayMap.create(d)
+
+            d.[2] <- "c"
+
+            
+            let m2 = PersistentArrayMap.create(d)
+
+            Expect.notEqual (m1.GetHashCode()) (m2.GetHashCode()) "Hash codes should differ"
+
+        testCase "Associative.assoc works" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let a = PersistentArrayMap.create(d) :> Associative
+            let a1 = a.assoc(3,"c")
+            let a2 = a.assoc(2,"c")
+
+            Expect.equal (a.count()) 2 "Original assoc count unchnaged"
+            Expect.equal (a1.count()) 3 "Added assoc count increased"
+            Expect.equal (a2.count()) 2 "Updated assoc count increased"
+
+            Expect.equal (a.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (a1.valAt(1)) ("a" :> obj) "Added unchanged on untouched key"            
+            Expect.equal (a2.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"
+
+            Expect.equal (a.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (a1.valAt(2)) ("b" :> obj) "Added unchanged on untouched key"            
+            Expect.equal (a2.valAt(2)) ("c" :> obj) "Updated changed on untouched key"
+
+            Expect.equal (a1.valAt(3)) ("c" :> obj) "Added has new key"      
+            Expect.isFalse (a.containsKey(3)) "Original should not have new key"
+            Expect.isFalse (a.containsKey(3)) "Updated should not have new key"       
+
+
+        testCase "cons on IMapEntry adds new" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+            let c = m.cons(MapEntry(3,"c"))
+
+            Expect.equal (m.count()) 2 "Original has unchanged count"
+            Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+            Expect.isFalse (m.containsKey(3)) "Original should not have new key"
+
+            Expect.equal (c.count()) 3 "Updated has higher count"
+            Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+            Expect.equal (c.valAt(2)) ("b" :> obj) "Updated unchanged on untouched key"   
+            Expect.equal (c.valAt(3)) ("c" :> obj) "Updated has new key"   
+
+        testCase "cons on IMapEntry replaces existing" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+            let c = m.cons(MapEntry(2,"c"))
+
+            Expect.equal (m.count()) 2 "Original has unchanged count"
+            Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+
+            Expect.equal (c.count()) 2 "Updated has higher count"
+            Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+            Expect.equal (c.valAt(2)) ("c" :> obj) "Updated has new value"   
+
+
+        testCase "cons on DictionaryEntry adds new" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+            let c = m.cons(DictionaryEntry(3,"c"))
+
+            Expect.equal (m.count()) 2 "Original has unchanged count"
+            Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+            Expect.isFalse (m.containsKey(3)) "Original should not have new key"
+
+            Expect.equal (c.count()) 3 "Updated has higher count"
+            Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+            Expect.equal (c.valAt(2)) ("b" :> obj) "Updated unchanged on untouched key"   
+            Expect.equal (c.valAt(3)) ("c" :> obj) "Updated has new key"   
+
+        testCase "cons on DictionaryEntry replaces existing" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+            let c = m.cons(DictionaryEntry(2,"c"))
+
+            Expect.equal (m.count()) 2 "Original has unchanged count"
+            Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+
+            Expect.equal (c.count()) 2 "Updated has higher count"
+            Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+            Expect.equal (c.valAt(2)) ("c" :> obj) "Updated has new value"   
+
+        testCase "cons on KeyValuePair adds new" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+            let c = m.cons(KeyValuePair(3,"c"))
+
+            Expect.equal (m.count()) 2 "Original has unchanged count"
+            Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+            Expect.isFalse (m.containsKey(3)) "Original should not have new key"
+
+            Expect.equal (c.count()) 3 "Updated has higher count"
+            Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+            Expect.equal (c.valAt(2)) ("b" :> obj) "Updated unchanged on untouched key"   
+            Expect.equal (c.valAt(3)) ("c" :> obj) "Updated has new key"   
+
+        testCase "cons on KeyValuePair replaces existing" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+            let c = m.cons(KeyValuePair(2,"c"))
+
+            Expect.equal (m.count()) 2 "Original has unchanged count"
+            Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+            Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+
+            Expect.equal (c.count()) 2 "Updated has higher count"
+            Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+            Expect.equal (c.valAt(2)) ("c" :> obj) "Updated has new value"   
+
+        // TODO:  Activate these tests once we have writtent PersistentVector
+        //testCase "cons on IPersistentVector adds new" <| fun _ ->
+        //    let d : Dictionary<int,string> = Dictionary()
+        //    d.[1] <- "a"
+        //    d.[2] <- "b"
+
+        //    let m = PersistentArrayMap.create(d)
+        //    let c = m.cons(PersistentVector.create(3,"c"))
+
+        //    Expect.equal (m.count()) 2 "Original has unchanged count"
+        //    Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+        //    Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+        //    Expect.isFalse (m.containsKey(3)) "Original should not have new key"
+
+        //    Expect.equal (c.count()) 3 "Updated has higher count"
+        //    Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+        //    Expect.equal (c.valAt(2)) ("b" :> obj) "Updated unchanged on untouched key"   
+        //    Expect.equal (c.valAt(3)) ("c" :> obj) "Updated has new key"   
+
+        //testCase "cons on IPersistentVector replaces existing" <| fun _ ->
+        //    let d : Dictionary<int,string> = Dictionary()
+        //    d.[1] <- "a"
+        //    d.[2] <- "b"
+
+        //    let m = PersistentArrayMap.create(d)
+        //    let c = m.cons(PersistentVector.create(2,"c"))
+
+        //    Expect.equal (m.count()) 2 "Original has unchanged count"
+        //    Expect.equal (m.valAt(1)) ("a" :> obj) "Original unchanged on untouched key"            
+        //    Expect.equal (m.valAt(2)) ("b" :> obj) "Original unchanged on untouched key"   
+
+        //    Expect.equal (c.count()) 2 "Updated has higher count"
+        //    Expect.equal (c.valAt(1)) ("a" :> obj) "Updated unchanged on untouched key"            
+        //    Expect.equal (c.valAt(2)) ("c" :> obj) "Updated has new value"   
+
+        //testCase "cons on IPersistentVector replaces existing" <| fun _ ->
+        //    let d : Dictionary<int,string> = Dictionary()
+        //    d.[1] <- "a"
+        //    d.[2] <- "b"
+
+        //    let m = PersistentArrayMap.create(d)
+        //    let f() = m.cons(PersistentVector.create(2,"c",3,"d"))
+
+        //    Expect.throwsT<ArgumentException> f "should fail on IPersisntetVector with incorrect number of entries"
+
+        testCase "cons on IPersistentMap adds/repalces many" <| fun _ ->
+            let d1 : Dictionary<int,string> = Dictionary()
+            d1.[1] <- "a"
+            d1.[2] <- "b"
+
+            let m1 = PersistentArrayMap.create(d1)
+
+            let d2 : Dictionary<int,string> = Dictionary()
+            d2.[2] <- "c"
+            d2.[3] <- "d"
+
+            let m2 = PersistentArrayMap.create(d2)
+            let m3 = m1.cons(m2)
+
+            Expect.equal (m1.count()) 2 "Original should have same count"
+            Expect.equal (m2.count()) 2 "Updater should have same count"
+            Expect.equal (m3.count()) 3 "Updated should have new count"
+
+            Expect.equal (m1.valAt(1)) ("a" :> obj) "Original should be unchanged"
+            Expect.equal (m1.valAt(2)) ("b" :> obj) "Original should be unchanged"
+            Expect.isFalse (m1.containsKey(3)) "Original should be unchanged"
+            
+            Expect.equal (m3.valAt(1)) ("a" :> obj) "Updated should be unchanged on untouched key"
+            Expect.equal (m3.valAt(2)) ("c" :> obj) "Updated should have updated key value"
+            Expect.equal (m3.valAt(3)) ("d" :> obj) "Updated should have new key value"
+
+        testCase "invoke(k) does valAt(k)" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let f = PersistentArrayMap.create(d) :?> IFn
+
+            Expect.equal (f.invoke(1)) ("a" :> obj) "Does ValAt, finds key"
+            Expect.isNull (f.invoke(7))  "Does ValAt, does not find key"
+
+        testCase "invoke(k,nf) does valAt(k,nf)" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let f = PersistentArrayMap.create(d) :?> IFn
+
+            Expect.equal (f.invoke(1,99)) ("a" :> obj) "Does ValAt, finds key"
+            Expect.equal (f.invoke(7,99)) (99 :> obj) "Does ValAt, returns notFound value"
+
+
+        testCase "Dictionary operations fail as necessary" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let id = PersistentArrayMap.create(d) :?> IDictionary
+
+            let fadd() = id.Add(3,"c")
+            let fclear() = id.Clear()
+            let fremove() = id.Remove(1)
+
+            Expect.throwsT<InvalidOperationException> fadd "add operation should fail"
+            Expect.throwsT<InvalidOperationException> fclear "clear operation should fail"
+            Expect.throwsT<InvalidOperationException> fremove "remove operation should fail"
+
+        testCase "Dictionary operations success as necessary" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let id = PersistentArrayMap.create(d) :?> IDictionary
+
+            Expect.isTrue (id.Contains(1)) "Finds existing key"
+            Expect.isFalse (id.Contains(7))  "Does not find absent key"
+            Expect.isTrue  (id.IsFixedSize) "fixedSize is true"
+            Expect.isTrue (id.IsReadOnly) "readOnly is true"
+            Expect.equal (id.[2]) ("b" :> obj) "Indexing works on existing key"
+            Expect.isNull (id.[7]) "Indexing is null on absent key" 
+
+        testCase "Dictionary Keys/Values work" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let id = PersistentArrayMap.create(d) :?> IDictionary    
+            let keys = id.Keys
+            let vals = id.Values
+
+            Expect.equal (keys.Count) 2 "Keys has correct count"
+            Expect.equal (vals.Count) 2 "Values has correct count"
+
+            let akeys : obj[] = Array.zeroCreate 2
+            let avals : obj[] = Array.zeroCreate 2
+
+            keys.CopyTo(akeys,0)
+            vals.CopyTo(avals,0)
+
+            Array.Sort(akeys)
+            Array.Sort(avals)
+
+            Expect.equal akeys.[0] (box 1) "first key"
+            Expect.equal akeys.[1] (box 2) "second key"
+
+            Expect.equal avals.[0] (upcast "a") "first val"
+            Expect.equal avals.[1] (upcast "b") "second val"
+
+
+        testCase "Dictionary enumerator works" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let id = PersistentArrayMap.create(d) :?> IDictionary
+            let ie = id.GetEnumerator()
+
+            Expect.isTrue (ie.MoveNext()) "Move to first element"
+            let de1 = ie.Current :?> IMapEntry
+            Expect.isTrue (ie.MoveNext()) "Move to second element"
+            let de2 = ie.Current :?> IMapEntry
+            Expect.isFalse (ie.MoveNext()) "Move past end"
+
+            // Could be either order
+            Expect.isTrue (
+                match de1.key() :?> int32, de1.value() :?> string, de2.key() :?> int32, de2.value() :?> string with   
+                |  1, "a", 2, "b"
+                |  2 , "b", 1, "a" -> true
+                | _ -> false
+                )
+                "matched key/val pairs"
+
+         
+        testCase "ICollection goodies work" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
         
+            let c = PersistentArrayMap.create(d) :?> ICollection
+
+            Expect.isTrue (c.IsSynchronized) "should be synchronized"
+            Expect.isTrue (Object.ReferenceEquals(c,c.SyncRoot)) "SyncRoot should be self"
+            Expect.equal (c.Count) 2 "Count should be correct"
+
+            let a : IMapEntry[] = Array.zeroCreate c.Count
+            c.CopyTo(a,0)
+        
+            // Could be either order
+            Expect.isTrue (
+                match a.[0].key() :?> int32, a.[0].value() :?> string, a.[1].key() :?> int32, a.[1].value() :?> string with   
+                |  1, "a", 2, "b"
+                |  2 , "b", 1, "a" -> true
+                | _ -> false
+                )
+                "matched key/val pairs"     
+                
+                
         ]
 
+[<Tests>]
+let persistentArrayMapIObjTests = 
+    testList "PersistentArrayMap IObj tests" [
         
+        testCase "Verify PersistentList.IObj" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+        
+            let m = PersistentArrayMap.create(d) :?> IObj
+            let pm = m.withMeta(metaForSimpleTests)
+
+            verifyNullMeta m
+            verifyWithMetaHasCorrectMeta pm
+            verifyWithMetaNoChange m
+            verifyWithMetaReturnType m typeof<PersistentArrayMap>
+    
+    ]

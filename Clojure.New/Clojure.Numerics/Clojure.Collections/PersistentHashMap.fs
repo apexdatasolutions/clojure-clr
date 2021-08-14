@@ -183,7 +183,7 @@ type PersistentHashMap(meta: IPersistentMap, count: int, root: INode, hasNull: b
 
     interface IObj with
         override this.withMeta(m) = 
-            if m = meta then upcast this else upcast PersistentHashMap(m,count,root,hasNull,nullValue)
+            if Object.ReferenceEquals(m,meta) then upcast this else upcast PersistentHashMap(m,count,root,hasNull,nullValue)
 
     interface Counted with  
         override _.count() = count
@@ -596,7 +596,7 @@ and private ArrayNodeSeq(meta,nodes: INode[], i: int, s:ISeq) =
 
     interface IObj with
         override this.withMeta(m) = 
-            if m = (this:>IMeta).meta() then upcast this else upcast ArrayNodeSeq(m,nodes,i,s)
+            if Object.ReferenceEquals(m,(this:>IMeta).meta()) then upcast this else upcast ArrayNodeSeq(m,nodes,i,s)
 
     interface ISeq with
         member _.first() = s.first()
@@ -1024,7 +1024,7 @@ and NodeSeq(meta, array: obj[], idx: int, seq: ISeq) =
 
     interface IObj with
         override this.withMeta(m) = 
-            if m = (this:>IMeta).meta() then   
+            if Object.ReferenceEquals(m,(this:>IMeta).meta()) then   
                 upcast this
             else 
                 upcast NodeSeq(m,array,idx,seq)

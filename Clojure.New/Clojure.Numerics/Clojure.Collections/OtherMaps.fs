@@ -48,7 +48,7 @@ type PersistentArrayMap(meta: IPersistentMap, kvs: obj[]) =
 
     interface IObj with
         override this.withMeta(m) = 
-            if m = meta then upcast this
+            if Object.ReferenceEquals(m,meta) then upcast this
             else upcast PersistentArrayMap(m,kvs)
 
     member private _.indexOfObject(key:obj) = 
@@ -307,7 +307,7 @@ and [<Sealed>] ArrayMapSeq(meta, kvs: obj[], idx: int) =
 
     interface IObj with
         override this.withMeta(m) = 
-            if m = (this:>IMeta).meta() then upcast this 
+            if Object.ReferenceEquals(m,(this:>IMeta).meta()) then upcast this 
             else upcast ArrayMapSeq((this:>IMeta).meta(),kvs,idx)
 
     interface Counted with

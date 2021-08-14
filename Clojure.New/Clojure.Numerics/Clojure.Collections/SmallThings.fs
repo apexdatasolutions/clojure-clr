@@ -5,13 +5,12 @@ open System
 
 [<AbstractClass>]
 [<AllowNullLiteral>]
-type Obj(m:IPersistentMap) =
+type Obj(meta:IPersistentMap) =
 
-    let mm = m
     new() = Obj(null)
 
     interface IMeta with
-        member _.meta() = mm
+        member _.meta() = meta
 
     interface IObj with 
         member _.withMeta(m) = raise <| NotImplementedException("You must implement withMeta in derived classes")
@@ -21,8 +20,7 @@ type Obj(m:IPersistentMap) =
 // Needs to appear before the defintion of RT
 
 [<Sealed>]
-type Reduced(v) = 
-    let value = v
+type Reduced(value) = 
 
     interface IDeref with
         member _.deref() = value

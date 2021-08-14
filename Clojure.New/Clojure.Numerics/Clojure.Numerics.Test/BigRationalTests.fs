@@ -9,7 +9,7 @@ open System
 
 [<Tests>]
 let primaryConstructorTests =
-    ftestList "normal form from basic constructor" [
+    testList "normal form from basic constructor" [
 
         testCase "Same BigIntegers if GDC = 1" <| fun _ ->
             let n = BigInteger(10)
@@ -81,7 +81,7 @@ let createIntTests data =
 let basicIntConstructionTests = [ 0; 1; -1; 5; -5 ]
 
 [<Tests>]
-let basicIntConstructionTestList = ftestList "basic int construction"  (createIntTests basicIntConstructionTests)
+let basicIntConstructionTestList = testList "basic int construction"  (createIntTests basicIntConstructionTests)
 
 
 // create from decimal
@@ -113,7 +113,7 @@ let basicDecimalConstructionTests =
     ]
 
 [<Tests>]
-let basicDecimalConstructionTestList = ftestList "basic decimal construction"  (createDecimalTests basicDecimalConstructionTests)
+let basicDecimalConstructionTestList = testList "basic decimal construction"  (createDecimalTests basicDecimalConstructionTests)
         
         
 
@@ -144,7 +144,7 @@ let basicParseTests =
     ]
 
 [<Tests>]
-let basicParserTestList = ftestList "basic parsing"  (createParseTests basicParseTests)
+let basicParserTestList = testList "basic parsing"  (createParseTests basicParseTests)
 
 
 // Negate
@@ -176,7 +176,7 @@ let basicNegateTests =
     ]
 
 [<Tests>]
-let basicNegateTestList = ftestList "basic negation"  (createNegateTests basicNegateTests)
+let basicNegateTestList = testList "basic negation"  (createNegateTests basicNegateTests)
       
 // Abs
 
@@ -207,7 +207,7 @@ let basicAbsTests =
     ]
 
 [<Tests>]
-let basicAbsTestList = ftestList "basic absolute value"  (createAbsTests basicAbsTests)
+let basicAbsTestList = testList "basic absolute value"  (createAbsTests basicAbsTests)
 
 
 // Add
@@ -243,7 +243,7 @@ let basicAddTests =
     ]
 
 [<Tests>]
-let basicAddTestList = ftestList "basic addition"  (createAddTests basicAddTests)
+let basicAddTestList = testList "basic addition"  (createAddTests basicAddTests)
       
       
 // Sub
@@ -279,4 +279,4 @@ let basicSubTests =
     ]
 
 [<Tests>]
-let basicSubTestList = ftestList "basic subtration"  (createSubTests basicSubTests)
+let basicSubTestList = testList "basic subtration"  (createSubTests basicSubTests)

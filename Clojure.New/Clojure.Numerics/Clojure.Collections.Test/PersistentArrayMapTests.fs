@@ -259,5 +259,42 @@ let basicPersistentArrayMapPersistentMapTests =
 
     ]
 
+[<Tests>]
+let aPersistentMapTests =
+    testList "APersistentMap tests for PersistentArrayMap" [
+        
+        testCase "Equiv on similar dictionary" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+
+            Expect.isTrue (m.equiv(d)) "Equal on same dictionary"
+
+        testCase "Equiv on different entry dictionary is false" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+
+            d.[2] <- "c"
+            
+            Expect.isFalse (m.equiv(d)) "Equal on different dictionary"
+
+        testCase "Equiv on extra entry dictionary is false" <| fun _ ->
+            let d : Dictionary<int,string> = Dictionary()
+            d.[1] <- "a"
+            d.[2] <- "b"
+
+            let m = PersistentArrayMap.create(d)
+
+            d.[3] <- "c"
+                
+            Expect.isFalse (m.equiv(d)) "Equal on different dictionary"
+
+        
+        ]
 
         

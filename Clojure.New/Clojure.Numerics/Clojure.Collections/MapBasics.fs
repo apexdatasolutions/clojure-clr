@@ -64,7 +64,7 @@ type KeySeq(meta, iseq,ienum) =
 
     interface IObj with
         override this.withMeta(m) =
-            if m = meta then upcast this
+            if Object.ReferenceEquals(m,meta) then upcast this
             else upcast  KeySeq(m,iseq,ienum)
 
     static member private keyIterator (e:IEnumerable) : IEnumerator =
@@ -112,7 +112,7 @@ type ValSeq(meta, iseq:ISeq, ienum:IEnumerable) =
 
     interface IObj with
         override this.withMeta(m) =
-            if m = meta then upcast this
+            if Object.ReferenceEquals(m,meta) then upcast this
             else upcast ValSeq(m,iseq,ienum)
 
     static member keyIterator (e:IEnumerable) : IEnumerator =
@@ -173,7 +173,7 @@ type APersistentMap() =
             else step (m.seq()) d
                
             
-        if (m :> obj) = o then 
+        if Object.ReferenceEquals(m,o) then 
             true
         else
             match o with
@@ -244,7 +244,7 @@ type APersistentMap() =
                         if isNull s then true
                         else 
                             let me : IMapEntry = downcast s.first()
-                            if d.Contains(me.key) && Util.equiv(me.value(),d.[me.key()]) then step (s.next())
+                            if d.Contains(me.key()) && Util.equiv(me.value(),d.[me.key()]) then step (s.next())
                             else false
                     step ((this:>Seqable).seq())
             | _ -> false

@@ -41,7 +41,7 @@ type Symbol private (meta: IPersistentMap, ns: string, name: string) =
 
     override this.Equals(o:obj) : bool =
         match o with
-        | _ when (this :> obj) = o -> true
+        | _ when Object.ReferenceEquals(this,o) -> true
         | :? Symbol as s ->  Util.equals(ns,s.NS) && name.Equals(s.Name)
         | _ -> false
 
@@ -60,7 +60,7 @@ type Symbol private (meta: IPersistentMap, ns: string, name: string) =
         member _.meta() = meta
 
     interface IObj with
-        member this.withMeta(m:IPersistentMap) = if meta = m then upcast this else upcast Symbol(m,ns,name)
+        member this.withMeta(m:IPersistentMap) = if Object.ReferenceEquals(meta,m) then upcast this else upcast Symbol(m,ns,name)
 
     interface Named with
         member x.getNamespace() = ns
@@ -148,7 +148,7 @@ type Keyword private (sym:Symbol) =
             s
         
     interface IEquatable<Keyword> with 
-        member this.Equals(k) = this = k || sym.Equals(k.Symbol)
+        member this.Equals(k) = Object.ReferenceEquals(this,k) || sym.Equals(k.Symbol)
 
     override this.Equals(o) = 
         match o with

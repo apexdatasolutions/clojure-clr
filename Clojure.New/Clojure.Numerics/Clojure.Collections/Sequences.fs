@@ -72,7 +72,7 @@ type ASeq(m) =
     override this.ToString() = RT.printString(this)
 
     override x.Equals(o) = 
-        if (x :> obj) = o then 
+        if Object.ReferenceEquals(x,o) then 
             true
         else
             match o with
@@ -220,7 +220,7 @@ and [<Sealed>] Cons(meta,f:obj,m:ISeq) =
     new(f:obj,m:ISeq) = Cons(null,f,m)
 
     interface IObj with
-        member this.withMeta(m) = if m = meta then (this:>IObj) else Cons(m,first,more) :> IObj
+        member this.withMeta(m) = if Object.ReferenceEquals(m,meta) then (this:>IObj) else Cons(m,first,more) :> IObj
 
     interface ISeq with
         member _.first() = first
@@ -249,7 +249,7 @@ and [<Sealed>] EmptyList(m) =
         | _ -> false
 
     interface IObj with 
-        member this.withMeta(m) = if m = (this:>IMeta).meta() then this:>IObj else EmptyList(m) :> IObj
+        member this.withMeta(m) = if Object.ReferenceEquals(m,(this:>IMeta).meta()) then this:>IObj else EmptyList(m) :> IObj
 
     interface ISeq with
         member _.first() = null
@@ -320,7 +320,7 @@ and [<AllowNullLiteral>] PersistentList(m1,f1,r1,c1) =
 
     interface IObj with 
         member this.withMeta(m) = 
-            if m = (this:>IMeta).meta() then this:>IObj 
+            if Object.ReferenceEquals(m,(this:>IMeta).meta()) then this:>IObj 
             else PersistentList(m,first,rest,count) :> IObj
 
     interface ISeq with
@@ -407,7 +407,7 @@ type LazySeq(m1, fn1, s1) =
 
     interface IObj with
         member this.withMeta(meta: IPersistentMap) =
-            if ( (this :> IMeta).meta() = meta ) then this :> IObj
+            if Object.ReferenceEquals((this :> IMeta).meta(),meta) then this :> IObj
             else LazySeq(meta,(this:>ISeq).seq()) :> IObj
 
     member _.sval() : obj = 

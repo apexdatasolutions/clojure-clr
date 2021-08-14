@@ -12,14 +12,13 @@
  *   Author: David Miller
  **/
 
-using System;
-using System.Collections.Generic;
-using System.Collections;
-
-using NUnit.Framework;
-using static NExpect.Expectations;
 using clojure.lang;
 using NExpect;
+using NUnit.Framework;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using static NExpect.Expectations;
 
 namespace Clojure.Tests.LibTests
 {

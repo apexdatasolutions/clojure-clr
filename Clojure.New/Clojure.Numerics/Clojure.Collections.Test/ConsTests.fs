@@ -201,13 +201,13 @@ let consIObjTests =
     testList "cons.iobj tests" [
         
         testCase "cons.iobj properties" <| fun _ ->
-        let c1 = makeConsChain 4 
-        let c2 = Cons(metaForSimpleTests,c1)
+            let c1 = makeConsChain 4 
+            let c2 = Cons(metaForSimpleTests,c1)
 
 
-        verifyNullMeta c1
-        verifyWithMetaHasCorrectMeta c1
-        verifyWithMetaReturnType c1 typeof<Cons>
-        verifyWithMetaNoChange c1
+            verifyNullMeta c1
+            verifyWithMetaHasCorrectMeta c1
+            verifyWithMetaReturnType c1 typeof<Cons>
+            verifyWithMetaNoChange c1
 
     ]

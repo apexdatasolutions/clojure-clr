@@ -69,7 +69,10 @@ type ASeq(m) =
 
     new() = ASeq(null)
   
-    override this.ToString() = RT.printString(this)
+    override this.ToString() = 
+        // complete and total hack until I get RTEnv intiailized figured out:  TODO: FIX THIS!
+        if not RTEnv.isInitialized then RTEnvInitialization.initialize()
+        RT.printString(this)
 
     override x.Equals(o) = 
         if Object.ReferenceEquals(x,o) then 

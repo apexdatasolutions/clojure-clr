@@ -102,7 +102,8 @@ module private NodeIter =
                 }
         s.GetEnumerator()
 
-
+// TODO: figure out why passing a simple object does not work for comparison via either <> or Object.ReferenceEquals
+type private NotFoundSentinel = { Name: string }
 
 [<AllowNullLiteral>]
 type PersistentHashMap(meta: IPersistentMap, count: int, root: INode, hasNull: bool, nullValue: obj) =
@@ -117,13 +118,19 @@ type PersistentHashMap(meta: IPersistentMap, count: int, root: INode, hasNull: b
     member internal _.NullValue = nullValue
 
     static member Empty = PersistentHashMap(null,0,null,false,null)
-    static member private notFoundValue = obj()
+    static member private notFoundValue = {NotFoundSentinel.Name="abc"}
 
     // factories
 
     static member create( other: IDictionary) : IPersistentMap =
         let mutable ret = (PersistentHashMap.Empty:>IEditableCollection).asTransient() :?> ITransientMap
         for e in other |> Seq.cast<DictionaryEntry> do
+            ret <- ret.assoc(e.Key,e.Value)
+        ret.persistent()
+
+    static member createKV( other: IDictionary<'K,'V>) : IPersistentMap =
+        let mutable ret = (PersistentHashMap.Empty:>IEditableCollection).asTransient() :?> ITransientMap
+        for e in other |> Seq.cast<KeyValuePair<'K,'V>> do
             ret <- ret.assoc(e.Key,e.Value)
         ret.persistent()
 
@@ -164,13 +171,13 @@ type PersistentHashMap(meta: IPersistentMap, count: int, root: INode, hasNull: b
 
     static member create(items: ISeq) : PersistentHashMap =
         let mutable ret = (PersistentHashMap.Empty:>IEditableCollection).asTransient() :?> ITransientMap
-        let rec step (i:int) (s:ISeq) =
+        let rec step (s:ISeq) =
             if not (isNull s) 
             then
                 if isNull (s.next()) then raise <| ArgumentException("items","No value supplied for key: "+ items.first().ToString())
-                ret <- ret.assoc(items.first(),RT.second(items))
-                step (i+1) (s.next().next())
-        step 0 items
+                ret <- ret.assoc(s.first(),RT.second(s))
+                step  (s.next().next())
+        step items
         downcast ret.persistent()
 
 
@@ -199,14 +206,18 @@ type PersistentHashMap(meta: IPersistentMap, count: int, root: INode, hasNull: b
             
     interface Associative with
         override _.containsKey(k) = 
-            if isNull k 
-            then hasNull 
-            else not (isNull root) && root.find(0,hash(k),k,PersistentHashMap.notFoundValue) <> PersistentHashMap.notFoundValue
+            if isNull k then 
+                hasNull 
+            else
+                (not (isNull root)) && 
+                root.find(0,hash(k),k,PersistentHashMap.notFoundValue) <> (upcast PersistentHashMap.notFoundValue)
         override _.entryAt(k) =
-            if isNull k
-            then if hasNull then upcast MapEntry.create(null,nullValue) else null
-            elif isNull root then null
-            else root.find(0,hash(k),k)
+            if isNull k then 
+                if hasNull then upcast MapEntry.create(null,nullValue) else null
+            elif isNull root then 
+                null
+            else 
+                root.find(0,hash(k),k)
 
        
     interface Seqable with
@@ -621,7 +632,9 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
         and set (v) = bitmap <- v
 
     member private _.setArrayVal(i,v) = array.[i] <- v
-    member private _.Array = array
+    member private _.Array 
+        with get() = array
+        and set(v)  = array <- v
 
 
     interface INode with
@@ -783,6 +796,7 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                     addedLeaf.set()
                     Array.Copy(array,2*idx,newArray,2*(idx+1),2*(n-idx))
                     let editable = this.ensureEditable(edit)
+                    editable.Array <- newArray
                     editable.Bitmap <- editable.Bitmap ||| bit
                     upcast editable
 

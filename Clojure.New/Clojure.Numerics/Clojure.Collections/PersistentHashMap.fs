@@ -77,27 +77,27 @@ module private NodeIter =
     let getEnumerator(array: obj[], d: KVMangleFn<obj>) : IEnumerator =
         let s =
             seq {
-                for i = 0 to array.Length-1 do
-                    if i % 2 = 0 then   // key index
-                        let key = array.[i]
-                        let nodeOrVal = array.[i+1]
-                        if not (isNull key) then yield d(key,nodeOrVal)
-                    else                // value index
-                        let ie = (array.[i] :?> INode).iterator(d)
-                        while ie.MoveNext() do yield ie.Current
+                for i in 0 .. 2 .. array.Length-1 do
+                    let key = array.[i]
+                    let nodeOrVal = array.[i+1]
+                    if not (isNull key) then 
+                        yield d(key,nodeOrVal)
+                    elif not (isNull nodeOrVal) then
+                        let ie = (nodeOrVal :?> INode).iterator(d)
+                        while ie.MoveNext() do yield ie.Current 
                 }
         s.GetEnumerator() :> IEnumerator
 
     let getEnumeratorT(array: obj[], d: KVMangleFn<'T>) : IEnumerator<'T> =
         let s =
             seq {
-                for i = 0 to array.Length-1 do
-                    if i % 2 = 0 then   // key index
-                        let key = array.[i]
-                        let nodeOrVal = array.[i+1]
-                        if not (isNull key) then yield d(key,nodeOrVal)
-                    else                // value index
-                        let ie = (array.[i] :?> INode).iteratorT(d)
+                for i in 0 .. 2 .. array.Length-1 do
+                    let key = array.[i]
+                    let nodeOrVal = array.[i+1]
+                    if not (isNull key) then 
+                        yield d(key,nodeOrVal)
+                    elif not (isNull nodeOrVal) then
+                        let ie = (nodeOrVal :?> INode).iteratorT(d)
                         while ie.MoveNext() do yield ie.Current 
                 }
         s.GetEnumerator()
@@ -124,14 +124,9 @@ type PersistentHashMap(meta: IPersistentMap, count: int, root: INode, hasNull: b
 
     static member create( other: IDictionary) : IPersistentMap =
         let mutable ret = (PersistentHashMap.Empty:>IEditableCollection).asTransient() :?> ITransientMap
-        for e in other |> Seq.cast<DictionaryEntry> do
-            ret <- ret.assoc(e.Key,e.Value)
-        ret.persistent()
-
-    static member createKV( other: IDictionary<'K,'V>) : IPersistentMap =
-        let mutable ret = (PersistentHashMap.Empty:>IEditableCollection).asTransient() :?> ITransientMap
-        for e in other |> Seq.cast<KeyValuePair<'K,'V>> do
-            ret <- ret.assoc(e.Key,e.Value)
+        for o in other do
+            let  de = o :?> DictionaryEntry
+            ret <- ret.assoc(de.Key,de.Value)
         ret.persistent()
 
     static member create( [<ParamArray>] init : obj[]) : PersistentHashMap =
@@ -595,7 +590,7 @@ and private ArrayNodeSeq(meta,nodes: INode[], i: int, s:ISeq) =
             let result = 
                 nodes
                 |> Seq.indexed
-                |> Seq.skip (i-1)
+                |> Seq.skip i
                 |> Seq.filter (fun (j,node) -> not (isNull node))
                 |> Seq.tryPick (fun (j,node) -> 
                     let ns = node.getNodeSeq()  
@@ -647,7 +642,7 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                     let nodes : INode[] = Array.zeroCreate 32
                     let jdx = Util.mask(hash,shift)
                     nodes.[jdx] <- (BitmapIndexedNode.Empty :> INode).assoc(shift+5,hash,key,value,addedLeaf)
-                    let mutable j = 1
+                    let mutable j = 0
                     for i = 0 to 31 do
                         if ((bitmap >>> i) &&& 1 ) <> 0 then
                             nodes.[i] <-
@@ -655,6 +650,7 @@ and [<Sealed>][<AllowNullLiteral>] internal BitmapIndexedNode(e,b,a) =
                                     array.[j+1] :?> INode
                                 else
                                     (BitmapIndexedNode.Empty :> INode).assoc(shift+5,Util.hash(array.[j]),array.[j],array.[j+1],addedLeaf)
+                            j <- j+2
                     upcast ArrayNode(null,n+1,nodes)
                 else
                     let newArray : obj[] = 2*(n+1) |> Array.zeroCreate
@@ -1018,19 +1014,23 @@ and NodeSeq(meta, array: obj[], idx: int, seq: ISeq) =
             let result = 
                 array 
                 |> Seq.indexed
-                |> Seq.skip (i-1)
+                |> Seq.skip i
                 |> Seq.tryPick (fun (j,node)  ->
+
                     if  j % 2 = 0 then // even => key entry
                         if not (isNull array.[j]) then NodeSeq(null,array,j,null) |> Some else None
                     else               // odd => value entry
-                        if not (isNull array.[j]) then
+                        if isNull array.[j-1] then
                             let node : INode  = array.[j] :?> INode
-                            let nodeSeq = node.getNodeSeq()
-                            if not (isNull nodeSeq) then NodeSeq(null,array,j+1,nodeSeq) |> Some else None
+                            if not (isNull node) then
+                                let nodeSeq = node.getNodeSeq()
+                                if not (isNull nodeSeq) then NodeSeq(null,array,j+1,nodeSeq) |> Some else None
+                            else
+                                None
                         else
                             None   )
             match result with
-            | Some s -> upcast s
+            | Some ns -> upcast ns
             | None -> null
 
 

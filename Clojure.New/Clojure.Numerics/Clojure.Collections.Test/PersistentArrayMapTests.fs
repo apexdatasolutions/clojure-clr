@@ -641,7 +641,7 @@ let aPersistentMapTests =
 let persistentArrayMapIObjTests = 
     testList "PersistentArrayMap IObj tests" [
         
-        testCase "Verify PersistentList.IObj" <| fun _ ->
+        testCase "Verify PersistentArrayMap.IObj" <| fun _ ->
             let d : Dictionary<int,string> = Dictionary()
             d.[1] <- "a"
             d.[2] <- "b"

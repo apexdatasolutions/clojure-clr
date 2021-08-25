@@ -253,6 +253,326 @@ and SimpleMapSeq(keys: obj list, vals: obj list) =
     interface Sequential
 
 
+module private SHMNOdeOps =
+
+    let cloneAndSet(arr : 'T[], i: int, a : 'T) : 'T[] =
+        let clone : 'T[] = downcast arr.Clone()
+        clone.[i] <- a
+        clone
 
 
+    let cloneAndSet2(arr: 'T[], i: int, a: 'T, j: int, b: 'T ) : 'T[] =
+        let clone : 'T[] = downcast arr.Clone()
+        clone.[i] <- a
+        clone.[j] <- b
+        clone
+
+    let removePair(arr: 'T[], i: int) : 'T[] =
+        let newArr : 'T[] = Array.zeroCreate <| arr.Length-2 
+        Array.Copy(arr,0,newArr,0,2*i)
+        Array.Copy(arr,2*(i+1),newArr,2*i,newArr.Length-2*i)
+        newArr
+
+    let getHash(o:obj) : int =
+        match o with 
+        | null -> 0
+        | _ -> o.GetHashCode()
+
+    let mask(hash,shift) = (hash >>> shift) &&& 0x01f
+
+    let bitPos(hash, shift) = 1 <<< mask(hash,shift)
         
+    let bitCount(x) =
+        let x = x-((x >>> 1) &&& 0x55555555);
+        let x = (((x >>> 2) &&& 0x33333333) + (x &&& 0x33333333))
+        let x = (((x >>> 4) + x) &&& 0x0f0f0f0f)
+        (x * 0x01010101) >>> 24
+
+    let bitIndex(bitmap,bit) = bitCount(bitmap &&& (bit-1))
+
+    let pcequiv(k1:obj, k2:obj) =
+        match k1, k2 with
+        | :? IPersistentCollection as pc1, _ -> pc1.equiv(k2)
+        | _, (:? IPersistentCollection as pc2) -> pc2.equiv(k1) 
+        | _ -> k1.Equals(k2)    
+
+    let equiv(k1:obj, k2:obj) =
+        if Object.ReferenceEquals(k1,k2) then true
+        elif isNull k1 then false
+        else pcequiv(k1,k2)
+
+open SHMNOdeOps
+
+type  BNodeEntry = | Empty | KeyValue of Key:obj * Value:obj | Node of Node:SHMNode
+
+and  SHMNode = 
+    | ArrayNode of Count:int * Nodes : (SHMNode option)[]
+    | BitmapNode of Bitmap:int * Entries : BNodeEntry[]
+    | CollisionNode of Hash:int * Count: int * KVs: MapEntry[]  
+
+    static member EmptyBitmapNode = BitmapNode(0,Array.empty<BNodeEntry>)
+
+    static member tryFindCNodeIndex(key:obj, kvs:MapEntry[]) =
+        kvs 
+        |> Array.tryFindIndex (fun kv -> equiv((kv:>IMapEntry).key(),key))
+
+    static member createNode (shift:int) (key1:obj) (val1:obj) (key2hash:int) (key2:obj) (val2:obj) :  SHMNode =
+        let key1hash = hash(key1)
+        if key1hash = key2hash then
+            CollisionNode(key1hash,2,[|MapEntry(key1,val1);MapEntry(key2,val2)|])
+        else
+            let box = SillyBox()
+            let n1 = SHMNode.EmptyBitmapNode.assoc shift key1hash key1 val1 box
+            n1.assoc shift key2hash key2 val2 box
+
+    member this.getNodeSeq() = 
+        match this with
+        | ArrayNode(Count=count; Nodes=nodes) -> raise <| NotImplementedException() 
+        | BitmapNode(Bitmap=bitmap; Entries=entries) -> raise <| NotImplementedException() 
+        | CollisionNode(Hash=hash; Count=count; KVs=kvs) -> raise <| NotImplementedException() 
+    
+    member this.find (shift:int) (hash:int) (key:obj) : IMapEntry option =
+        match this with
+        | ArrayNode(Count=count; Nodes=nodes) -> 
+            let idx = mask(hash,shift)
+            match nodes.[idx] with
+            | None -> None
+            | Some node -> node.find (shift+5) hash key
+        | BitmapNode(Bitmap=bitmap; Entries=entries) -> 
+            let bit = bitPos(hash,shift)
+            if (bitmap &&& bit) = 0 then 
+                None
+            else
+                let idx = bitIndex(bitmap,bit)
+                match entries.[idx] with
+                | Empty -> None      // Isn't this case really covered by the one above? (bitmap&&&bit) = 0?  Do we need the bitmap at all?
+                | KeyValue(Key=k; Value=v) -> if equiv(key,k) then (MapEntry(k,v) :> IMapEntry) |> Some else None
+                | Node(Node=node) -> node.find (shift+5) hash key
+        | CollisionNode(Hash=hash; Count=count; KVs=kvs) -> 
+            match SHMNode.tryFindCNodeIndex(key,kvs) with  
+            | None -> None
+            | Some idx -> Some (upcast kvs.[idx])
+
+
+    member this.find2 (shift:int) (hash:int) (key:obj) (notFound:obj) : obj = 
+        match this with
+        | ArrayNode(Count=count; Nodes=nodes) -> 
+            let idx = mask(hash,shift)
+            match nodes.[idx] with
+            | None -> notFound
+            | Some node -> node.find2 (shift+5) hash key notFound
+
+        | BitmapNode(Bitmap=bitmap; Entries=entries) ->
+            let bit = bitPos(hash,shift)
+            if (bitmap &&& bit) = 0 then 
+                notFound
+            else
+                let idx = bitIndex(bitmap,bit)
+                match entries.[idx] with
+                | Empty -> notFound             // Isn't this case really covered by the one above? (bitmap&&&bit) = 0?  Do we need the bitmap at all?
+                |KeyValue(Key=k; Value=v) -> if equiv(key,k) then v else notFound
+                |Node(Node=node) -> node.find2 (shift+5) hash key notFound
+        
+        | CollisionNode(Hash=hash; Count=count; KVs=kvs) -> 
+            match SHMNode.tryFindCNodeIndex(key,kvs) with  
+            | None -> notFound
+            | Some idx -> (kvs.[idx]:>IMapEntry).value()
+
+    member this.assoc (shift:int) (hash:int) (key:obj) (value:obj) (addedLeaf:SillyBox) : SHMNode =
+        match this with
+        | ArrayNode(Count=count ;Nodes=nodes) -> 
+            let idx = mask(hash,shift)
+            match nodes.[idx] with
+            | None -> 
+                let newNode = SHMNode.EmptyBitmapNode.assoc (shift+5) hash key value addedLeaf
+                ArrayNode(count+1,cloneAndSet(nodes,idx,Some newNode))
+            | Some node ->
+                let newNode = node.assoc (shift+5) hash key value addedLeaf
+                if newNode = node then  this else  ArrayNode(count,cloneAndSet(nodes,idx,Some newNode))
+
+        | BitmapNode(Bitmap=bitmap; Entries=entries) -> 
+            let bit = bitPos(hash,shift)
+            let idx = bitIndex(bitmap,bit)
+            if bitmap &&& bit = 0 then
+                let n = bitCount(bitmap)
+                if n >= 16 then
+                    let nodes : SHMNode option [] = Array.zeroCreate 32   // shoudl be Emmpty?
+                    let jdx = mask(hash,shift)  
+                    nodes.[jdx] <- SHMNode.EmptyBitmapNode.assoc (shift+5) hash key value addedLeaf |> Some
+                    let mutable j = 0
+                    for i = 0 to 31 do
+                        if ((bitmap>>>i) &&& 1) <> 0 then   
+                            nodes.[i] <- 
+                                match entries.[j] with 
+                                | Empty -> raise <| InvalidOperationException("Should never get to this case because of bitmap test")
+                                | KeyValue(Key=k; Value=v) -> SHMNode.EmptyBitmapNode.assoc (shift+5) (getHash k) k v addedLeaf |> Some
+                                | Node(Node=node) -> node |> Some
+                        j <- j+2
+                    ArrayNode(n+1,nodes)
+
+                else
+                
+                    let newArray : BNodeEntry[] = Array.create (n+1) BNodeEntry.Empty
+                    Array.Copy(entries,0,newArray,0,idx)
+                    newArray.[idx] <- KeyValue(key,value)
+                    Array.Copy(entries,idx,newArray, idx+1,n-idx)
+                    addedLeaf.set()
+                    BitmapNode((bitmap ||| bit), newArray)
+
+            else
+                let entry = entries.[idx]
+                match entry with
+                | Empty -> raise <| InvalidOperationException("Error: should never index to an Empty node -- BUG!!!")
+                | KeyValue(Key=k; Value=v) ->                    
+                    if equiv(key,k) then
+                        if value = v  then
+                            this
+                        else
+                            BitmapNode(bitmap,cloneAndSet(entries,idx+1,KeyValue(key,value)))
+                    else
+                        addedLeaf.set()
+                        let newNode =  SHMNode.createNode (shift+5) k v hash key value
+                        BitmapNode(bitmap,cloneAndSet(entries,idx,Node(newNode)))
+                | Node(Node=node) -> asdf
+
+        | CollisionNode(Hash=h;Count=count; KVs=kvs) -> 
+            if hash = h then
+                match SHMNode.tryFindCNodeIndex(key,kvs) with
+                | Some idx ->
+                    let kv = kvs.[idx] :> IMapEntry
+                    if kv.value() = value then
+                        this
+                    else
+                        CollisionNode(hash,count,cloneAndSet(kvs,idx,MapEntry(key,value)))
+                | None ->
+                    let newArray : MapEntry[] = count+1 |> Array.zeroCreate
+                    Array.Copy(kvs,0,newArray,0,count)
+                    newArray.[count] <- MapEntry(key,value)
+                    addedLeaf.set()
+                    CollisionNode(hash,count+1,newArray)   
+            else    
+                BitmapNode(bitPos(hash,shift),[| Node(this) |]).assoc shift h key value addedLeaf
+
+
+
+
+    member this.without (shift:int) (hash:int) (key:obj) : SHMNode =     // Probably needs to return an option
+        match this with
+        | ArrayNode(Count=count; Nodes=nodes) -> raise <| NotImplementedException() 
+        | BitmapNode(Bitmap=bitmap; Entries=entries) -> raise <| NotImplementedException() 
+        | CollisionNode(Hash=h; Count=count; KVs=kvs) -> raise <| NotImplementedException() 
+
+
+type SimpleHashMap = 
+    | Empty
+    | Rooted of Count: int * Node: SHMNode
+
+    static member notFoundValue = obj()
+
+    interface Counted with
+        member this.count() =
+            match this with
+            | Empty -> 0
+            | Rooted(Count=c) -> c
+
+    interface Seqable with
+        member this.seq() = 
+            match this with
+            | Empty -> null
+            | Rooted(Node=n) -> n.getNodeSeq()
+
+    interface IPersistentCollection with
+        member this.count() = (this:>Counted).count()
+        member this.cons(o) = upcast (this:>IPersistentMap).cons(o)
+        member this.empty() = upcast Empty
+        member this.equiv(o) = false
+
+        //match o with
+        //| :? IDictionary as d ->
+        //    if o :? IPersistentMap && not (o :? MapEquivalence) then 
+        //        false
+        //    elif d.Count <> (this:>IPersistentCollection).count() then 
+        //        false
+        //    else 
+        //        let rec step (s:ISeq) =                            
+        //            if isNull s then true
+        //            else 
+        //                let me : IMapEntry = downcast s.first()
+        //                if d.Contains(me.key()) && Util.equiv(me.value(),d.[me.key()]) then step (s.next())
+        //                else false
+        //        step ((this:>Seqable).seq())
+        //| _ -> false
+
+
+    interface ILookup with
+        member this.valAt(k) = (this:>ILookup).valAt(k,null)
+        member this.valAt(k,nf) = 
+            match this with
+            | Empty -> nf
+            | Rooted(Node=n) -> n.find2 0 (hash(k)) k nf 
+
+    interface Associative with  
+        member this.containsKey(k) =
+            match this with
+            | Empty -> false
+            | Rooted(Node=n) -> (n.find2 0 (hash(k)) k SimpleHashMap.notFoundValue)  <> SimpleHashMap.notFoundValue
+        member this.entryAt(k) = 
+            match this with
+            | Empty -> null
+            | Rooted(Node=n) -> 
+                match n.find 0 (hash(k)) k with
+                | None -> null
+                | Some me -> me
+        member this.assoc(k,v) = upcast (this:>IPersistentMap).assoc(k,v)
+
+    interface IPersistentMap with
+        member this.count() = (this:>Counted).count()
+        member this.assocEx(k,v) = 
+            if (this:>Associative).containsKey(k) then raise <| InvalidOperationException("Key already present")
+            (this:>IPersistentMap).assoc(k,v)
+
+        member this.cons(o) = 
+            match o with 
+            | null -> upcast this
+            | :? IMapEntry as e -> (this:>IPersistentMap).assoc(e.key(),e.value())
+            | _ -> 
+                let rec step (s:ISeq) (m:IPersistentMap) =
+                    if isNull s then
+                        m
+                    else
+                        let me = s.first() :?> IMapEntry
+                        step (s.next()) (m.assoc(me.key(),me.value()))
+                step (RT.seq(o)) this
+
+        member this.assoc(k,v) = 
+            let addedLeaf = SillyBox()
+            let rootToUse = 
+                match this with
+                | Empty -> SHMNode.EmptyBitmapNode
+                | Rooted(Node=n) -> n
+            let newRoot = rootToUse.assoc 0 (hash(k)) k v addedLeaf
+            if newRoot = rootToUse then
+                upcast this
+            else
+                let count = (this:>Counted).count()
+                let updatedCount = if addedLeaf.isSet then count+1 else count
+                upcast Rooted(updatedCount,newRoot)
+
+        member this.without(k) = 
+            match this with
+            | Empty -> upcast this
+            | Rooted(Count=c;Node=n) ->
+                let newRoot = n.without 0 (hash(k)) k
+                if newRoot = n then
+                    upcast this
+                else 
+                    upcast Rooted(c-1,newRoot)
+
+    interface IMapEnumerable with
+        member this.keyEnumerator() = raise <| NotImplementedException()
+        member this.valEnumerator() = raise <| NotImplementedException()
+    
+    interface IFn with
+        override this.invoke(arg1) = (this:>ILookup).valAt(arg1)
+        override this.invoke(arg1,arg2) = (this:>ILookup).valAt(arg1,arg2)
+   

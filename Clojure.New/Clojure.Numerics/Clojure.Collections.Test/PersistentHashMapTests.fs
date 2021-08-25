@@ -879,6 +879,7 @@ let collisionTests =
             testCollisions 1000 100
             testCollisions 10000 100
             testCollisions 100000 100
+            testCollisions 1000000 3000
 ]
 
             
@@ -899,6 +900,8 @@ let doBigTest(numEntries:int) =
     Expect.equal (m.count()) (dict.Count) "Should have same number of entries"
 
     for key in dict.Keys do
+        if not (m.containsKey(key)) then 
+            Console.WriteLine("HERE!")
         Expect.isTrue (m.containsKey(key)) "dictionary key should be in map"
         Expect.equal (m.valAt(key)) (upcast key) "Value should be same as key"
 

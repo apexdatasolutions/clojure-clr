@@ -1,9 +1,8 @@
 module FnTests
 
 open Expecto
-open SimpleCollections
 open Clojure.Collections
-
+open Clojure.Collections.Simple
 
 
 [<Tests>]

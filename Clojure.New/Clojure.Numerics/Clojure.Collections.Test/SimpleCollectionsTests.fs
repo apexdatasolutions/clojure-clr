@@ -2,10 +2,7 @@
 
 open Expecto
 open Clojure.Collections
-open SimpleCollections
-
-
-
+open Clojure.Collections.Simple
 
 
 [<Tests>]

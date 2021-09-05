@@ -1,10 +1,10 @@
 ﻿module ConsTests
 
 open Expecto
-open Clojure.Collections
 open System
-open SimpleCollections
 open System.Collections
+open Clojure.Collections
+open Clojure.Collections.Simple
 open TestHelpers
 
 

@@ -1,9 +1,9 @@
 ﻿module TestHelpers
 
-open Clojure.Collections
 open Expecto
 open System
-open SimpleCollections
+open Clojure.Collections
+open Clojure.Collections.Simple
 
 // Some helpers for testing ISeqs
 

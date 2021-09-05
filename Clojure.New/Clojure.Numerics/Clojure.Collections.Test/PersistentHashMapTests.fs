@@ -75,15 +75,15 @@ let basicPersistentHashMapCreateTests =
 
         // Non-duplicate
         testCase "Create on met no args return empty map" <| fun _ ->
-            let meta = metaForSimpleTests :> IPersistentMap
-            let m = PersistentHashMap.create(meta) :> IPersistentMap
+            let meta = metaForSimpleTests 
+            let m = PersistentHashMap.create(meta:>IPersistentMap) :> IPersistentMap
 
             Expect.equal (m.count()) 0 "Empty map should have 0 count"
             Expect.isTrue (Object.ReferenceEquals((m:?>IMeta).meta(),meta)) "Should have identical meta"
 
         // Non-duplicate
         testCase "Create on metaargs returns map" <| fun _ ->
-            let meta = metaForSimpleTests :> IPersistentMap
+            let meta = metaForSimpleTests
             let init : obj[] = [|1; "a"; 2 ;"b"|]
             let m = PersistentHashMap.create(meta, init ) :> IPersistentMap
 

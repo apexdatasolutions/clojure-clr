@@ -914,7 +914,7 @@ let doBigTest(numEntries:int) =
 let bigPersistentHashMapTests =
     testList "big insertions into PersistentHashMap" [
         
-            ftestCase "test for 100" <| fun _ ->
+            testCase "test for 100" <| fun _ ->
                 doBigTest 100   
     ]
 

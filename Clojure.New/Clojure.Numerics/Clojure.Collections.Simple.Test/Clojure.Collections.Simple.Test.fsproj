@@ -7,23 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TestHelpers.fs" />
-    <Compile Include="ConsTests.fs" />
-    <Compile Include="PersistentListTests.fs" />
-    <Compile Include="FnTests.fs" />
-    <Compile Include="PersistentHashMapTests.fs" />
-    <Compile Include="PersistentArrayMapTests.fs" />
-    <Compile Include="LazySeqTests.fs" />
+    <Compile Include="SimpleCollectionsTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Expecto" Version="9.*" />
-    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
+    <PackageReference Include="Expecto" Version="9.0.4" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.12.8" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.*" />
     <ProjectReference Include="..\Clojure.Collections.Simple\Clojure.Collections.Simple.fsproj" />
     <ProjectReference Include="..\Clojure.Collections\Clojure.Collections.fsproj" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="5.0.3-beta.21352.5" />
   </ItemGroup>

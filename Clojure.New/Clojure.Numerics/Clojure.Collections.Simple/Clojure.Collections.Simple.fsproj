@@ -14,4 +14,8 @@
     <ProjectReference Include="..\Clojure.Collections\Clojure.Collections.fsproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.3-beta.21352.5" />
+  </ItemGroup>
+
 </Project>

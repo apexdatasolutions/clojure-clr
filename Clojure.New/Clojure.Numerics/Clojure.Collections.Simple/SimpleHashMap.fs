@@ -12,10 +12,10 @@ module private SHMNOdeOps =
         clone.[i] <- a
         clone
 
-    let removePair(arr: 'T[], i: int) : 'T[] =
+    let removeEntry(arr: 'T[], i: int) : 'T[] =
         let newArr : 'T[] = Array.zeroCreate <| arr.Length-2 
-        Array.Copy(arr,0,newArr,0,2*i)
-        Array.Copy(arr,2*(i+1),newArr,2*i,newArr.Length-2*i)
+        Array.Copy(arr,0,newArr,0,i)
+        Array.Copy(arr,(i+1),newArr,i,newArr.Length-i)
         newArr
 
     let getHash(o:obj) : int =
@@ -87,9 +87,9 @@ and  SHMNode =
 
     member this.getNodeSeq() = 
         match this with
-        | ArrayNode(Count=count; Nodes=nodes) -> raise <| NotImplementedException() 
-        | BitmapNode(Bitmap=bitmap; Entries=entries) -> raise <| NotImplementedException() 
-        | CollisionNode(Hash=hash; Count=count; KVs=kvs) -> raise <| NotImplementedException() 
+        | ArrayNode(Count=count; Nodes=nodes) -> ArrayNodeSeq.create(nodes,0) 
+        | BitmapNode(Bitmap=bitmap; Entries=entries) -> BitmapNodeSeq.create(entries,0)
+        | CollisionNode(Hash=hash; Count=count; KVs=kvs) -> CollisionNodeSeq.create(kvs,0)
     
     member this.find (shift:int) (hash:int) (key:obj) : IMapEntry option =
         match this with
@@ -180,7 +180,7 @@ and  SHMNode =
                         if value = v  then
                             this
                         else
-                            BitmapNode(bitmap,cloneAndSet(entries,idx+1,KeyValue(key,value)))
+                            BitmapNode(bitmap,cloneAndSet(entries,idx,KeyValue(key,value)))
                     else
                         addedLeaf.set()
                         let newNode =  SHMNode.createNode (shift+5) k v hash key value
@@ -259,7 +259,7 @@ and  SHMNode =
                         if bitmap = bit then // only one entry
                             None
                         else
-                            BitmapNode(bitmap^^^bit,removePair(entries,idx)) |> Some
+                            BitmapNode(bitmap^^^bit,removeEntry(entries,idx)) |> Some
                     else this |> Some
                 | Node(Node=node) ->
                     match node.without (shift+5) hash key with
@@ -272,7 +272,7 @@ and  SHMNode =
             match SHMNode.tryFindCNodeIndex(key,kvs) with   
             | None -> this |> Some
             | Some idx ->
-                if count = 1 then None else CollisionNode(h,count-1,removePair(kvs,idx)) |> Some
+                if count = 1 then None else CollisionNode(h,count-1,removeEntry(kvs,idx)) |> Some
 
     
     member this.iteratorT (d:KVTranformFn<'T>) : IEnumerator<'T> = 
@@ -308,14 +308,81 @@ and  SHMNode =
                         let me = kv :> IMapEntry
                         yield d(me.key(),me.value())                
                 }
-            s.GetEnumerator()       
+            s.GetEnumerator()     
+            
+and ArrayNodeSeq(nodes: (SHMNode option)[], idx: int, s: ISeq) =
+    inherit ASeq()
+    
 
+    static member create(nodes: (SHMNode option)[], idx: int) : ISeq =
+        if idx >= nodes.Length then
+            null
+        else
+            match nodes[idx] with
+            | Some(node) -> 
+                match node.getNodeSeq() with
+                | null -> ArrayNodeSeq.create(nodes,idx+1)
+                | _ as s -> ArrayNodeSeq(nodes,idx,s)
+            | None -> ArrayNodeSeq.create(nodes,idx+1)
+
+             
+
+    interface ISeq with 
+        member _.first() = s.first()
+        member _.next() = 
+            match s.next() with
+            | null -> ArrayNodeSeq.create(nodes,idx+1) 
+            | _ as s1 -> ArrayNodeSeq(nodes,idx,s1)
+
+and BitmapNodeSeq(entries: BNodeEntry[], idx: int, seq: ISeq) =
+    inherit ASeq()
+
+    static member create(entries: BNodeEntry[], idx: int) : ISeq =
+        if idx >= entries.Length 
+        then 
+            null
+        else
+            match entries[idx] with
+            | KeyValue(_,_) -> BitmapNodeSeq(entries,idx,null)
+            | Node(Node=node) -> 
+                match node.getNodeSeq() with
+                | null -> BitmapNodeSeq.create(entries,idx+1)
+                | _ as s -> BitmapNodeSeq(entries,idx,s)
+
+    interface ISeq with
+        member _.first() =
+            match entries[idx] with
+            | KeyValue(Key=k;Value=v) -> MapEntry(k,v)
+            | Node(Node=node) -> seq.first()
+
+        member _.next() = 
+            match entries[idx] with
+            | KeyValue(_,_) -> BitmapNodeSeq.create(entries,idx+1)
+            | Node(_) -> 
+                match seq.next() with
+                | null -> BitmapNodeSeq.create(entries,idx+1)
+                | _ as s -> BitmapNodeSeq(entries,idx,s)
+
+and CollisionNodeSeq(kvs : MapEntry[], idx: int) =
+    inherit ASeq()
+
+    static member create(kvs: MapEntry[], idx:int) : ISeq =
+        if idx >= kvs.Length then null else CollisionNodeSeq(kvs,idx)
+
+    interface ISeq with
+        member _.first() = kvs[idx]
+        member _.next() = CollisionNodeSeq.create(kvs,idx+1)
+
+
+
+
+type NotFoundSentinel = | NFS
 
 type SimpleHashMap = 
     | Empty
     | Rooted of Count: int * Node: SHMNode
 
-    static member notFoundValue = obj()
+    static member notFoundValue = NFS
 
     interface Counted with
         member this.count() =
@@ -360,7 +427,7 @@ type SimpleHashMap =
         member this.containsKey(k) =
             match this with
             | Empty -> false
-            | Rooted(Node=n) -> (n.find2 0 (hash(k)) k SimpleHashMap.notFoundValue)  <> SimpleHashMap.notFoundValue
+            | Rooted(Node=n) -> (n.find2 0 (hash(k)) k SimpleHashMap.notFoundValue)  <> (upcast SimpleHashMap.notFoundValue)
         member this.entryAt(k) = 
             match this with
             | Empty -> null
@@ -442,4 +509,20 @@ type SimpleHashMap =
     //interface IFn with
     //    override this.invoke(arg1) = (this:>ILookup).valAt(arg1)
     //    override this.invoke(arg1,arg2) = (this:>ILookup).valAt(arg1,arg2)
-   
+
+    static member create(other: IDictionary) : IPersistentMap =
+        let mutable ret = Empty :> IPersistentMap
+        for o in other do
+            let  de = o :?> DictionaryEntry
+            ret <- ret.assoc(de.Key,de.Value)
+        ret
+
+    static member create1(init:IList) : IPersistentMap =
+        let mutable ret = Empty :> IPersistentMap
+        let ie = init.GetEnumerator()
+        while ie.MoveNext() do
+            let key = ie.Current
+            if not (ie.MoveNext()) then raise <| ArgumentException("init","No value supplied for " + key.ToString())
+            let value = ie.Current
+            ret <- ret.assoc(key,value)
+        ret      

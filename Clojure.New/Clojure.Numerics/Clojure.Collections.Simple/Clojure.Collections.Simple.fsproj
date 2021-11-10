@@ -6,8 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SimpleHashMap.fs" />
     <Compile Include="SimplestCollections.fs" />
+    <Compile Include="SimpleHashMap.fs" />
   </ItemGroup>
 
   <ItemGroup>

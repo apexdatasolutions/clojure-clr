@@ -51,7 +51,7 @@
   "Validate server config options"
   [{:keys [name port accept] :as opts}]
   (doseq [prop [:name :port :accept]] (required opts prop))
-  (when (or (not (integer? port)) (not (< -1 port 65535)))
+  (when (or (not (integer? port)) (not (<= 0 port 65535)))
     (throw (ex-info (str "Invalid socket server port: " port) opts))))
 
 (defn- accept-connection
@@ -226,7 +226,7 @@
           (add-tap tapfn)
           (loop []
             (when (try
-                    (let [[form s] (read+string in-reader false EOF)]
+                     (let [[form s] (read+string {:eof EOF :read-cond :allow} in-reader)]
                       (try
                         (when-not (identical? form EOF)
                           (let [start (clojure.lang.RT/StartStopwatch)                                       ;;; (System/nanoTime)
@@ -288,7 +288,7 @@
                         (try
                           (assoc m :val (valf (:val m)))
                           (catch Exception ex                                        ;;; Throwable
-                            (assoc m :val (ex->data ex :print-eval-result)
+                            (assoc m :val (valf (ex->data ex :print-eval-result))
                                      :exception true)))
                         m))))))))
 

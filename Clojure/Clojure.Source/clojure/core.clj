@@ -1134,6 +1134,18 @@
   ([x y & more]
    (reduce1 min (min x y) more)))
 
+(defn abs
+  {:doc "Returns the absolute value of a.
+  If a is Long/MIN_VALUE => Long/MIN_VALUE
+  If a is a double and zero => +0.0
+  If a is a double and ##Inf or ##-Inf => ##Inf
+  If a is a double and ##NaN => ##NaN"
+   :inline-arities #{1}
+   :inline (fn [a] `(clojure.lang.Numbers/abs ~a))
+   :added "1.11"}
+  [a]
+  (clojure.lang.Numbers/abs a))
+
 (defn dec'
   "Returns a number one less than num.  Supports arbitrary precision.
   See also: dec"
@@ -1381,7 +1393,7 @@
   (or (instance? Int32 n)      (instance? UInt32 n)     ;;; Integer -> Int32, added UInt32
       (instance? Int64 n)      (instance? UInt64 n)     ;;; Long -> Int64, added UInt64
 	  (instance? clojure.lang.BigInt n)
-      (instance? BigInteger n) (instance? Char n)       ;;; added Char test
+      (instance? BigInteger n)
       (instance? Int16 n)      (instance? UInt16 n)     ;;; Short -> Int16, added UInt16
       (instance? Byte n)  (instance? SByte n)))         ;;; Added SByte test
 
@@ -1494,7 +1506,8 @@
  [coll key] (. clojure.lang.RT (contains coll key)))
 
 (defn get
-  "Returns the value mapped to key, not-found or nil if key not present."
+  "Returns the value mapped to key, not-found or nil if key not present
+  in associative collection, set, string, array, or ILookup instance."
   {:inline (fn  [m k & nf] `(. clojure.lang.RT (get ~m ~k ~@nf)))
    :inline-arities #{2 3}
    :added "1.0"}
@@ -4371,7 +4384,19 @@ Note that read can execute code (controlled by *read-eval*),
    :static true}
   ([] (. clojure.lang.PersistentArrayMap EMPTY))
   ([& keyvals] 
-     (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array keyvals))))
+     (let [ary (to-array keyvals)]
+       (if (odd? (alength ary))
+         (throw (ArgumentException. (str "No value supplied for key: " (last keyvals))))   ;;; IllegalArgumentException
+         (clojure.lang.PersistentArrayMap/createAsIfByAssoc ary)))))
+
+(defn seq-to-map-for-destructuring
+  "Builds a map from a seq as described in
+  https://clojure.org/reference/special_forms#keyword-arguments"
+  {:added "1.11"}
+  [s]
+  (if (next s)
+    (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
+    (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))
 
 ;;redefine let and loop  with destructuring
 (defn destructure [bindings]
@@ -4419,7 +4444,11 @@ Note that read can execute code (controlled by *read-eval*),
                            gmapseq (with-meta gmap {:tag 'clojure.lang.ISeq})
                            defaults (:or b)]
                        (loop [ret (-> bvec (conj gmap) (conj v)
-                                      (conj gmap) (conj `(if (seq? ~gmap) (clojure.lang.PersistentHashMap/create (seq ~gmapseq)) ~gmap))
+                                      (conj gmap) (conj `(if (seq? ~gmap)
+                                                           (if (next ~gmapseq)
+                                                             (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array ~gmapseq))
+                                                             (if (seq ~gmapseq) (first ~gmapseq) clojure.lang.PersistentArrayMap/EMPTY))
+                                                           ~gmap))
                                       ((fn [ret]
                                          (if (:as b)
                                            (conj ret (:as b) gmap)
@@ -4468,10 +4497,15 @@ Note that read can execute code (controlled by *read-eval*),
 
 (defmacro let
   "binding => binding-form init-expr
+  binding-form => name, or destructuring-form
+  destructuring-form => map-destructure-form, or seq-destructure-form
 
   Evaluates the exprs in a lexical context in which the symbols in
   the binding-forms are bound to their respective init-exprs or parts
-  therein."
+  therein.
+
+  See https://clojure.org/reference/special_forms#binding-forms for
+  more information about destructuring."
   {:added "1.0", :special-form true, :forms '[(let [bindings*] exprs*)]}
   [bindings & body]
   (assert-args
@@ -4499,12 +4533,14 @@ Note that read can execute code (controlled by *read-eval*),
 
 ;redefine fn with destructuring and pre/post conditions
 (defmacro fn
-  "params => positional-params* , or positional-params* & next-param
+  "params => positional-params*, or positional-params* & rest-param
   positional-param => binding-form
-  next-param => binding-form
-  name => symbol
+  rest-param => binding-form
+  binding-form => name, or destructuring-form
 
-  Defines a function"
+  Defines a function.
+
+  See https://clojure.org/reference/special_forms#fn for more information"
   {:added "1.0", :special-form true,
    :forms '[(fn name? [params* ] exprs*) (fn name? ([params* ] exprs*)+)]}
   [& sigs]
@@ -5922,13 +5958,15 @@ Note that read can execute code (controlled by *read-eval*),
             (name lib) prefix)
   (let [lib (if prefix (symbol (str prefix \. lib)) lib)
         opts (apply hash-map options)
-        {:keys [as reload reload-all require use verbose]} opts
+        {:keys [as reload reload-all require use verbose as-alias]} opts
         loaded (contains? @*loaded-libs* lib)
-        load (cond reload-all
-                   load-all
-                   (or reload (not require) (not loaded))
-                   load-one)
         need-ns (or as use)
+        load (cond reload-all load-all
+                   reload load-one
+                   (not loaded) (cond need-ns load-one
+                                      as-alias (fn [lib _need _require] (create-ns lib))
+                                      :else load-one))
+
         filter-opts (select-keys opts '(:exclude :only :rename :refer))
         undefined-on-entry (not (find-ns lib))]
     (binding [*loading-verbosely* (or *loading-verbosely* verbose)]
@@ -5940,13 +5978,17 @@ Note that read can execute code (controlled by *read-eval*),
               (remove-ns lib))
             (throw e)))
         (throw-if (and need-ns (not (find-ns lib)))
-                  "namespace '%s' not found" lib))
+          "namespace '%s' not found" lib))
       (when (and need-ns *loading-verbosely*)
         (printf "(clojure.core/in-ns '%s)\n" (ns-name *ns*)))
       (when as
         (when *loading-verbosely*
           (printf "(clojure.core/alias '%s '%s)\n" as lib))
         (alias as lib))
+      (when as-alias
+        (when *loading-verbosely*
+          (printf "(clojure.core/alias '%s '%s)\n" as-alias lib))
+        (alias as-alias lib))
       (when (or use (:refer filter-opts))
         (when *loading-verbosely*
           (printf "(clojure.core/refer '%s" lib)
@@ -5963,7 +6005,7 @@ Note that read can execute code (controlled by *read-eval*),
         opts (interleave flags (repeat true))
         args (filter (complement keyword?) args)]
     ; check for unsupported options
-    (let [supported #{:as :reload :reload-all :require :use :verbose :refer} 
+    (let [supported #{:as :reload :reload-all :require :use :verbose :refer :as-alias}
           unsupported (seq (remove supported flags))]
       (throw-if unsupported
                 (apply str "Unsupported option(s) supplied: "
@@ -6027,6 +6069,9 @@ Note that read can execute code (controlled by *read-eval*),
   Recognized options:
   :as takes a symbol as its argument and makes that symbol an alias to the
     lib's namespace in the current namespace.
+  :as-alias takes a symbol as its argument and aliases like :as, however
+    the lib will not be loaded. If the lib has not been loaded, a new
+    empty namespace will be created (as with create-ns).
   :refer takes a list of symbols to refer from the namespace or the :all
     keyword to bring in all public vars.
 
@@ -6043,9 +6088,10 @@ Note that read can execute code (controlled by *read-eval*),
   A flag is a keyword.
   Recognized flags: :reload, :reload-all, :verbose
   :reload forces loading of all the identified libs even if they are
-    already loaded
+    already loaded (has no effect on libspecs using :as-alias)
   :reload-all implies :reload and also forces loading of all libs that the
     identified libs directly or indirectly load via require or use
+    (has no effect on libspecs using :as-alias)
   :verbose triggers printing information about each load, alias, and refer
 
   Example:
@@ -6438,7 +6484,10 @@ fails, attempts to require sym's namespace and retries."
   Supported options:
   :elide-meta - a collection of metadata keys to elide during compilation.
   :disable-locals-clearing - set to true to disable clearing, useful for using a debugger
-  Alpha, subject to change."
+  :direct-linking - set to true to use direct static invocation of functions, rather than vars
+    Note that call sites compiled with direct linking will not be affected by var redefinition.
+    Use ^:redef (or ^:dynamic) on a var to prevent direct linking and allow redefinition.
+  See https://clojure.org/reference/compilation for more information."
   {:added "1.4"})
 
 (add-doc-and-meta *ns*
@@ -6652,7 +6701,7 @@ fails, attempts to require sym's namespace and retries."
                       (next ks) (next vs))
                     m))
         assoc-multi (fn [m h bucket]
-                      (let [testexprs (apply concat bucket)
+                      (let [testexprs (mapcat (fn [kv] [(list 'quote (first kv)) (second kv)]) bucket)
                             expr `(condp = ~expr-sym ~@testexprs ~default)]
                         (assoc m h expr)))
         hmap (reduce1
@@ -6695,9 +6744,6 @@ fails, attempts to require sym's namespace and retries."
                          (into1 #{} (map #(shift-mask shift mask %) skip-check)))]
         [shift mask case-map switch-type skip-check]))))
 
-(defn case-fallthrough-err-impl
-  [val]
-  (ArgumentException. (str "No matching clause: " (pr-str val))))                            ;;; IllegalArgumentException.
 
 (defmacro case 
   "Takes an expression, and a set of clauses.
@@ -6728,7 +6774,7 @@ fails, attempts to require sym's namespace and retries."
   (let [ge (with-meta (gensym) {:tag Object})
         default (if (odd? (count clauses)) 
                   (last clauses)
-                  `(throw (case-fallthrough-err-impl ~ge)))]
+                  `(throw (ArgumentException. (str "No matching clause: " ~ge))))]                      ;;; IllegalArgumentException
     (if (> 2 (count clauses))
       `(let [~ge ~e] ~default)
       (let [pairs (partition 2 clauses)
@@ -6812,6 +6858,12 @@ fails, attempts to require sym's namespace and retries."
   {:added "1.9"}
   [x] (instance? System.Guid x))                                                               ;;; java.util.UUID
   
+(defn random-uuid
+  {:doc "Returns a pseudo-randomly generated java.util.UUID instance (i.e. type 4).
+  See: https://docs.oracle.com/javase/8/docs/api/java/util/UUID.html#randomUUID--"
+   :added "1.11"}
+  ^System.Guid [] (System.Guid/NewGuid))                                                       ;;; ^java.util.UUID  java.util.UUID/randomUUID
+
 (defn reduce
   "f should be a function of 2 arguments. If val is not supplied,
   returns the result of applying f to the first 2 items in coll, then
@@ -6839,13 +6891,19 @@ fails, attempts to require sym's namespace and retries."
   init)
 
  ;;slow path default
- clojure.lang.IPersistentMap
- (kv-reduce 
+ System.Object
+ (kv-reduce
   [amap f init]
-  (reduce (fn [ret [k v]] (f ret k v)) init amap))
+  (reduce (fn [ret ^clojure.lang.IMapEntry me]        ;;; ^java.util.Map$Entry  -- THe problem here is that we don't have an equivalent to java.util.Map$Entry.  We will settle on IMapEntry
+            (f ret
+               (.key me)                              ;;; .getKey
+               (.val me)))                          ;;; .getValue
+          init
+          amap))
+
 
 clojure.lang.IKVReduce
- (kv-reduce 
+ (kv-reduce
   [amap f init]
   (.kvreduce amap f init)))
 
@@ -6902,7 +6960,11 @@ clojure.lang.IKVReduce
        (reduce conj to from)))
   ([to xform from]
      (if (instance? clojure.lang.IEditableCollection to)
-       (with-meta (persistent! (transduce xform conj! (transient to) from)) (meta to))
+       (let [tm (meta to)
+             rf (fn
+                  ([coll] (-> (persistent! coll) (with-meta tm)))
+                  ([coll v] (conj! coll v)))]
+         (transduce xform rf (transient to) from))
        (transduce xform conj to from))))
 
 (defn mapv
@@ -7057,7 +7119,8 @@ clojure.lang.IKVReduce
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; clojure version number ;;;;;;;;;;;;;;;;;;;;;;
 ;;; THIS EXPOSES WAY TOO MUCH JVM INTERNALS!
-(let [properties (. clojure.lang.RT GetVersionProperties)                   ;;; properties (with-open [version-stream (.getResourceAsStream 
+(let [^clojure.runtime.Properties 
+      properties (. clojure.lang.RT GetVersionProperties)                   ;;; properties (with-open [version-stream (.getResourceAsStream 
                                                                             ;;;                                          (clojure.lang.RT/baseLoader) 
                                                                             ;;;                                          "clojure/version.properties")]
                                                                             ;;;               (doto (new java.util.Properties) 
@@ -7424,8 +7487,8 @@ clojure.lang.IKVReduce
      (fn ep3
        ([] true)
        ([x] (boolean (and (p1 x) (p2 x) (p3 x))))
-       ([x y] (boolean (and (p1 x) (p2 x) (p3 x) (p1 y) (p2 y) (p3 y))))
-       ([x y z] (boolean (and (p1 x) (p2 x) (p3 x) (p1 y) (p2 y) (p3 y) (p1 z) (p2 z) (p3 z))))
+       ([x y] (boolean (and (p1 x) (p1 y) (p2 x) (p2 y) (p3 x) (p3 y))))
+       ([x y z] (boolean (and (p1 x) (p1 y) (p1 z) (p2 x) (p2 y) (p2 z) (p3 x) (p3 y) (p3 z))))
        ([x y z & args] (boolean (and (ep3 x y z)
                                      (every? #(and (p1 %) (p2 %) (p3 %)) args))))))
   ([p1 p2 p3 & ps]
@@ -7464,8 +7527,8 @@ clojure.lang.IKVReduce
      (fn sp3
        ([] nil)
        ([x] (or (p1 x) (p2 x) (p3 x)))
-       ([x y] (or (p1 x) (p2 x) (p3 x) (p1 y) (p2 y) (p3 y)))
-       ([x y z] (or (p1 x) (p2 x) (p3 x) (p1 y) (p2 y) (p3 y) (p1 z) (p2 z) (p3 z)))
+       ([x y] (or (p1 x) (p1 y) (p2 x) (p2 y) (p3 x) (p3 y)))
+       ([x y z] (or (p1 x) (p1 y) (p1 z) (p2 x) (p2 y) (p2 z) (p3 x) (p3 y) (p3 z)))
        ([x y z & args] (or (sp3 x y z)
                            (some #(or (p1 %) (p2 %) (p3 %)) args)))))
   ([p1 p2 p3 & ps]
@@ -7720,6 +7783,52 @@ clojure.lang.IKVReduce
   (reduce #(proc %2) nil coll)
   nil)
 
+  (defn iteration
+   "Creates a seqable/reducible via repeated calls to step,
+  a function of some (continuation token) 'k'. The first call to step
+  will be passed initk, returning 'ret'. Iff (somef ret) is true,
+  (vf ret) will be included in the iteration, else iteration will
+  terminate and vf/kf will not be called. If (kf ret) is non-nil it
+  will be passed to the next step call, else iteration will terminate.
+
+  This can be used e.g. to consume APIs that return paginated or batched data.
+
+   step - (possibly impure) fn of 'k' -> 'ret'
+
+   :somef - fn of 'ret' -> logical true/false, default 'some?'
+   :vf - fn of 'ret' -> 'v', a value produced by the iteration, default 'identity'
+   :kf - fn of 'ret' -> 'next-k' or nil (signaling 'do not continue'), default 'identity'
+   :initk - the first value passed to step, default 'nil'
+
+  It is presumed that step with non-initk is unreproducible/non-idempotent.
+  If step with initk is unreproducible it is on the consumer to not consume twice."
+  {:added "1.11"}
+  [step & {:keys [somef vf kf initk]
+            :or {vf identity
+                 kf identity
+                 somef some?
+                 initk nil}}]
+  (reify
+   clojure.lang.Seqable
+   (seq [_]
+        ((fn next [ret]
+           (when (somef ret)
+             (cons (vf ret)
+                   (when-some [k (kf ret)]
+                     (lazy-seq (next (step k)))))))
+         (step initk)))
+   clojure.lang.IReduceInit
+   (reduce [_ rf init]
+           (loop [acc init
+                  ret (step initk)]
+             (if (somef ret)
+               (let [acc (rf acc (vf ret))]
+                 (if (reduced? acc)
+                   @acc
+                   (if-some [k (kf ret)]
+                     (recur acc (step k))
+                     acc)))
+               acc)))))
 
   (defn tagged-literal?
   "Return true if the value is the data representation of a tagged literal"
@@ -7893,4 +8002,104 @@ clojure.lang.IKVReduce
   false if not (dropped)."
   {:added "1.10"}
   [x]
+  (force tap-loop)
   (.TryAdd tapq (if (nil? x) ::tap-nil x)))                                         ;;; .offer
+
+  (defn update-vals
+  "m f => {k (f v) ...}
+
+  Given a map m and a function f of 1-argument, returns a new map where the keys of m
+  are mapped to result of applying f to the corresponding values of m."
+  {:added "1.11"}
+  [m f]
+  (with-meta
+    (persistent!
+     (reduce-kv (fn [acc k v] (assoc! acc k (f v)))
+                (if (instance? clojure.lang.IEditableCollection m)
+                  (transient m)
+                  (transient {}))
+                m))
+    (meta m)))
+
+(defn update-keys
+  "m f => {(f k) v ...}
+  
+  Given a map m and a function f of 1-argument, returns a new map whose
+  keys are the result of applying f to the keys of m, mapped to the
+  corresponding values of m.
+  f must return a unique key for each key of m, else the behavior is undefined."
+  {:added "1.11"}
+  [m f]
+  (let [ret (persistent!
+             (reduce-kv (fn [acc k v] (assoc! acc (f k) v))
+                        (transient {})
+                        m))]
+    (with-meta ret (meta m))))
+
+(defn- parsing-err
+  "Construct message for parsing for non-string parsing error"
+  ^String [val]
+  (str "Expected string, got " (if (nil? val) "nil" (-> val class .Name))))      ;;; .getName
+
+(defn parse-long
+  {:doc "Parse string of decimal digits with optional leading -/+ and return a
+  Long value, or nil if parse fails"
+   :added "1.11"}
+  [^String s]                                                                ;;; ^Long  -- no equivalent since this can return nil  -- at least until we can return Nullable<long>
+  (if (string? s)
+    (try
+      (Int64/Parse s)                                                        ;;; Long/Parse
+      (catch FormatException _ nil)(catch OverflowException _ nil))          ;;; NumberFormatException  -- and added other cases
+    (throw (ArgumentException. (parsing-err s)))))                           ;;; IllegalArgumentException
+
+(defn parse-double
+  {:doc "Parse string with floating point components and return a Double value,
+  or nil if parse fails.
+
+  Grammar: https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html#valueOf-java.lang.String-"
+   :added "1.11"}
+  [^String s]                                                                ;;; ^Double  -- no equivalent since this can return nil  -- at least until we can return Nullable<double>
+  (if (string? s)
+    (try
+      (Double/Parse s)                                                       ;;; Double/valueOf
+      (catch FormatException _ nil)(catch OverflowException _ nil))          ;;; NumberFormatException  -- and added other cases
+    (throw (ArgumentException. (parsing-err s)))))                           ;;; IllegalArgumentException
+
+(defn parse-uuid
+  {:doc "Parse a string representing a UUID and return a java.util.UUID instance,
+  or nil if parse fails.
+
+  Grammar: https://docs.oracle.com/javase/8/docs/api/java/util/UUID.html#toString--"
+   :added "1.11"}
+  ^System.Guid [^String s]                                                   ;;; java.util.UUID
+  (try
+    (System.Guid/Parse s)                                                    ;;; java.util.UUID/fromString
+    (catch ArgumentException _ nil)(catch FormatException _ nil)))           ;;; IllegalArgumentException  -- and added other cases
+
+(defn parse-boolean
+  {:doc "Parse strings \"true\" or \"false\" and return a boolean, or nil if invalid"
+   :added "1.11"}
+  [^String s]
+  (if (string? s)
+    (case s
+      "true" true
+      "false" false
+      nil)
+    (throw (ArgumentException. (parsing-err s)))))                          ;;; IllegalArgumentException
+
+(defn NaN?
+  {:doc "Returns true if num is NaN, else false"
+   :inline-arities #{1}
+   :inline (fn [num] `(Double/IsNaN ~num))                                  ;;; isNaN
+   :added "1.11"}
+
+  [^double num]
+  (Double/IsNaN num))                                                       ;;; isNaN
+
+(defn infinite?
+  {:doc "Returns true if num is negative or positive infinity, else false"
+   :inline-arities #{1}
+   :inline (fn [num] `(Double/IsInfinity ~num))                             ;;; isInfinite
+   :added "1.11"}
+  [^double num]
+  (Double/IsInfinity num))                                                  ;;; isInfinite

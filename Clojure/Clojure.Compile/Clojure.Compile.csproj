@@ -11,9 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="clojure.core.specs.alpha" Version="0.2.56" />
-    <PackageReference Include="clojure.spec.alpha" Version="0.2.194" />
-    <PackageReference Include="DynamicLanguageRuntime" Version="1.3.0" />
+    <PackageReference Include="clojure.core.specs.alpha" Version="0.2.62" />
+    <PackageReference Include="clojure.spec.alpha" Version="0.3.218" />
+    <PackageReference Include="DynamicLanguageRuntime" Version="1.3.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,12 +27,11 @@
       <TargetCmdline Condition=" $(TargetCmdline) == '' ">$(TargetPath)</TargetCmdline>
       <TargetCmdline Condition=" '$(OS)' == 'Unix' ">mono $(TargetPath)</TargetCmdline>
     </PropertyGroup>
-    <Exec Command="$(TargetCmdline) clojure.core clojure.core.protocols clojure.core.server clojure.core.reducers clojure.main clojure.set clojure.zip  clojure.walk clojure.stacktrace clojure.template clojure.test clojure.test.tap clojure.test.junit clojure.pprint clojure.clr.io clojure.repl clojure.clr.shell clojure.string clojure.data clojure.reflect  clojure.edn clojure.datafy" WorkingDirectory="$(OutDir)" />
+    <Exec Command="$(TargetCmdline) clojure.core clojure.core.protocols clojure.core.server clojure.core.reducers clojure.main clojure.set clojure.zip  clojure.walk clojure.stacktrace clojure.template clojure.test clojure.test.tap clojure.test.junit clojure.pprint clojure.clr.io clojure.repl clojure.clr.shell clojure.string clojure.data clojure.reflect  clojure.edn clojure.datafy clojure.instant clojure.uuid clojure.math" WorkingDirectory="$(OutDir)" />
     <ItemGroup>
       <CljCoreBin Include="$(ProjectDir)$(OutDir)clojure*.dll" />
     </ItemGroup>
-    <Copy SourceFiles="@(CljCoreBin)"
-      DestinationFolder="$(SolutionDir)Clojure.Main461\$(OutDir)" />
+    <Copy SourceFiles="@(CljCoreBin)" DestinationFolder="$(SolutionDir)Clojure.Main461\$(OutDir)" />
   </Target>
   
 

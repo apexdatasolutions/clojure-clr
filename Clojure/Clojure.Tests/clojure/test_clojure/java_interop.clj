@@ -8,12 +8,16 @@
 
 ; Author: Frantisek Sodomka
 
-(assembly-load-with-partial-name "System.Drawing")         ;;; DM: Added
+(assembly-load-with-partial-name "System.Drawing")                           ;;; DM: Added
 (ns clojure.test-clojure.java-interop
   (:use clojure.test)
-  (:require                                                ;;; [clojure.inspector]
-            [clojure.set :as set])                            
-  )                                                         ;;; (:import java.util.Base64)
+  (:require [clojure.data :as data]
+                                                                             ;;; [clojure.inspector]
+            [clojure.pprint :as pp]
+            [clojure.set :as set]
+            [clojure.test-clojure.proxy.examples :as proxy-examples])                           
+  (:import                                                                   ;;; java.util.Base64
+           (clojure.lang AtomicLong AtomicInteger)))                         ;;; java.util.concurrent.atomic
 
 ; http://clojure.org/java_interop
 ; http://clojure.org/compilation
@@ -176,6 +180,37 @@
             str)
         "chain chain chain")))
 
+;;;;https://clojure.atlassian.net/browse/CLJ-1973
+;;;(deftest test-proxy-method-order
+;;;  (let [class-reader (clojure.asm.ClassReader. proxy-examples/proxy1-class-name)
+;;;        method-order (atom [])
+;;;        method-visitor (proxy [clojure.asm.ClassVisitor] [clojure.asm.Opcodes/ASM4 nil]
+;;;                         (visitMethod [access name descriptor signature exceptions]
+;;;                           (swap! method-order conj {:name name :descriptor descriptor})
+;;;                           nil))
+;;;        _ (.accept class-reader method-visitor 0)
+;;;        expected [{:name "<init>", :descriptor "()V"}
+;;;                  {:name "__initClojureFnMappings", :descriptor "(Lclojure/lang/IPersistentMap;)V"}
+;;;                  {:name "__updateClojureFnMappings", :descriptor "(Lclojure/lang/IPersistentMap;)V"}
+;;;                  {:name "__getClojureFnMappings", :descriptor "()Lclojure/lang/IPersistentMap;"}
+;;;                  {:name "clone", :descriptor "()Ljava/lang/Object;"}
+;;;                  {:name "hashCode", :descriptor "()I"}
+;;;                  {:name "toString", :descriptor "()Ljava/lang/String;"}
+;;;                  {:name "equals", :descriptor "(Ljava/lang/Object;)Z"}
+;;;                  {:name "a", :descriptor "(Ljava/io/File;)Z"}
+;;;                  {:name "a", :descriptor "(Ljava/lang/Boolean;)Ljava/lang/Object;"}
+;;;                  {:name "a", :descriptor "(Ljava/lang/Runnable;)Z"}
+;;;                  {:name "a", :descriptor "(Ljava/lang/String;)I"}
+;;;                  {:name "b", :descriptor "(Ljava/lang/String;)Ljava/lang/Object;"}
+;;;                  {:name "c", :descriptor "(Ljava/lang/String;)Ljava/lang/Object;"}
+;;;                  {:name "d", :descriptor "(Ljava/lang/String;)Ljava/lang/Object;"}
+;;;                  {:name "a", :descriptor "(Ljava/lang/Boolean;Ljava/lang/String;)I"}
+;;;                  {:name "a", :descriptor "(Ljava/lang/String;Ljava/io/File;)Z"}
+;;;                  {:name "a", :descriptor "(Ljava/lang/String;Ljava/lang/Runnable;)Z"}
+;;;                  {:name "a", :descriptor "(Ljava/lang/String;Ljava/lang/String;)I"}]
+;;;        actual @method-order]
+;;;    (is (= expected actual)
+;;;        (with-out-str (pp/pprint (data/diff expected actual))))))
 
 ;; serialized-proxy can be regenerated using a modified version of
 ;; Clojure with the proxy serialization prohibition disabled and the
@@ -590,3 +625,18 @@
   (is (= (char \a) \a)))
 
 ;; Note: More coercions in numbers.clj
+
+; Test that primitive boxing elision in statement context works
+; correctly (CLJ-2621)
+
+(defn inc-atomic-int [^AtomicInteger l]
+  (.incrementAndGet l)
+  nil)
+
+(defn inc-atomic-long [^AtomicLong l]
+  (.incrementAndGet l)
+  nil)
+
+(deftest test-boxing-prevention-when-compiling-statements
+  (is (= 1 (.get (doto (AtomicInteger. 0) inc-atomic-int))))
+  (is (= 1 (.get (doto (AtomicLong. 0) inc-atomic-long)))))

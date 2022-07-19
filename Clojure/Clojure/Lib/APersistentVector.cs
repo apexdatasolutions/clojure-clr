@@ -212,15 +212,18 @@ namespace clojure.lang
 
             if (obj is IList ilist)
             {
-                if (ilist.Count != v.count())   // THis test in the JVM code can't be right:  || ma.GetHashCode() != v.GetHashCode())
+                if ((!(ilist is IPersistentCollection) || (ilist is Counted)) && (ilist.Count != v.count()))
                     return false;
 
-                for (int i = 0; i < v.count(); i++)
+                var i2 = ilist.GetEnumerator();
+
+                for (var i1 = ((IList)v).GetEnumerator(); i1.MoveNext();)
                 {
-                    if (!Util.equiv(v.nth(i), ilist[i]))
+                    if (!i2.MoveNext() || !Util.equiv(i1.Current,i2.Current))
                         return false;
                 }
-                return true;
+
+                return !i2.MoveNext();
             }
 
             if (!(obj is Sequential))
@@ -935,7 +938,7 @@ namespace clojure.lang
         /// Internal class providing subvector functionality for <see cref="APersistentVector">APersistentVector</see>.
         /// </summary>
         [Serializable]
-        public sealed class SubVector : APersistentVector, IPersistentCollection, IObj, IEnumerable
+        public sealed class SubVector : APersistentVector, IPersistentCollection, IObj, IEnumerable, IKVReduce
         {
             #region Data
 
@@ -1138,6 +1141,21 @@ namespace clojure.lang
                 if (_v is APersistentVector av)
                     return av.RangedIteratorT(_start, _end);
                 return base.GetEnumerator();    
+            }
+
+            #endregion
+
+            #region IKVReduce members
+            public object kvreduce(IFn f, object init)
+            {
+                int cnt = count();
+                for ( int  i=0; i<cnt; i++)
+                {
+                    init = f.invoke(init, i, _v.nth(_start + i));
+                    if (RT.isReduced(init))
+                        return ((IDeref)init).deref();
+                }
+                return init;
             }
 
             #endregion

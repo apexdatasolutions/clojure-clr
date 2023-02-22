@@ -14,6 +14,7 @@
 
 using System;
 
+
 namespace clojure.lang
 {
     public static class Numbers
@@ -604,13 +605,25 @@ namespace clojure.lang
         public static decimal minusP(decimal x) { return -x; }
 
 
+        public static object minus(object x, object y)
+        {
+            Ops yops = ops(y);
+            Ops xyops = ops(x).combine(yops);
 
+            if (yops is ULongOps && xyops is ULongOps)
+                return Numbers.minus(Util.ConvertToULong(x), Util.ConvertToULong(y));
+            else if (yops is ULongOps)
+            {
+                object negativeY = xyops.negate(y);
+                Ops negativeYOps = ops(negativeY);
+                return ops(x).combine(negativeYOps).add(x, negativeY);
+            }
 
-        public static object minus(object x, object y) { Ops yops = ops(y); return ops(x).combine(yops).add(x, yops.negate(y)); }
-
+            else
+                return xyops.add(x, yops.negate(y));
+        }
 
         public static double minus(double x, double y) { return x - y; }
-
 
         public static long minus(long x, long y)
         {
@@ -671,12 +684,26 @@ namespace clojure.lang
 
         public static object minusP(object x, object y)
         {
+
             Ops yops = ops(y);
-            object negativeY = yops.negateP(y);
-            Ops negativeYOps = ops(negativeY);
-            return ops(x).combine(negativeYOps).addP(x, negativeY);
+            Ops xyops = ops(x).combine(yops);
+
+            if (yops is ULongOps && xyops is ULongOps)
+                return Numbers.minusP(Util.ConvertToULong(x), Util.ConvertToULong(y));
+            else if (yops is ULongOps)
+            {
+                object negativeY = xyops.negateP(y);
+                Ops negativeYOps = ops(negativeY);
+                return ops(x).combine(negativeYOps).addP(x, negativeY);
+            }
+            else
+            {
+                object negativeY = yops.negateP(y);
+                Ops negativeYOps = ops(negativeY);
+                return ops(x).combine(negativeYOps).addP(x, negativeY);
+            }
         }
-        
+
 
         public static double minusP(double x, double y) { return x - y; }
 
@@ -702,10 +729,10 @@ namespace clojure.lang
         public static object minusP(decimal x, decimal y)
         {
             if (x > 0m && y < 0m && x > Decimal.MaxValue + y)
-                return addP((object)x, (object)y);
+                return minusP((object)x, (object)y);
             else if (x < 0m && y > 0m && x < Decimal.MinValue + y)
-                return addP((object)x, (object)y);
-            return num(x + y);
+                return minusP((object)x, (object)y);
+            return num(x - y);
         }
 
 
@@ -771,7 +798,19 @@ namespace clojure.lang
         public static object unchecked_minus(object x, object y)
         {
             Ops yops = ops(y);
-            return ops(x).combine(yops).unchecked_add(x, yops.unchecked_negate(y));
+            Ops xyops = ops(x).combine(yops);
+
+            if (yops is ULongOps && xyops is ULongOps)
+                return Numbers.unchecked_minus(Util.ConvertToULong(x), Util.ConvertToULong(y));
+            else if (yops is ULongOps)
+            {
+                object negativeY = xyops.unchecked_negate(y);
+                Ops negativeYOps = ops(negativeY);
+                return ops(x).combine(negativeYOps).unchecked_add(x, negativeY);
+            }
+
+            else
+                return ops(x).combine(yops).unchecked_add(x, yops.unchecked_negate(y));
         }
 
 
@@ -1352,7 +1391,7 @@ namespace clojure.lang
         
 
 
-        public static decimal unchecked_dec(decimal x) { return inc(x); }  
+        public static decimal unchecked_dec(decimal x) { return dec(x); }  
 
         #endregion
 
@@ -2107,6 +2146,9 @@ namespace clojure.lang
 
         #region  utility methods
 
+        // TODO: ToBigInt, ToBigInteger, ToBigDecimal will fail on unsigned long, e.g.
+        // FIX!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         [WarnBoxedMath(false)]
         static BigInt ToBigInt(Object x)
         {
@@ -2132,6 +2174,7 @@ namespace clojure.lang
 
             return BigInteger.Create(Util.ConvertToLong(x));
         }
+
 
         [WarnBoxedMath(false)]
         static BigDecimal ToBigDecimal(object x)
@@ -2160,6 +2203,9 @@ namespace clojure.lang
 
             if (x is Ratio r)
                 return (BigDecimal)divide(BigDecimal.Create(r.numerator), r.denominator);
+
+            if (x is decimal cd)
+                return BigDecimal.Create(cd);
 
             return BigDecimal.Create(Util.ConvertToLong(x));
         }
@@ -2760,6 +2806,8 @@ namespace clojure.lang
             public object negateP(object x)
             {
                 ulong val = Util.ConvertToULong(x);
+                if (val == 0)
+                    return x;
                 return BigInt.fromBigInteger(-BigInteger.Create(val));
             }
 
@@ -3814,9 +3862,8 @@ namespace clojure.lang
 
             if (xc == typeof(long))
             {
-                long lpart = Util.ConvertToLong(x);
                 //return (int)(lpart ^ (lpart >> 32));
-                return Murmur3.HashLong(lpart);
+                return Murmur3.HashLong((long) x);
             }
             if (xc == typeof(double))
             {

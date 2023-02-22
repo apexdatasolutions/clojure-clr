@@ -317,7 +317,7 @@
               fdecl (if (map? (last fdecl))
                       (butlast fdecl)
                       fdecl)
-              m (conj {:arglists (list 'quote (sigs fdecl))} m)
+              m (conj {:arglists (list 'quote (sigs fdecl))} m)  
               m (let [inline (:inline m)
                       ifn (first inline)
                       iname (second inline)]
@@ -7009,7 +7009,7 @@ clojure.lang.IKVReduce
 
 (defn- normalize-slurp-opts
   [opts]
-  (if (not (keyword? (first opts)))                                              ;;; (string? (first opts))
+  (if (string? (first opts))
     (do
       (println "WARNING: (slurp f enc) is deprecated, use (slurp f :encoding enc).")
       [:encoding (first opts)])
@@ -7375,7 +7375,7 @@ clojure.lang.IKVReduce
        (let [p (into [] (take n) s)]
          (if (= n (count p))
            (cons p (partitionv n step pad (nthrest s step)))
-           (into [] (take n) (concat p pad))))))))
+           (list (into [] (take n) (concat p pad)))))))))
 
 (defn partitionv-all
   "Returns a lazy sequence of vector partitions, but may include
@@ -7962,7 +7962,8 @@ clojure.lang.IKVReduce
   (let []                                                          ;;; cl (.. Thread currentThread getContextClassLoader)
     (concat
       (enumeration-seq (.GetEnumerator ^System.Collections.IEnumerable (clojure.lang.RT/FindFiles "data_readers.clj")))         ;;; (.getResources cl "data_readers.clj")
-      (enumeration-seq (.GetEnumerator ^System.Collections.IEnumerable (clojure.lang.RT/FindFiles "data_readers.clj"))))))      ;;; (.getResources cl "data_readers.cljc")
+      (enumeration-seq (.GetEnumerator ^System.Collections.IEnumerable (clojure.lang.RT/FindFiles "data_readers.cljc")))        ;;; (.getResources cl "data_readers.cljc")
+      (enumeration-seq (.GetEnumerator ^System.Collections.IEnumerable (clojure.lang.RT/FindFiles "data_readers.cljr"))))))     ;;; DM: Added
 
 (defn- data-reader-var [sym]
   (intern (create-ns (symbol (namespace sym)))

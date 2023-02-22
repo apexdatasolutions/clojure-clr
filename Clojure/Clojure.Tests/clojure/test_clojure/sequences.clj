@@ -781,6 +781,8 @@
 
     (partition 5 [1 2 3]) ()
 
+     (partition 4 4 [0 0 0] (range 10)) '((0 1 2 3) (4 5 6 7) (8 9 0 0))
+
 ;    (partition 0 [1 2 3]) (repeat nil)   ; infinite sequence of nil
     (partition -1 [1 2 3]) ()
     (partition -2 [1 2 3]) () )
@@ -809,6 +811,8 @@
     (partitionv 1 []) ()
     (partitionv 1 [1 2 3]) '((1) (2) (3))
 
+    (partitionv 4 4 [0 0 0] (range 10)) '([0 1 2 3] [4 5 6 7] [8 9 0 0])
+       
     (partitionv 5 [1 2 3]) ()
 
     (partitionv -1 [1 2 3]) ()
@@ -1003,7 +1007,12 @@
       () '(1 2)
       [] [1 2]
       {} {:a 1 :b 2}
-      #{} #{1 2} ))
+      #{} #{1 2})
+
+  ; CLJ-2718
+  (is (= '(:a) (drop 1 (repeat 2 :a))))
+  (is (= () (drop 2 (repeat 2 :a))))
+  (is (= () (drop 3 (repeat 2 :a)))))
 
 (defspec longrange-equals-range 1000
   (prop/for-all [start gen/int
@@ -1074,6 +1083,15 @@
 
       (reduce + (iterator-seq (.GetEnumerator (range 100)))) 4950                             ;;; .iterator 
       (reduce + (iterator-seq (.GetEnumerator (range 0.0 100.0 1.0)))) 4950.0 ))              ;;; .iterator 
+
+(deftest range-meta
+  (are [r] (= r (with-meta r {:a 1}))
+    (range 10)
+    (range 5 10)
+    (range 5 10 1)
+    (range 10.0)
+    (range 5.0 10.0)
+    (range 5.0 10.0 1.0)))
 
 (deftest range-test
   (let [threads 10
